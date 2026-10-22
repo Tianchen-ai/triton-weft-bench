@@ -29,6 +29,15 @@ def named(A: tl.View[tl.i8, (M, K)], B: tl.View[tl.i8, (N, K)], C: tl.View[tl.i3
 
 
 @triton.jit(model="weft")
+def named_word(A: tl.View[tl.i16, (M, K)], B: tl.View[tl.i8, (N, K)], C: tl.View[tl.i32, (M, N)],
+               M: tl.constexpr, N: tl.constexpr, K: tl.constexpr, ENGINE: tl.constexpr = "auto"):
+    a = tl.load(A)
+    b = tl.load(B)
+    c = tl.reduce_dot(a, b, over="K", acc_dtype=tl.i32, engine=ENGINE)
+    tl.store(C, c)
+
+
+@triton.jit(model="weft")
 def mixed(A, B, C):
     m = tl.arange(0, 16)
     n = tl.arange(0, 16)

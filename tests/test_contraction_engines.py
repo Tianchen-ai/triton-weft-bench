@@ -24,18 +24,21 @@ class ContractionEngineTests(unittest.TestCase):
     def run_kernel(self, fn, engine, shape=(16, 16, 64)):
         m, n, k = shape
         a = ((np.arange(m*k) % 251) - 125).astype(np.int8).reshape(m, k)
+        if fn is kernels.named_word:
+            a = np.resize(np.array([-32768, -257, -1, 0, 1, 255, 256, 32767], dtype=np.int16), (m, k))
         b = ((np.arange(k*n) % 253) - 126).astype(np.int8).reshape(k, n)
         storage = np.full(m*n+2, -9999, dtype=np.int32)
         c = storage[1:-1].reshape(m, n)
         parameters = {} if fn is kernels.mixed else {"M": m, "N": n, "K": k, "ENGINE": engine}
-        compiled = fn[(1,)](a, b.T.copy() if fn is kernels.named else b, c,
+        right = b.T.copy() if fn in (kernels.named, kernels.named_word) else b
+        compiled = fn[(1,)](a, right, c,
                             num_cpu_threads=1, **parameters)
         expected = a.astype(np.int32) @ b.astype(np.int32)
         if fn is kernels.mixed:
             expected *= 2
         np.testing.assert_array_equal(c, expected)
         np.testing.assert_array_equal(storage[[0, -1]], [-9999, -9999])
-        self.assertIs(compiled, fn[(1,)](a, b.T.copy() if fn is kernels.named else b, c,
+        self.assertIs(compiled, fn[(1,)](a, right, c,
                                         num_cpu_threads=1, **parameters))
         extensions = list(compiled.metadata.kernel_abi["used_extensions"])
         if engine == "vector":
@@ -63,6 +66,12 @@ class ContractionEngineTests(unittest.TestCase):
 
     def test_mixed_routes(self):
         self.run_kernel(kernels.mixed, "mixed")
+
+    def test_small_legal_matrix_is_not_rejected_by_profitability_thresholds(self):
+        for engine in ("matrix", "auto", "vector"):
+            with self.subTest(engine=engine):
+                self.run_kernel(kernels.named, engine, (1, 1, 16))
+                self.run_kernel(kernels.named_word, engine, (1, 1, 16))
 
     def test_invalid_engine_and_unavailable_matrix(self):
         from triton.compiler import ASTSource

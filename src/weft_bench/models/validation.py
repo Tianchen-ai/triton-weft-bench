@@ -13,6 +13,22 @@ from .observe import counter_capabilities
 from .environment import BACKEND_ENVIRONMENT, backend_policy
 
 
+def same_reference_contract(saved, current):
+    """Accept a relocated local model/binary only when both names are the same file."""
+    observed = dict(current)
+    for key in ("model", "normal_binary"):
+        before, after = saved.get(key), current.get(key)
+        if before == after:
+            continue
+        if not isinstance(before, str) or not isinstance(after, str):
+            return False
+        old, new = Path(before), Path(after)
+        if not (old.is_absolute() and new.is_absolute() and old.is_file() and new.is_file() and old.samefile(new)):
+            return False
+        observed[key] = before
+    return saved == observed
+
+
 def _run(name, target, implementation, parameters, directory, token_reference=None):
     settings = target.settings["llama"]
     config = settings["implementations"][implementation]
@@ -162,7 +178,7 @@ def capture_model_reference(name, target, *, output):
         reused = record.exists()
         if reused:
             saved = json.loads(record.read_text())
-            if saved["contract"] != contract:
+            if not same_reference_contract(saved["contract"], contract):
                 raise ValueError("model numerical reference input/execution differs; choose a corresponding reference directory")
             details = saved["details"]
         else:

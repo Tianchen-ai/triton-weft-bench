@@ -13,6 +13,7 @@ def main():
     result = {"case": "distribution", "status": "running", "checked": False}
     try:
         import triton
+        assert triton.cpu.profiles()["k3-a100"].vlen_bits == 1024
         import triton.language as tl
         from triton.backends.weft.driver import WeftDriver
         from kernels import affine, coordinates

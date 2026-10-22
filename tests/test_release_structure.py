@@ -16,6 +16,26 @@ from weft_bench.types import Result
 
 
 class ReleaseStructureTests(unittest.TestCase):
+    def test_cpu_profile_preserves_explicit_matrix_capability(self):
+        from weft_bench.adapters.cpu_target import compiler_target
+        fields = {"arch": "riscv64", "march": "rv64gcv", "abi": "lp64d", "vlen_bits": 1024}
+        self.assertEqual(compiler_target(fields)["matrix_extension"], "none")
+        self.assertEqual(compiler_target({**fields, "matrix_extension": "spacemit-ime2"})["matrix_extension"], "spacemit-ime2")
+
+    def test_model_reference_relocation_does_not_relax_parameters(self):
+        from weft_bench.models.validation import same_reference_contract
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            actual = root / "model.gguf"
+            actual.touch()
+            old = root / "previous-model.gguf"
+            old.symlink_to(actual)
+            saved = {"model": str(old), "normal_binary": "/remote/llama", "threads": 8}
+            current = {**saved, "model": str(actual)}
+            self.assertTrue(same_reference_contract(saved, current))
+            self.assertFalse(same_reference_contract(saved, {**current, "threads": 4}))
+            self.assertFalse(same_reference_contract(saved, {**current, "normal_binary": "/other/llama"}))
+
     def test_source_override_does_not_inherit_another_author_program(self):
         from weft_bench.adapters.triton_native import TritonAdapter
         from weft_bench.libraries import WeftKernel

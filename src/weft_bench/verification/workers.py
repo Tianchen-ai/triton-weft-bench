@@ -233,7 +233,12 @@ def run_usage(entry, target, directory):
         if not namespace.isidentifier():
             raise ValueError("usage import roots must have a Python package name")
         root = Path(root)
-        files.extend((path, str(Path("author") / namespace / path.relative_to(root))) for path in root.rglob("*.py"))
+        if root.is_file():
+            files.append((root, str(Path("author") / (namespace + ".py"))))
+        elif root.is_dir():
+            files.extend((path, str(Path("author") / namespace / path.relative_to(root))) for path in root.rglob("*.py"))
+        else:
+            raise FileNotFoundError(root)
     deployed = executor.upload_many(files)
     output = str(Path(executor.workspace) / "output")
     toolchain = executor.write("toolchain.json", json.dumps(configuration.get("toolchain", {})))

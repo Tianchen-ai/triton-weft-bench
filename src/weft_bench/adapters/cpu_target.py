@@ -21,7 +21,8 @@ def compiler_target(settings):
     values.pop("architecture", None)
     values.setdefault("backend", "weft")
     fields = {"backend", "arch", "march", "abi", "vlen_bits"}
-    missing, unknown = fields - values.keys(), values.keys() - fields
+    optional = {"matrix_extension"}
+    missing, unknown = fields - values.keys(), values.keys() - fields - optional
     if missing or unknown:
         raise ValueError(f"compiler target needs {sorted(missing)}; unknown fields {sorted(unknown)}; "
                          "set implementation.compile_target separately from the measurement target")
@@ -31,6 +32,9 @@ def compiler_target(settings):
         raise ValueError("compiler target backend, arch, march and abi must be nonempty strings")
     if type(values["vlen_bits"]) is not int or values["vlen_bits"] < 0:
         raise ValueError("compiler target vlen_bits must be a nonnegative integer")
+    values.setdefault("matrix_extension", "none")
+    if not isinstance(values["matrix_extension"], str) or not values["matrix_extension"]:
+        raise ValueError("compiler target matrix_extension must be a nonempty name")
     return values
 
 
