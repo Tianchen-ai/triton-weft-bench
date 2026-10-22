@@ -3829,14 +3829,22 @@
       "scope": "projection-includes-activation-quantization",
       "dtype": "q2_k*f32",
       "candidate": {
-        "source": "package:kernels/ggml/mul_mat/q2_k.py",
-        "symbol": "projection",
+        "source": "package:kernels/ggml/blocks/mul_mat/q2_k.py",
+        "symbol": "production_mul_mat_q2_k",
         "signature": {},
-        "constexprs": {},
+        "constexprs": {
+          "NC": 32,
+          "MC": 32,
+          "MR": 1,
+          "NR": 2
+        },
         "backend_options": {
           "lmul_eighths": 8,
-          "unroll": 1,
-          "pipeline_depth": 1
+          "unroll": 4,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
         },
         "compile_target": {
           "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause_zba",
