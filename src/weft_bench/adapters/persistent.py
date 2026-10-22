@@ -50,6 +50,44 @@ def persistent_inputs(case, workload, abi, names, aliases, providers=None):
                             "encoding": arg["encoding"], "shape": shape,
                             "provider": "ggml-model-default/AMX", "preparation": "persistent-before-timing"})
             continue
+        storage = arg.get("storage_layout")
+        if storage and arg.get("interleave_rows") and not arg.get("artifact_pack"):
+            # Canonical layout analysis exposes the author's exact byte mapping
+            # before JIT. Prepare those bytes without precompiling the consumer.
+            shape = [int(n) if str(n).isdecimal() else dimensions[n] for n in arg["shape"]]
+            rows, elements, record = arg["interleave_rows"], arg["record_elements"], arg["storage_bytes"]
+            if len(shape) != 2 or shape[0] % rows or shape[1] % elements:
+                raise ValueError("persistent JIT input requires complete records and cohorts")
+            size = math.prod(shape) // elements * record
+            alignment = math.lcm(64, int(arg["alignment"]))
+            prefix = "persistent_" + str(len(setup))
+            source = buffers[role]
+            setup.append(f"std::vector<uint8_t> {prefix}_storage({size}+{alignment}-1);"
+                         f"auto {prefix}=reinterpret_cast<uint8_t*>((reinterpret_cast<uintptr_t>"
+                         f"({prefix}_storage.data())+{alignment}-1)/{alignment}*{alignment});")
+            chunks = storage["spans"]
+            covered = 0
+            for span in chunks:
+                offset, count, chunk = span["offset"], span["bytes"], span["chunk"]
+                if offset != covered or chunk <= 0 or count % chunk:
+                    raise ValueError("Canonical interleave spans must cover the record exactly")
+                covered += count
+                columns = shape[1] // elements
+                setup.append(f"for(size_t cohort=0;cohort<{shape[0] // rows};++cohort)"
+                             f"for(size_t block=0;block<{columns};++block)"
+                             f"for(size_t byte={offset};byte<{offset + count};byte+={chunk})"
+                             f"for(size_t row=0;row<{rows};++row)"
+                             f"std::memcpy({prefix}+(cohort*{columns}+block)*{record * rows}"
+                             f"+{offset * rows}+(byte-{offset})*{rows}+row*{chunk},"
+                             f"reinterpret_cast<const uint8_t*>({source})+((cohort*{rows}+row)*{columns}+block)*{record}+byte,{chunk});")
+            if covered != record:
+                raise ValueError("Canonical interleave does not cover the storage record")
+            buffers[role] = prefix
+            bases[name] = storage["base_encoding"]
+            details.append({"argument": name, "encoding": arg["encoding"], "shape": shape,
+                            "bytes": size, "provider": "author-declared-interleave",
+                            "preparation": "persistent-before-JIT-call"})
+            continue
         pack = arg.get("artifact_pack")
         if not pack or not arg.get("interleave_rows"):
             raise ValueError("persistent input lacks an exported artifact pack contract")

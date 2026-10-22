@@ -60,10 +60,23 @@ def main():
     from triton.backends.compiler import CPUTarget
     from triton.compiler import ASTSource
 
-    from triton_source import load_kernel
-    from cpu_target import compiler_target
-    kernel = load_kernel(request["source"], request["symbol"])
-    target = CPUTarget(**compiler_target(request["target"]))
+    if __package__:
+        from .triton_source import load_kernel
+        from .cpu_target import compiler_target, check_jit_target
+    else:
+        from triton_source import load_kernel
+        from cpu_target import compiler_target, check_jit_target
+    source = request["source"]
+    if request.get("source_module"):
+        import importlib
+        source = importlib.import_module(request["source_module"]).__file__
+    kernel = load_kernel(source, request["symbol"])
+    if request.get("target_native"):
+        from triton.runtime.driver import driver
+        target = driver.for_model("weft").get_current_target()
+        check_jit_target(None, request["target"], vars(target))
+    else:
+        target = CPUTarget(**compiler_target(request["target"]))
     try:
         if request.get("program"):
             import importlib

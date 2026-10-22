@@ -11,7 +11,7 @@
       "default_implementations": {"op": ["weft"]},
       "triton_runtime": {"include": "/path/to/triton/_C/weft/include", "library": "/path/to/triton/_C/weft/lib/libweft_runtime.so"},
       "implementations": {
-        "weft": {"factory": "weft_bench.adapters.triton_native:TritonAdapter", "python": "/path/to/environment/bin/python"}
+        "weft": {"factory": "weft_bench.adapters.triton_jit:TritonJitAdapter", "python": "/path/to/target/environment/bin/python", "toolchain": {}}
       }
     }
   }

@@ -47,7 +47,20 @@ def check_jit_target(architecture, expected, detected):
     actual = compiler_target(detected)
     if architecture is not None and actual["arch"] != architecture:
         raise ValueError(f"native JIT architecture {actual['arch']!r} differs from requested {architecture!r}")
-    if expected is not None and actual != compiler_target(expected):
-        raise ValueError(f"native JIT detected {actual!r}, expected {compiler_target(expected)!r}; "
-                         "use source/AOT with compile_target to select a different ISA")
+    if expected is not None:
+        wanted = compiler_target(expected)
+        for key in ("arch", "abi", "vlen_bits"):
+            if actual[key] != wanted[key]:
+                raise ValueError(f"native JIT {key}: detected {actual[key]!r}, required {wanted[key]!r}")
+        if wanted["matrix_extension"] != "none" and actual["matrix_extension"] != wanted["matrix_extension"]:
+            raise ValueError("selected execution cores lack the requested matrix extension")
+        from triton.backends.compiler import CPUTarget
+        from triton.backends.weft.target import target_capabilities
+        required = target_capabilities(CPUTarget(**wanted), matrix_extension=wanted["matrix_extension"])["isa_extensions"]
+        available = target_capabilities(CPUTarget(**actual), matrix_extension=actual["matrix_extension"])["isa_extensions"]
+        missing = ([name for name, version in required.items()
+                    if name not in available or tuple(available[name]) < tuple(version)]
+                   if actual["arch"] == "riscv64" else sorted(set(required) - set(available)))
+        if missing:
+            raise ValueError(f"selected execution cores lack required ISA versions: {missing}")
     return actual

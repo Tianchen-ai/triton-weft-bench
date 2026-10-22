@@ -39,7 +39,7 @@ def apply_catalog(settings, implementations):
     settings = {**settings, "operator_suites": {**suites, **settings.get("operator_suites", {})},
                 "case_catalog": cases}
     implementations = deepcopy(implementations)
-    candidate = implementations.setdefault("weft", {"factory": "weft_bench.adapters.triton_native:TritonAdapter"})
+    candidate = implementations.setdefault("weft", {"factory": "weft_bench.adapters.triton_jit:TritonJitAdapter"})
     bindings = {}
     for case, record in cases.items():
         binding = {**record["candidate"], **candidate.get("bindings", {}).get(case, {})}

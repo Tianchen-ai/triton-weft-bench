@@ -15,7 +15,7 @@ from .execution import Executor, ExecutionError
 from .inputs import Inputs, native_inputs
 from .libraries import ggml_call, weft_call
 from .types import Measurement, Result
-from .workloads import native_workload, parameter_defaults, ports
+from .workloads import configured_workload, parameter_defaults, ports
 from .adapters.native import NATIVE, compile_artifact, flags_for, ggml_flags
 from .operators.implementations import resolve_binding
 from .results import MIXED_PROJECTION_SCOPE, projection_scope
@@ -128,8 +128,6 @@ def run_operator(
     if any(not re.fullmatch(r"[A-Za-z0-9_-]+", n) for n in implementations):
         raise ValueError("implementation names must be identifiers")
     if any(mode(n, target) == "triton_jit" for n in implementations):
-        if measurement.check_only:
-            raise NotImplementedError("native check_only uses source/AOT adapters; runtime verification uses its JIT worker")
         from .adapters.triton_jit import TritonJitAdapter
 
         rows = []
@@ -239,24 +237,18 @@ def run_operator(
         threads = target.settings.get("threads", 1)
         if type(threads) is not int or threads < 1:
             raise ValueError("operator threads must be a positive integer")
-        workload = native_workload(case)
+        workload = configured_workload(case, target.settings)
         if case.family == "projection" and "-DWB_ACTIVATION_TYPE=GGML_TYPE_Q8_K" in workload.defines:
             activation_contract = target.settings.get("projection_activation_contracts", {}).get("q8_k")
             if activation_contract:
                 if activation_contract not in ("extrema-lo-rtne", "first-absolute-max-rtne"):
                     raise ValueError("unsupported projection Q8_K storage contract")
-                defines = ("-DWB_PROJECTION_Q8K_CONTRACT=1",)
-                if activation_contract == "first-absolute-max-rtne":
-                    defines += ("-DWB_Q8K_FIRST_EXTREME=1",)
-                workload = replace(workload, defines=(*workload.defines, *defines))
                 for row in rows:
                     row.details["oracle"] = {
                         "independent": True, "kind": "decoded-weight-f64-projection",
                         "activation_quantization": activation_contract,
                         "native_activation_check": "all-packed-bytes-before-measurement",
                     }
-        if quantization_contract == "first-absolute-max-rtne":
-            workload = replace(workload, defines=(*workload.defines, "-DWB_Q8K_FIRST_EXTREME=1"))
         tools, flags = flags_for(target)
         needs_ggml = (case.family in ("vec_dot", "quantize", "dequantize", "projection", "ime", "amx_tile")
                       or any(mode(name, target) == "ggml" for name in implementations))

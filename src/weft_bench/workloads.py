@@ -1,6 +1,6 @@
 """The shipped GGML workloads: semantics/IO, never compiler or machine selection."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from .core import NativeWorkload
 from .adapters.dense import dense_defines
 
@@ -132,6 +132,29 @@ def ports(case):
             TensorSpec("Y", "f32", (s["M"], s["N"]), "output"),
         ]
     raise ValueError(f"no GGML workload for {case.name}")
+
+
+def configured_workload(case, settings):
+    """The same declared numerical contract for native and language-runtime calls."""
+    workload = native_workload(case)
+    defines = []
+    if case.family == "projection" and "-DWB_ACTIVATION_TYPE=GGML_TYPE_Q8_K" in workload.defines:
+        contract = settings.get("projection_activation_contracts", {}).get("q8_k")
+        if contract:
+            if contract not in ("extrema-lo-rtne", "first-absolute-max-rtne"):
+                raise ValueError("unsupported projection Q8_K storage contract")
+            defines.append("-DWB_PROJECTION_Q8K_CONTRACT=1")
+            if contract == "first-absolute-max-rtne":
+                defines.append("-DWB_Q8K_FIRST_EXTREME=1")
+    if case.family == "quantize":
+        fmt = case.dtype.split("->")[1]
+        contract = settings.get("quantization_contracts", {}).get(fmt)
+        if contract:
+            if fmt != "q8_k" or contract not in ("extrema-lo-rtne", "first-absolute-max-rtne"):
+                raise ValueError("unsupported explicit quantization storage contract")
+            if contract == "first-absolute-max-rtne":
+                defines.append("-DWB_Q8K_FIRST_EXTREME=1")
+    return replace(workload, defines=(*workload.defines, *defines))
 
 
 def native_workload(case):

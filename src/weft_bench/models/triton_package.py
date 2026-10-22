@@ -1,4 +1,4 @@
-"""Outer deployment of a native Triton package; no target-side compilation."""
+"""Compile native deployment kernels, package and bind them before inference."""
 from dataclasses import asdict
 import json
 import os
@@ -19,7 +19,7 @@ def prepare_native_replacements(mapping, target, output):
     directory = Path(output)
     directory.mkdir(parents=True, exist_ok=True)
     runtime = target.settings["llama"]["triton"]
-    artifacts, bindings, spec = {}, {}, {}
+    artifacts, remote_artifacts, bindings, spec = {}, {}, {}, {}
     for index, (role, candidate) in enumerate(mapping.items()):
         case = role_case(role)
         if isinstance(candidate, str):
@@ -42,12 +42,48 @@ def prepare_native_replacements(mapping, target, output):
             build = directory / name
             build.mkdir(exist_ok=True)
             artifact = compile_source(case, target, options, build)
+            if runtime.get("compilation_host") == "target":
+                remote_artifacts[name] = json.loads((build / "triton-compile.json").read_text())["output"]
         description = json.loads((artifact / "manifest.json").read_text())
         if description.get("producer") != "triton" or description.get("dispatch") != "triton_weft_instance_dispatch":
             raise ValueError("Triton model roles require exported native single-instance artifacts")
         artifacts[name] = str(artifact)
         group, entry = role.split("/", 1)
         bindings.setdefault(group, {})[entry] = name
+    if runtime.get("compilation_host") == "target":
+        from ..adapters.triton_source import collect_artifact
+        executor = Executor(target, directory / "deployment")
+        for name, artifact in artifacts.items():
+            if name in remote_artifacts:
+                continue
+            archive = directory / (name + ".tar.gz")
+            with tarfile.open(archive, "w:gz") as bundle:
+                bundle.add(artifact, arcname=name)
+            remote = executor.upload(archive, name + ".tar.gz")
+            executor.command(["tar", "-xf", remote, "-C", executor.workspace], stage="deploy")
+            remote_artifacts[name] = executor.workspace + "/" + name
+            archive.unlink()
+        request = {"producer": "triton", "artifacts": remote_artifacts,
+                   "bindings": bindings, "output": executor.workspace + "/package"}
+        request_path = executor.write("package-request.json", json.dumps(request, indent=2))
+        done = executor.command([runtime["python"], "-m", "weft_bench.models.package_triton", request_path],
+                                affinity=True, check=False, unset_env=("PYTHONPATH",))
+        (directory / "package.log").write_text(done.stdout + done.stderr)
+        if done.returncode:
+            raise ExecutionError("target_package", executor.commands[-1], done)
+        if executor.host:
+            collect_artifact(executor, "package", executor.local)
+        package = directory / "native-package"
+        if package.exists():
+            shutil.rmtree(package)
+        (executor.local / "package").rename(package)
+        manifest = {"producer": "triton", "replacements": spec, "bindings": bindings,
+                    "package": request["output"] if executor.host else str(package.resolve()),
+                    "source_package": str(package.resolve()), "compilation_host": "target",
+                    "native_link": "compiled and packaged on the execution target before inference"}
+        (directory / "replacements.json").write_text(json.dumps(manifest, indent=2))
+        (executor.local / "commands.json").write_text(json.dumps(executor.commands, indent=2))
+        return manifest
     environment = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
     if "pythonpath" in runtime:
         environment["PYTHONPATH"] = os.pathsep.join(runtime["pythonpath"])

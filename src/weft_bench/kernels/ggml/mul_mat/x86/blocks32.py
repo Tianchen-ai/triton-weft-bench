@@ -40,7 +40,7 @@ def project_row_tiles(W, Xq, Y, M, N, K, CENTER: tl.constexpr,
                     q = tl.u8(q)
                 weight = tl.reshape(q, (BN, 32), axes=("N", "k"), order=("N", "K"))
                 activation = tl.reshape(tl.load(x.q), (BM, 32), axes=("M", "k"), order=("M", "K"))
-                products = tl.reduce_dot(weight, activation, over="k", acc_dtype=tl.i32)
+                products = tl.reduce_dot(weight, activation, over="k", acc_dtype=tl.i32, engine="vector")
                 if CENTER or SIGNED:
                     products -= tl.i32(CENTER + (128 if SIGNED else 0)) * tl.i32(tl.load(Sums[rows, block].value))
                 if SCALE is not None:
@@ -81,7 +81,7 @@ def project(W, X, Xq, Y, M, N, K, CENTER: tl.constexpr,
                         q = tl.u8(q) ^ tl.u8(128)
                     weight = tl.reshape(q, (BN, 32), axes=("N", "k"), order=("N", "K"))
                     activation = tl.reshape(tl.load(x.q), (BM, 32), axes=("M", "k"), order=("M", "K"))
-                    products = tl.reduce_dot(activation, weight, over="k", acc_dtype=tl.i32)
+                    products = tl.reduce_dot(activation, weight, over="k", acc_dtype=tl.i32, engine="vector")
                     if CENTER or SIGNED:
                         products -= tl.i32(CENTER + (128 if SIGNED else 0)) * tl.i32(tl.load(Sums[rows, block].value))
                     if SCALE is not None:

@@ -1,4 +1,10 @@
-# Triton–Weft native candidates
+# Triton–Weft JIT and native deployment
+
+Use `TritonJitAdapter` for normal source-corpus validation. It runs the installed
+target Triton and subsequently measures that same JIT-generated native artifact.
+`TritonAdapter` is the explicit source/AOT deployment path; running an existing
+library is not evidence of JIT coverage. Both retain the existing native workload
+and fixed reference boundary. See the target-native section below for the records.
 
 Use the task's explicitly configured Bench environment. In the local plugin settings,
 an environment has the same `command` argument array and `config` path as the default.
@@ -19,7 +25,7 @@ Environment and implementation names come from local configuration, not from the
 runner. The examples use `triton-weft`, `triton_source` and `triton_aot`; inspect
 the selected config to find the actual names and source/artifact bindings.
 
-The implementation factory is `weft_bench.adapters.triton_native:TritonAdapter`.
+The explicit native deployment factory is `weft_bench.adapters.triton_native:TritonAdapter`.
 Source configuration supplies the selected Triton `python`, optional `pythonpath`
 list, `source`, `symbol`, ASTSource `signature`, `constexprs`, `backend_options` and
 native `toolchain`. The public compile route is `triton.compile(ASTSource(...),
@@ -133,34 +139,39 @@ shape is not an implicit request to turn it into a source constexpr.
 ## Target-native Python JIT
 
 The explicit factory `weft_bench.adapters.triton_jit:TritonJitAdapter` runs
-`kernel[grid]` on a RISC-V or x86 machine with CPU Tensors backed by the existing workload
-fixture. Configure the target-side `python`, `environment`, native `toolchain`, author
+`kernel[grid]` on a RISC-V or x86 machine, borrowing the existing workload storage.
+Configure the target-side `python`, optional `environment`, native `toolchain`, author
 `source`/`symbol`, `constexprs`, `grid` and `num_cpu_threads`. Compilation belongs to
 Triton; Bench supplies inputs, the numerical oracle and outer execution.
 
 JIT selects its target through the product's native detection. Bench records that
 target and checks the requested architecture; an explicit `compile_target` is an
-exact expectation, not a driver override. To compile v3 on a v4 host, use source/AOT
+required ISA/ABI/VLEN constraint, not a driver override. Registration and affinity
+precede discovery; extra real capabilities remain available. To compile v3 on a v4 host, use source/AOT
 with an explicit compiler target. CPU Tensor eager/JIT/AOT support does not establish
 `torch.compile`/Inductor support for the installed Torch version.
 
-The result has a separate `python-jit-grid` scope. It records cold compile+launch,
-first cache-hit launch, the warm Python-call median, and child CPU time. The warm
-time includes Python argument binding, capability guards and native grid launch;
-it must not be compared with native-only GGML as an operator speedup. Source/AOT
-and native-grid measurements remain available through the native adapter above.
-The runtime record includes the actual native toolchain identity and loaded
-Triton/Weft/OpenMP libraries, which distinguishes installed wheel execution from
-a development overlay without another measurement protocol.
+The primary timing row uses the original native boundary and the artifact exported
+by the successful target JIT call. `details.jit.runtime` separately records cold
+compile+call and in-process reuse; `details.jit.python_jit` records warm Python
+calls. `details.jit.disk_cache` records a fresh process calling JIT from source,
+whose Triton compilation-listener events must be cache hits. Python timings include
+normal argument binding, guards and grid launch, with the number of calls covering
+the workload recorded explicitly. Never compare them against native-only GGML.
+Failed JIT cannot fall back to AOT. Installed package paths, discovered target and
+affinity remain in the evidence. Compiler caches and dumps stay within Bench output.
 
 Set `check_python_aot: true` to export and reload the just-compiled artifact through
 `triton.load(...)[grid]`. Set `check_torch_compile: true` for an additional
 `torch.compile(fullgraph=True)` numerical check when the selected private Torch
 environment has the compiler's supported source integration. The latter is a
 framework check, not the reported warm timing. Both options are off by default.
-Current shared Tensor fixtures support float32, a single output, whole-workload
-calls and reused inputs. They do not imply coverage of arbitrary alias layouts or
-every PyTorch graph. Use the task's saved framework evidence for those contracts.
+The fixture supports typed/packed Views, multiple outputs, explicit strides,
+overlapping aliases, resettable state, workspaces and declared persistent layouts.
+It reuses native workload traversal and oracles; each stateful trial resets outside
+timing. Catalog kernels come from the installed target Bench package. The data-cache
+mode remains `reuse`. Torch checks use dense CPU Tensors; this does not establish
+arbitrary graph coverage. Read actual case results before asserting coverage.
 
 JIT replay uses the saved source and recorded target environment, with the same
 input snapshot. `--source FILE` selects a replacement source; the legacy compiler
@@ -169,12 +180,14 @@ unless that environment was explicitly configured for the integration.
 
 ## Native llama.cpp packages
 
-Set `target.llama.package_backend` to `triton`, and configure `llama.triton.python`
-plus an optional `pythonpath` list for package preparation. The existing repeated
-`--replace ROLE=ARTIFACT` options now call `triton.Package.create` on the exported
-native artifacts, then deploy the package. There is no target-side relinking or
-old Weft compiler fallback. Source replacements additionally need role bindings
-with `signature`, `constexprs`, `toolchain` and backend options.
+Set `target.llama.package_backend` to `triton` and `llama.triton.compilation_host`
+to `target`, with the installed target Python and native toolchain. `prepare-model`
+compiles source roles on the selected target and packages them through Triton's
+llama.cpp integration before inference. Explicit artifact replacements use their
+already-linked libraries. The optional `host` compilation location is an explicit
+cross-deployment route. Source roles retain signature, constexprs and physical
+options; there is no legacy compiler fallback. GGML workers call the native entry
+without Python, compilation or another thread team during measurement.
 
 Use a compatible integrated llama.cpp binary and native SDK. A package role is
 not a phase selection: `ggml.ime1/q4_centered_prefill` only matches that hook;

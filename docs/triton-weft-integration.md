@@ -7,7 +7,7 @@ native code generation. Bench owns workload inputs, numerical oracles, measureme
 and results. [Installation](install.md) and [target configuration](targets.md)
 describe the environment setup.
 
-## Source and native artifacts
+## Native deployment and explicit cross compilation
 
 Set the implementation factory to
 `weft_bench.adapters.triton_native:TritonAdapter`. An implementation name such as
@@ -67,23 +67,57 @@ comparison is meaningful. Mismatches remain visible in results and `explain`.
 ## Target-side Python JIT
 
 `weft_bench.adapters.triton_jit:TritonJitAdapter` uses a configured target-side
-`python`, `environment` and `toolchain`, with source/symbol, constexprs, grid and
-thread options. The existing native fixture supplies input storage and the oracle.
-Results separate cold compile+launch, first cache-hit launch and warm Python timing.
-The Python-call scope is not compared with native-only GGML as operator speedup.
+`python`, optional `environment` and `toolchain`, with source/symbol, signature,
+constexprs, grid and thread options. Install both packages on the target. Catalog
+sources are imported from that installed Bench package; custom source packages are
+transferred with their relative imports. No host-produced kernel library is an
+input to this route. An empty toolchain configuration selects the target Triton
+wheel's bundled Clang and discovers the local system runtime.
+
+The target's Canonical interface describes the caller storage before any native
+compilation. The existing workload supplies typed, packed and strided storage,
+lookup tables, workspaces, persistent layouts and the numerical oracle. Multiple
+outputs and overlapping aliases borrow their original addresses. Mutable state
+uses the workload's reset outside every measured invocation. Leaf programs keep
+the existing row/tile traversal; Bench does not silently convert them to a different
+whole-workload algorithm. Buffer construction and fixture preparation are outside
+Python call timing.
+
+The target calls the normal `kernel[grid](...)`. Compiler specializations, dependency
+capture, tuning, loading and launching belong to Triton. A decorated autotuner stays
+the same Triton autotuner; Bench requires its configurations to have a compatible
+caller-visible storage contract. A failed JIT invocation remains failed.
+
+Results retain these separate measurements:
+
+- `details.jit.runtime`: first compile-and-call, first in-process cache hit,
+  compilation events and the number of launches covering the workload.
+- `details.jit.python_jit`: warm Python calls, including normal binding and guards.
+- `details.jit.disk_cache`: an independent Python process importing the same source
+  and calling JIT again. Triton's compilation listener must report cache hits.
+- The main native timing row: the original worker calls the artifact exported by
+  that successful JIT invocation, with the unchanged native measurement boundary.
+
+Only the main native row is compared with a fixed native GGML reference. Neither
+Python overhead nor cold compilation is included in that speedup. This additional
+native measurement consumes the JIT result; it cannot rescue a failed JIT case.
 
 Python JIT uses the product's native target detection on RISC-V or x86. Bench
 checks the requested execution architecture before launch and records the detected
-compiler target. An optional `compile_target` is an exact expectation for JIT,
-not an override of the product driver. Use source/AOT compilation to select a
-different ISA from the native JIT target.
+compiler target and actual affinity. Registration and CPU binding precede detection.
+An optional `compile_target` constrains architecture, ABI, VLEN and required
+extensions; additional discovered capabilities are retained. It does not override
+the product driver with a machine name. Explicit cross compilation remains a
+separate deployment operation.
 
 Optional `check_python_aot` checks exported/reloaded execution.
 `check_torch_compile` checks first and cached `torch.compile(fullgraph=True)` calls
 in a compatible configured framework environment. These checks are outside warm
-timing and default to off. This adapter's shared Tensor fixture currently supports
-float32, one output, whole-workload calls and reused inputs. Other numerical and
-framework contracts use explicitly selected [verification cases](verification.md).
+timing and default to off. Torch capture checks use dense CPU Tensors borrowing
+the same storage. Packed Encoding cases use the public `tl.View` interface. Data
+cache mode is currently `reuse`; compiler cold starts and compiler cache reuse are
+recorded separately. Further framework contracts use explicitly selected
+[verification cases](verification.md).
 
 Optional `profile_runtime` retains normal uninstrumented samples and records
 available Python runtime segments separately. If the installed runtime uses a C++
@@ -92,11 +126,16 @@ internal work is not reported as zero.
 
 ## llama.cpp packages
 
-Set `llama.package_backend` to `triton` and select the host package preparation
-environment in `llama.triton`. `--replace ROLE=ARTIFACT` calls the public package
-API and deploys the native package. Source replacements additionally need the
-role's signature, constexprs, backend options and toolchain. This route does not
-recompile or relink the exported candidate on the execution machine.
+Set `llama.package_backend` to `triton` and configure `llama.triton` with the
+target Python, `compilation_host: "target"` and its native toolchain. Source roles
+are compiled on the selected execution cores, using discovered target capabilities,
+then packaged there through `triton.integrations.llama_cpp.create_package`.
+Source bindings specify the role's signature, constexprs and backend options.
+`--replace ROLE=ARTIFACT` can also deploy an explicitly exported native artifact.
+The package and its single-instance ABI are bound before inference; GGML workers
+call the native functions without Python, compilation or another thread team.
+An explicit `compilation_host: "host"` with a cross toolchain retains the separate
+cross-deployment path. Neither deployment mode counts as Python JIT corpus coverage.
 
 Use compatible normal and integrated llama.cpp builds with matching ordinary
 backend settings. Replacement roles and measurement phases are independent:

@@ -5,19 +5,26 @@ import math
 from pathlib import Path
 import shutil
 import statistics
-import tarfile
 
 from ..core import fixture_source
 from ..diagnostics import save_request
 from ..execution import Executor, ExecutionError
 from ..inputs import Inputs, native_inputs
 from ..types import Result
-from ..workloads import native_workload, parameter_defaults, ports
-from .native import NATIVE, flags_for
+from ..workloads import configured_workload, parameter_defaults, ports
+from .native import NATIVE, flags_for, ggml_flags
 from .cpu_target import compiler_target, target_architecture
+from .triton_source import deploy_source, collect_artifact
 
 
 class TritonJitAdapter:
+    @staticmethod
+    def configure_candidate(case, options, candidate):
+        from .triton_native import TritonAdapter
+        if candidate.artifact:
+            raise ValueError("a JIT candidate requires DSL source, not a precompiled artifact")
+        return TritonAdapter.configure_candidate(case, options, candidate)
+
     def run(self, case, name, target, measurement, *, output, inputs=None, save_outputs=False):
         selected = inputs or Inputs()
         case = selected.resolve(case)
@@ -25,7 +32,7 @@ class TritonJitAdapter:
         executor = Executor(target, directory)
         options = target.implementations[name]
         options = {**options, **options.get("bindings", {}).get(case.name, {})}
-        row = Result(case.name, name, target.name, case.shape, case.scope + "/python-jit-grid", "pending")
+        row = Result(case.name, name, target.name, case.shape, case.scope, "pending")
         row.details = {
             "measurement": {**asdict(measurement), "protocol": "triton-python-grid-v1"},
             "dtype": case.dtype, "phase": case.phase, "producer": "triton",
@@ -39,9 +46,7 @@ class TritonJitAdapter:
             if measurement.cache != "reuse":
                 raise NotImplementedError("JIT calls currently use prepared-data reuse; compiled-cache cold start is measured separately")
             declared = ports(case)
-            if any(port.dtype != "f32" for port in declared) or sum(p.access == "output" for p in declared) != 1:
-                raise NotImplementedError("Tensor JIT fixture currently supports float32 inputs and one output")
-            workload = native_workload(case)
+            workload = configured_workload(case, target.settings)
             files = selected.materialize(directory / "inputs", declared)
             row.details["inputs"] = selected.describe(files)
             row.details["ports"] = [asdict(p) for p in declared]
@@ -55,34 +60,26 @@ class TritonJitAdapter:
             save_request(case, name, target, measurement, directory)
             for role, item in files.items():
                 item["remote"] = executor.upload(item["path"], "inputs/" + role + ".bin")
-            for header in NATIVE.glob("*.h"):
-                executor.upload(header, header.name)
-            cpp = executor.write("fixture.cpp", fixture_source(workload, declared, native_inputs(selected, files)))
+            executor.upload_many((header, header.name) for header in NATIVE.glob("*.h"))
             tools, flags = flags_for(target)
             fixture = executor.workspace + "/fixture.so"
-            executor.command([*tools["cxx"], *flags, "-std=c++17", "-shared", "-fPIC", *workload.defines,
-                              "-I" + executor.workspace, cpp, *tools.get("ldflags", []), "-lm", "-pthread", "-o", fixture], stage="fixture_compile")
             source = Path(options["source"]).expanduser().resolve()
-            remote_source = executor.upload(source, "author-source.py")
-            helper = executor.upload(Path(__file__).with_name("jit_process.py"), "jit_process.py")
-            executor.upload(Path(__file__).with_name("triton_source.py"), "triton_source.py")
-            executor.upload(Path(__file__).with_name("cpu_target.py"), "cpu_target.py")
-            if options.get("profile_runtime"):
-                executor.upload(Path(__file__).with_name("runtime_profile.py"), "runtime_profile.py")
-            grid = options["grid"]
-            threads = options["num_cpu_threads"]
+            source_request = deploy_source(executor, source)
+            grid = options.get("grid", [1])
+            threads = options.get("num_cpu_threads", target.settings.get("threads", 1))
             if not isinstance(grid, list) or not 1 <= len(grid) <= 3 or any(type(v) is not int or v < 1 for v in grid):
                 raise ValueError("JIT grid requires one to three positive dimensions")
             if type(threads) is not int or threads < 1:
                 raise ValueError("JIT num_cpu_threads must be positive")
             request = {
-                "source": remote_source, "symbol": options["symbol"], "fixture": fixture,
+                **source_request,
+                "symbol": options["symbol"], "fixture": fixture, "signature": options.get("signature", {}),
                 "ports": [asdict(p) for p in declared], "shape": case.shape,
                 "parameters": {**parameter_defaults(case), **selected.parameters},
                 "arguments": options.get("arguments", {}), "constexprs": options.get("constexprs", {}),
-                "toolchain": options["toolchain"], "backend_options": options.get("backend_options", {}),
+                "toolchain": options.get("toolchain", {}), "backend_options": options.get("backend_options", {}),
                 "num_cpu_threads": threads, "grid": grid, "measurement": asdict(measurement),
-                "correctness": workload.correctness, "output_port": next(p.name for p in declared if p.access == "output"),
+                "correctness": workload.correctness,
                 "artifact": executor.workspace + "/artifact", "save_outputs": save_outputs,
                 "check_python_aot": options.get("check_python_aot", False),
                 "check_torch_compile": options.get("check_torch_compile", False),
@@ -90,18 +87,38 @@ class TritonJitAdapter:
                 "architecture": target_architecture(target.settings["target"]),
                 "compile_target": compiler_target(options["compile_target"]) if "compile_target" in options else None,
             }
-            remote_request = executor.write("jit-request.json", json.dumps(request, indent=2))
-            environment = {**options["environment"], "PYTHONDONTWRITEBYTECODE": "1",
+            environment = {**options.get("environment", {}), "PYTHONDONTWRITEBYTECODE": "1",
                            "TRITON_CACHE_DIR": executor.workspace + "/triton-cache",
+                           "TORCHINDUCTOR_CACHE_DIR": executor.workspace + "/torch-cache",
                            "TRITON_DUMP_DIR": executor.workspace + "/triton-dump"}
+            command = [options["python"], "-m", "weft_bench.adapters.jit_process"]
+            remote_request = executor.write("jit-request.json", json.dumps(request, indent=2))
+            stage = "interface"
+            described = executor.command([*command, "--describe", remote_request], cwd=executor.workspace,
+                                         env=environment, affinity=True, unset_env=("PYTHONPATH",))
+            interface = [json.loads(line[10:]) for line in described.stdout.splitlines() if line.startswith("WB_RESULT ")]
+            if len(interface) != 1:
+                raise ValueError("target returned no unique Canonical interface")
+            row.details["target_interface"] = interface[0]
+            from .jit_fixture import prepare
+            workload, call, metadata, invocation, preparation = prepare(case, workload, interface[0]["interface"], options)
+            request.update(invocation=invocation, reset_each_call=bool(workload.reset or call.reset))
+            row.details["preparation"] = preparation
+            cpp = executor.write("fixture.cpp", fixture_source(workload, call, metadata, native_inputs(selected, files), save_outputs=save_outputs))
+            needs_ggml = case.family in ("vec_dot", "quantize", "dequantize", "projection", "ime", "amx_tile")
+            includes, libraries = ggml_flags(target) if needs_ggml else ([], [])
+            executor.command([*tools["cxx"], *flags, "-std=c++17", "-shared", "-fPIC", *workload.defines,
+                              *includes, "-I" + executor.workspace, cpp, *tools.get("ldflags", []), *libraries,
+                              "-lm", "-pthread", "-o", fixture], stage="fixture_compile")
+            remote_request = executor.write("jit-request.json", json.dumps(request, indent=2))
             stage = "run"
-            done = executor.command([options["python"], helper, remote_request], cwd=executor.workspace,
-                                    env=environment, affinity=True, check=False)
+            done = executor.command([*command, remote_request], cwd=executor.workspace,
+                                    env=environment, affinity=True, check=False, unset_env=("PYTHONPATH",))
             (directory / "stdout.log").write_text(done.stdout)
             (directory / "stderr.log").write_text(done.stderr)
             records = [json.loads(line[10:]) for line in done.stdout.splitlines() if line.startswith("WB_RESULT ")]
             if len(records) != 1:
-                raise ExecutionError("jit_run", [options["python"], helper, remote_request], done)
+                raise ExecutionError("jit_run", [*command, remote_request], done)
             record = records[0]
             row.details["runtime"] = record
             if record.get("compile_target"):
@@ -112,26 +129,55 @@ class TritonJitAdapter:
                 row.details["failure_stage"] = record["stage"]
             else:
                 samples = record["samples_ms"]
-                if not samples or any(not math.isfinite(v) or v <= 0 for v in samples):
+                if (not samples and not measurement.check_only) or any(not math.isfinite(v) or v <= 0 for v in samples):
                     raise ValueError("invalid native JIT timing")
-                row.samples_ms, row.median_ms = samples, statistics.median(samples)
+                row.details["python_jit"] = {"samples_ms": samples, "median_ms": statistics.median(samples) if samples else None}
                 row.correctness = record["correctness"]
-                archive = executor.workspace + "/artifact.tar.gz"
-                executor.command(["tar", "-czf", archive, "-C", executor.workspace, "artifact"], stage="collect")
-                local_archive = directory / "artifact.tar.gz"
-                executor.download(archive, local_archive)
+                # A fresh interpreter must load the Triton disk cache. It gets
+                # the same source and inputs, never the exported native library.
+                cache_request = {**request, "export": False, "save_outputs": False,
+                                 "check_python_aot": False, "check_torch_compile": False, "profile_runtime": False,
+                                 "measurement": {**request["measurement"], "check_only": True}}
+                cache_path = executor.write("jit-cache-request.json", json.dumps(cache_request, indent=2))
+                reuse = executor.command([*command, cache_path], cwd=executor.workspace,
+                                         env=environment, affinity=True, check=False, unset_env=("PYTHONPATH",))
+                (directory / "cache-stdout.log").write_text(reuse.stdout)
+                (directory / "cache-stderr.log").write_text(reuse.stderr)
+                cache_records = [json.loads(line[10:]) for line in reuse.stdout.splitlines() if line.startswith("WB_RESULT ")]
+                if len(cache_records) != 1 or cache_records[0]["status"] != "ok":
+                    raise ExecutionError("jit_disk_cache", [*command, cache_path], reuse)
+                reuse_record = cache_records[0]
+                if not reuse_record["compilations"] or not all(event["cache_hit"] for event in reuse_record["compilations"]):
+                    raise ValueError("fresh interpreter did not reuse the Triton compilation cache")
+                row.details["disk_cache"] = reuse_record
                 if (directory / "artifact").exists():
-                    shutil.rmtree(directory / "artifact")
-                with tarfile.open(local_archive) as bundle:
-                    for member in bundle.getmembers():
-                        path = Path(member.name)
-                        if path.is_absolute() or ".." in path.parts or not (member.isfile() or member.isdir()):
-                            raise ValueError("unexpected native JIT export member")
-                    bundle.extractall(directory)
+                    # Local execution already exported at the destination.
+                    if executor.host:
+                        shutil.rmtree(directory / "artifact")
+                if executor.host:
+                    collect_artifact(executor, "artifact", directory)
                 row.details["artifacts"] = {"weft": str((directory / "artifact").resolve())}
                 if save_outputs:
                     executor.download(executor.workspace + "/Y.bin", directory / "Y.bin")
                     row.details["outputs"] = {"Y": str((directory / "Y.bin").resolve())}
+                # Compare only the native computation from this successful JIT
+                # invocation, using the original worker/oracle/timing contract.
+                from ..runner import run_operator
+                native_options = {**options, "factory": "weft_bench.adapters.triton_native:TritonAdapter",
+                                  "artifact": str((directory / "artifact").resolve()),
+                                  "compile_target": record["compile_target"],
+                                  "grid": grid, "num_cpu_threads": threads,
+                                  "entry": options.get("entry", "grid" if math.prod(grid) > 1 else "single")}
+                for key in ("source", "bindings", "path"):
+                    native_options.pop(key, None)
+                native_target = replace(target, implementations={**target.implementations, name: native_options})
+                native_rows = run_operator(case, [name], native_target, measurement,
+                                           output=directory / "native", inputs=selected, save_outputs=save_outputs)
+                native = native_rows[0]
+                native.details["jit"] = row.details
+                native.details["replay"] = row.details["replay"]
+                native.details["candidate_origin"] = "target-native-kernel-grid-JIT"
+                row = native
         except Exception as error:
             from ..runner import _failed
             _failed(row, error, stage)
@@ -141,7 +187,7 @@ class TritonJitAdapter:
             try:
                 archive = executor.workspace + "/diagnostics.tar.gz"
                 collected = executor.command(["tar", "-czf", archive, "-C", executor.workspace,
-                                              "triton-cache", "triton-dump", "artifact"],
+                                              "triton-cache", "triton-dump", "artifact", "failure"],
                                              stage="collect", check=False)
                 if collected.returncode in (0, 1, 2):
                     destination = directory / "diagnostics.tar.gz"

@@ -44,12 +44,13 @@ def invocation_workspaces(case, workload, metadata, names):
                 rows = int(arg["interleave_rows"])
                 packing = arg.get("artifact_pack", {})
                 symbol = packing.get("size_symbol", "")
-                if len(shape) != 2 or rows <= 0 or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", symbol):
+                if len(shape) != 2 or rows <= 0 or (not arg.get("storage_layout") and not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", symbol)):
                     raise NotImplementedError("interleaved workspace requires a two-dimensional native size export")
                 if shape[0] % rows:
                     raise ValueError("interleaved workspace requires complete row cohorts")
-                preparation.append(f'if (native.symbol<decltype(&{symbol})>("{symbol}")({shape[0]}, {shape[1]}) != {size}) '
-                                   'throw std::runtime_error("workspace size differs from native layout");')
+                if arg.get("artifact_pack") or not arg.get("storage_layout"):
+                    preparation.append(f'if (native.symbol<decltype(&{symbol})>("{symbol}")({shape[0]}, {shape[1]}) != {size}) '
+                                       'throw std::runtime_error("workspace size differs from native layout");')
         alignment = math.lcm(64, int(arg["alignment"]), width)
         preparation.append(f"std::vector<{ctype}> {variable}_storage({count}+{alignment // width});"
                            f"wb::poison_output({variable}_storage);"

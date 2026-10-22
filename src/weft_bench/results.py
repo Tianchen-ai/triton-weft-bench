@@ -294,6 +294,13 @@ def save(rows, destination):
         "ime_calls",
         "ime2_calls",
         "amx_calls",
+        "candidate_origin",
+        "jit_status",
+        "jit_cold_compile_and_call_ms",
+        "jit_first_cache_hit_ms",
+        "jit_hot_call_ms",
+        "jit_disk_cache_hit",
+        "jit_launches_per_workload",
         "error",
     ]
     with path.with_suffix(".csv").open("w", newline="", encoding="utf-8-sig") as stream:
@@ -305,6 +312,16 @@ def save(rows, destination):
             data["tokens_per_second"] = row.details.get("tokens_per_second", "")
             data["model_policy"] = row.details.get("model_policy")
             data["replacement"] = row.details.get("replacement")
+            data["candidate_origin"] = row.details.get("candidate_origin")
+            jit = row.details.get("jit", row.details if row.details.get("entry") == "python-jit-grid" else {})
+            runtime = jit.get("runtime", {})
+            data["jit_status"] = runtime.get("status")
+            data["jit_cold_compile_and_call_ms"] = runtime.get("cold_compile_and_launch_ms")
+            data["jit_first_cache_hit_ms"] = runtime.get("first_cache_hit_launch_ms")
+            data["jit_hot_call_ms"] = jit.get("python_jit", {}).get("median_ms")
+            events = jit.get("disk_cache", {}).get("compilations", [])
+            data["jit_disk_cache_hit"] = all(event["cache_hit"] for event in events) if events else None
+            data["jit_launches_per_workload"] = runtime.get("launches_per_workload")
             counts = row.details.get("replacement_counts", {})
             data["replacement_counter_scope"] = counts.get("scope")
             for kind in ("vec_dot", "quantize", "ime", "ime2", "amx"):

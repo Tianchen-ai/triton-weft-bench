@@ -91,6 +91,29 @@ def compile_source(case, target, options, directory):
     }
     if options.get("program"):
         request["program"] = options["program"]
+    location = options.get("compilation_host", "host")
+    if location not in ("host", "target"):
+        raise ValueError("compilation_host must be host or target")
+    if location == "target":
+        from ..execution import Executor
+        from .triton_source import deploy_source, collect_artifact
+        executor = Executor(target, directory)
+        request.update(deploy_source(executor, source), target_native=True,
+                       output=executor.workspace + "/artifact")
+        artifact = directory / "artifact"
+        if artifact.exists():
+            shutil.rmtree(artifact)
+        request_path = executor.write("triton-compile.json", json.dumps(request, indent=2))
+        done = executor.command([options["python"], "-m", "weft_bench.adapters.compile_triton", request_path],
+                                cwd=executor.workspace, affinity=True, check=False,
+                                env={"PYTHONDONTWRITEBYTECODE": "1"}, unset_env=("PYTHONPATH",))
+        (directory / "compile.log").write_text(done.stdout + done.stderr)
+        (directory / "compile-commands.json").write_text(json.dumps(executor.commands, indent=2))
+        if done.returncode:
+            raise ExecutionError("target_triton_compile", executor.commands[-1], done)
+        if executor.host:
+            collect_artifact(executor, "artifact", directory)
+        return artifact
     request_path = directory / "triton-compile.json"
     output = directory / "artifact"
     if output.exists():

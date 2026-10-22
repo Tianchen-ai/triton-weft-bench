@@ -158,9 +158,12 @@ def workload(case):
             {"X": "data.x.data()+1", "Y": "output.data()+1"}, output_type="uint8_t",
             defines=(f"-DWB_POINTER_N={case.shape['N']}", f"-DWB_POINTER_GUARD={GUARD}"), scalars=scalars,
             reset="std::fill(output.begin(),output.end(),uint8_t(0xa5));",
+            pointer_shapes={name: (case.shape["N"] + GUARD,) for name in ("X", "Y")},
             correctness="exact-boolean-and-unchanged-padding")
     return NativeWorkload("vector_add_inputs.h", "VectorAddInputs data(inputs);",
         {"X": "data.x.data()+1", "Z": "data.z.data()+1", "Y": "output.data()+1"},
         defines=tuple(f"-DWB_VECTOR_{key}={value}" for key, value in {**case.shape, "GUARD": GUARD}.items()),
         scalars=scalars,
+        pointer_shapes={name: ((case.shape["N"] + GUARD) * case.shape[stride],)
+                        for name, stride in (("X", "SX"), ("Z", "SZ"), ("Y", "SY"))},
         correctness="within-tolerance-and-unchanged-padding")

@@ -27,3 +27,36 @@ def load_kernel(path, symbol):
     if getattr(kernel, "model", None) != "weft":
         raise ValueError("Triton candidate must use @triton.jit(model='weft')")
     return kernel
+
+
+def deploy_source(executor, source):
+    """Resolve installed corpus modules or transfer a complete custom package."""
+    source = Path(source).expanduser().resolve(strict=True)
+    package = Path(__file__).resolve().parents[1]
+    if source.is_relative_to(package / "kernels"):
+        return {"source": str(source),
+                "source_module": "weft_bench." + ".".join(source.relative_to(package).with_suffix("").parts)}
+    root = source.parent
+    while (root / "__init__.py").is_file():
+        root = root.parent
+    package_root = source.parent if root == source.parent else root / source.relative_to(root).parts[0]
+    executor.upload_many((path, "author/" + str(path.relative_to(root))) for path in package_root.rglob("*.py"))
+    return {"source": str(Path(executor.workspace) / "author" / source.relative_to(root)), "source_module": None}
+
+
+def collect_artifact(executor, relative, directory):
+    """Collect an artifact made on the target, without rebuilding its code."""
+    import tarfile
+    directory = Path(directory)
+    archive = executor.workspace + "/" + relative + ".tar.gz"
+    executor.command(["tar", "-czf", archive, "-C", executor.workspace, relative], stage="collect")
+    destination = directory / (relative + ".tar.gz")
+    executor.download(archive, destination)
+    with tarfile.open(destination) as bundle:
+        for member in bundle.getmembers():
+            path = Path(member.name)
+            if path.is_absolute() or ".." in path.parts or not (member.isfile() or member.isdir()):
+                raise ValueError("unexpected native artifact archive member")
+        bundle.extractall(directory)
+    destination.unlink()
+    return directory / relative
