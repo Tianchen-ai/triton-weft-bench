@@ -79,8 +79,9 @@ def describe_case(case, target):
         "workload": {"shape": selected["shape"] if selected else case.shape,
                      "scope": selected["scope"] if selected else case.scope, "dtype": case.dtype},
         "candidate": {key: binding[key] for key in (
-            "source", "symbol", "signature", "constexprs", "backend_options", "compile_target",
-            "workspaces", "persistent_inputs", "entry", "artifact") if key in binding},
+            "factory", "python", "compilation_host", "source", "symbol", "signature", "constexprs",
+            "backend_options", "compile_target", "workspaces", "persistent_inputs", "entry", "grid",
+            "num_cpu_threads", "artifact") if key in binding},
         "retained_artifact_evidence": selected["artifact_evidence"] if selected else None,
         "reference": selected["reference"] if selected else None,
         "reference_details": {"id": reference_id, **references()[reference_id]} if reference_id else None,
