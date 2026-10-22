@@ -4,7 +4,7 @@ Bench is a Python CLI/library. Install the published wheel in a virtual environm
 
 ```sh
 python3 -m venv .venv
-.venv/bin/python -m pip install https://github.com/Tianchen-ai/triton-weft-bench/releases/download/v0.4.0/triton_weft_bench-0.4.0-py3-none-any.whl
+.venv/bin/python -m pip install https://github.com/Tianchen-ai/triton-weft-bench/releases/download/v0.4.1/triton_weft_bench-0.4.1-py3-none-any.whl
 .venv/bin/weft-bench list
 ```
 

@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from weft_bench.catalogs import target_catalog, target_names, resolve_source
+from weft_bench.catalogs import target_catalog, target_names, resolve_source, references
 from weft_bench.cli import main
 from weft_bench.output import OutputRun
 from weft_bench.results import contracts_match
@@ -61,6 +61,16 @@ class ReleaseStructureTests(unittest.TestCase):
                 with self.subTest(target=target, case=name):
                     self.assertTrue(Path(resolve_source(record["candidate"]["source"])).is_file())
                     self.assertNotIn("/home/", json.dumps(record["candidate"]))
+                    if record["reference"] is None:
+                        self.assertIsNone(record["reference_catalog"])
+                    else:
+                        self.assertIn(record["reference_catalog"], references())
+        for target, cases, reference in (
+            ("k1", ("ime_centered", "ime_affine", "ime_centered_decode", "ime_affine_decode"), "ggml-ime1"),
+            ("k3-a100", ("ime2_i8_prefill", "ime2_i8_decode"), "ggml-ime2"),
+        ):
+            for case in cases:
+                self.assertEqual(target_catalog(target)["cases"][case]["reference_catalog"], reference)
 
     def test_update_retains_failure_and_locator_without_rewriting_command(self):
         with tempfile.TemporaryDirectory() as directory:

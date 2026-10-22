@@ -70,6 +70,7 @@ def package_recipe(name):
 
 def describe_case(case, target):
     selected = target.settings.get("case_catalog", {}).get(case.name)
+    reference_id = selected.get("reference_catalog") if selected else None
     candidate = target.implementations.get("weft", {})
     binding = {**candidate, **candidate.get("bindings", {}).get(case.name, {})}
     return {
@@ -81,5 +82,6 @@ def describe_case(case, target):
             "workspaces", "persistent_inputs", "entry", "artifact") if key in binding},
         "retained_artifact_evidence": selected["artifact_evidence"] if selected else None,
         "reference": selected["reference"] if selected else None,
+        "reference_details": {"id": reference_id, **references()[reference_id]} if reference_id else None,
         "baseline_result": target.settings.get("baselines", {}).get("operators"),
     }

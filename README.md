@@ -10,7 +10,7 @@ OpenBLAS F32 GEMM, and oneDNN strict F32, BF16/F32 or S8/S32 matmul. See the
 a compiler candidate is available.
 
 ```sh
-python -m pip install https://github.com/Tianchen-ai/triton-weft-bench/releases/download/v0.4.0/triton_weft_bench-0.4.0-py3-none-any.whl
+python -m pip install https://github.com/Tianchen-ai/triton-weft-bench/releases/download/v0.4.1/triton_weft_bench-0.4.1-py3-none-any.whl
 export WEFT_BENCH_CONFIG=/path/to/bench.local.json
 
 # See the selected author program, reference and artifact evidence.

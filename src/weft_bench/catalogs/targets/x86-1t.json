@@ -27,7 +27,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q1_0_dot": {
       "shape": {
@@ -57,7 +58,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q1_0_dot_rows": {
       "shape": {
@@ -87,7 +89,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q4_0_dequantize": {
       "shape": {
@@ -117,7 +120,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q4_0_dot": {
       "shape": {
@@ -145,7 +149,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q4_0_dot_rows": {
       "shape": {
@@ -175,7 +180,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q4_1_dequantize": {
       "shape": {
@@ -205,7 +211,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q4_1_dot": {
       "shape": {
@@ -233,7 +240,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q4_1_dot_rows": {
       "shape": {
@@ -261,7 +269,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q5_0_dequantize": {
       "shape": {
@@ -291,7 +300,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q5_0_dot": {
       "shape": {
@@ -319,7 +329,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q5_0_dot_rows": {
       "shape": {
@@ -347,7 +358,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q5_1_dequantize": {
       "shape": {
@@ -377,7 +389,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q5_1_dot": {
       "shape": {
@@ -405,7 +418,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q5_1_dot_rows": {
       "shape": {
@@ -433,7 +447,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q8_0_dequantize": {
       "shape": {
@@ -463,7 +478,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q8_0_dot": {
       "shape": {
@@ -493,7 +509,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q8_0_dot_rows": {
       "shape": {
@@ -523,7 +540,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q2_k_dequantize": {
       "shape": {
@@ -553,7 +571,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q2_k_dot": {
       "shape": {
@@ -581,7 +600,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q2_k_dot_rows": {
       "shape": {
@@ -609,7 +629,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q3_k_dequantize": {
       "shape": {
@@ -637,7 +658,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q3_k_dot": {
       "shape": {
@@ -665,7 +687,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q3_k_dot_rows": {
       "shape": {
@@ -693,7 +716,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q4_k_dequantize": {
       "shape": {
@@ -721,7 +745,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q4_k_dot": {
       "shape": {
@@ -751,7 +776,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q4_k_dot_rows": {
       "shape": {
@@ -781,7 +807,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q5_k_dequantize": {
       "shape": {
@@ -809,7 +836,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q5_k_dot": {
       "shape": {
@@ -837,7 +865,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q5_k_dot_rows": {
       "shape": {
@@ -865,7 +894,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q6_k_dequantize": {
       "shape": {
@@ -893,7 +923,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q6_k_dot": {
       "shape": {
@@ -923,7 +954,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q6_k_dot_rows": {
       "shape": {
@@ -953,7 +985,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq1_s_dequantize": {
       "shape": {
@@ -983,7 +1016,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq1_s_dot": {
       "shape": {
@@ -1011,7 +1045,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq1_s_dot_rows": {
       "shape": {
@@ -1039,7 +1074,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq1_m_dequantize": {
       "shape": {
@@ -1067,7 +1103,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq1_m_dot": {
       "shape": {
@@ -1095,7 +1132,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq1_m_dot_rows": {
       "shape": {
@@ -1123,7 +1161,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq2_s_dequantize": {
       "shape": {
@@ -1151,7 +1190,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq2_s_dot": {
       "shape": {
@@ -1179,7 +1219,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq2_s_dot_rows": {
       "shape": {
@@ -1207,7 +1248,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq2_xs_dequantize": {
       "shape": {
@@ -1235,7 +1277,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq2_xs_dot": {
       "shape": {
@@ -1265,7 +1308,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq2_xs_dot_rows": {
       "shape": {
@@ -1295,7 +1339,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq2_xxs_dequantize": {
       "shape": {
@@ -1323,7 +1368,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq2_xxs_dot": {
       "shape": {
@@ -1353,7 +1399,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq2_xxs_dot_rows": {
       "shape": {
@@ -1383,7 +1430,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq3_s_dequantize": {
       "shape": {
@@ -1411,7 +1459,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq3_s_dot": {
       "shape": {
@@ -1439,7 +1488,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq3_s_dot_rows": {
       "shape": {
@@ -1467,7 +1517,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq3_xxs_dequantize": {
       "shape": {
@@ -1495,7 +1546,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq3_xxs_dot": {
       "shape": {
@@ -1525,7 +1577,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq3_xxs_dot_rows": {
       "shape": {
@@ -1555,7 +1608,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq4_nl_dequantize": {
       "shape": {
@@ -1586,7 +1640,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq4_nl_dot": {
       "shape": {
@@ -1616,7 +1671,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq4_nl_dot_rows": {
       "shape": {
@@ -1646,7 +1702,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq4_xs_dequantize": {
       "shape": {
@@ -1674,7 +1731,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq4_xs_dot": {
       "shape": {
@@ -1705,7 +1763,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq4_xs_dot_rows": {
       "shape": {
@@ -1736,7 +1795,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "tq1_0_dequantize": {
       "shape": {
@@ -1766,7 +1826,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "tq1_0_dot": {
       "shape": {
@@ -1796,7 +1857,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "tq1_0_dot_rows": {
       "shape": {
@@ -1826,7 +1888,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "tq2_0_dequantize": {
       "shape": {
@@ -1854,7 +1917,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "tq2_0_dot": {
       "shape": {
@@ -1882,7 +1946,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "tq2_0_dot_rows": {
       "shape": {
@@ -1910,7 +1975,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "mxfp4_dequantize": {
       "shape": {
@@ -1941,7 +2007,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "mxfp4_dot": {
       "shape": {
@@ -1969,7 +2036,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "mxfp4_dot_rows": {
       "shape": {
@@ -1997,7 +2065,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "nvfp4_dequantize": {
       "shape": {
@@ -2025,7 +2094,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "nvfp4_dot": {
       "shape": {
@@ -2055,7 +2125,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "nvfp4_dot_rows": {
       "shape": {
@@ -2085,7 +2156,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q8_0_quantize": {
       "shape": {
@@ -2115,7 +2187,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q8_1_quantize": {
       "shape": {
@@ -2145,7 +2218,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q8_k_quantize": {
       "shape": {
@@ -2173,7 +2247,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "gemm_f32": {
       "shape": {
@@ -2210,7 +2285,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "affine": {
       "shape": {
@@ -2239,7 +2315,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "causal_attention": {
       "shape": {
@@ -2274,7 +2351,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": null
     },
     "rms_norm": {
       "shape": {
@@ -2305,7 +2383,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "layer_norm": {
       "shape": {
@@ -2336,7 +2415,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "rope_split": {
       "shape": {
@@ -2368,7 +2448,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "softmax": {
       "shape": {
@@ -2404,7 +2485,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "ime_centered": {
       "shape": {
@@ -2436,7 +2518,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": null
     },
     "ime_centered_decode": {
       "shape": {
@@ -2468,7 +2551,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": null
     },
     "ime_affine": {
       "shape": {
@@ -2500,7 +2584,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": null
     },
     "ime_affine_decode": {
       "shape": {
@@ -2532,7 +2617,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": null
     },
     "f16_projection_decode": {
       "shape": {
@@ -2568,7 +2654,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": null
     },
     "f16_projection_prefill": {
       "shape": {
@@ -2605,7 +2692,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": null
     },
     "q1_0_projection_decode": {
       "shape": {
@@ -2636,7 +2724,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q1_0_projection_prefill": {
       "shape": {
@@ -2667,7 +2756,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q4_0_projection_decode": {
       "shape": {
@@ -2704,7 +2794,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q4_0_projection_prefill": {
       "shape": {
@@ -2741,7 +2832,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q4_1_projection_decode": {
       "shape": {
@@ -2775,7 +2867,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q4_1_projection_prefill": {
       "shape": {
@@ -2809,7 +2902,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q5_0_projection_decode": {
       "shape": {
@@ -2846,7 +2940,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q5_0_projection_prefill": {
       "shape": {
@@ -2883,7 +2978,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q5_1_projection_decode": {
       "shape": {
@@ -2917,7 +3013,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q5_1_projection_prefill": {
       "shape": {
@@ -2951,7 +3048,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q8_0_projection_decode": {
       "shape": {
@@ -2988,7 +3086,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q8_0_projection_prefill": {
       "shape": {
@@ -3025,7 +3124,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q2_k_projection_decode": {
       "shape": {
@@ -3059,7 +3159,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q2_k_projection_prefill": {
       "shape": {
@@ -3100,7 +3201,8 @@
         ],
         "matrix_in_artifact": true,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q3_k_projection_decode": {
       "shape": {
@@ -3129,7 +3231,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q3_k_projection_prefill": {
       "shape": {
@@ -3168,7 +3271,8 @@
         ],
         "matrix_in_artifact": true,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q4_k_projection_decode": {
       "shape": {
@@ -3205,7 +3309,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q4_k_projection_prefill": {
       "shape": {
@@ -3248,7 +3353,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q5_k_projection_decode": {
       "shape": {
@@ -3282,7 +3388,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q5_k_projection_prefill": {
       "shape": {
@@ -3325,7 +3432,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q6_k_projection_decode": {
       "shape": {
@@ -3356,7 +3464,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "q6_k_projection_prefill": {
       "shape": {
@@ -3395,7 +3504,8 @@
         ],
         "matrix_in_artifact": true,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq1_s_projection_decode": {
       "shape": {
@@ -3424,7 +3534,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq1_s_projection_prefill": {
       "shape": {
@@ -3465,7 +3576,8 @@
         ],
         "matrix_in_artifact": true,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq1_m_projection_decode": {
       "shape": {
@@ -3494,7 +3606,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq1_m_projection_prefill": {
       "shape": {
@@ -3535,7 +3648,8 @@
         ],
         "matrix_in_artifact": true,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq2_s_projection_decode": {
       "shape": {
@@ -3564,7 +3678,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq2_s_projection_prefill": {
       "shape": {
@@ -3602,7 +3717,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq2_xs_projection_decode": {
       "shape": {
@@ -3633,7 +3749,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq2_xs_projection_prefill": {
       "shape": {
@@ -3671,7 +3788,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq2_xxs_projection_decode": {
       "shape": {
@@ -3702,7 +3820,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq2_xxs_projection_prefill": {
       "shape": {
@@ -3740,7 +3859,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq3_s_projection_decode": {
       "shape": {
@@ -3769,7 +3889,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq3_s_projection_prefill": {
       "shape": {
@@ -3807,7 +3928,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq3_xxs_projection_decode": {
       "shape": {
@@ -3836,7 +3958,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq3_xxs_projection_prefill": {
       "shape": {
@@ -3874,7 +3997,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq4_nl_projection_decode": {
       "shape": {
@@ -3912,7 +4036,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq4_nl_projection_prefill": {
       "shape": {
@@ -3950,7 +4075,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq4_xs_projection_decode": {
       "shape": {
@@ -3984,7 +4110,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "iq4_xs_projection_prefill": {
       "shape": {
@@ -4022,7 +4149,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "tq1_0_projection_decode": {
       "shape": {
@@ -4053,7 +4181,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "tq1_0_projection_prefill": {
       "shape": {
@@ -4090,7 +4219,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "tq2_0_projection_decode": {
       "shape": {
@@ -4119,7 +4249,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "tq2_0_projection_prefill": {
       "shape": {
@@ -4156,7 +4287,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "mxfp4_projection_decode": {
       "shape": {
@@ -4194,7 +4326,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "mxfp4_projection_prefill": {
       "shape": {
@@ -4232,7 +4365,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "nvfp4_projection_decode": {
       "shape": {
@@ -4263,7 +4397,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "nvfp4_projection_prefill": {
       "shape": {
@@ -4294,7 +4429,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "f16_f32_projection_decode": {
       "shape": {
@@ -4334,7 +4470,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "f16_f32_projection_prefill": {
       "shape": {
@@ -4371,7 +4508,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "gemm_bf16_f32": {
       "shape": {
@@ -4409,7 +4547,8 @@
         ],
         "matrix_in_artifact": true,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "onednn"
     },
     "gemm_s8_s32": {
       "shape": {
@@ -4446,7 +4585,8 @@
         ],
         "matrix_in_artifact": true,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "onednn"
     },
     "amx_q4_0_decode_tile": {
       "shape": {
@@ -4486,7 +4626,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "amx_q4_k_decode_tile": {
       "shape": {
@@ -4523,7 +4664,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "amx_q6_k_decode_tile": {
       "shape": {
@@ -4560,7 +4702,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "amx_q4_k_prefill_strided": {
       "shape": {
@@ -4601,7 +4744,8 @@
         ],
         "matrix_in_artifact": true,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "amx_q4_0_prefill_strided": {
       "shape": {
@@ -4642,7 +4786,8 @@
         ],
         "matrix_in_artifact": true,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     },
     "rope_full": {
       "shape": {
@@ -4674,7 +4819,8 @@
         "used_extensions": [],
         "matrix_in_artifact": false,
         "runtime_instruction_path": "not_observed"
-      }
+      },
+      "reference_catalog": "ggml-cpu-x86"
     }
   },
   "suites": {

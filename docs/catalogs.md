@@ -86,3 +86,11 @@ writes a pending result and then replaces current, including failure status.
 It refuses concurrent writers and refuses to overwrite a configured fixed
 baseline. Interrupted pending data remains inspectable. Retain necessary failure
 evidence and fixed baselines, not one directory per tuning attempt.
+## Reference identity
+
+Each selected case records both its executable adapter name (`reference`, such as
+`ggml`) and its reference catalog identity (`reference_catalog`). `show` expands
+the latter as `reference_details`, including provider, source and call boundary.
+The four K1 IME1 and two K3 IME2 cases explicitly point to the vendor matrix
+entries; ordinary GGML/RVV rows remain separate. An unmatched case keeps a null
+reference rather than receiving a provider inferred from its kernel name.
