@@ -4673,7 +4673,9 @@
         "constexprs": {
           "BLOCK": 32
         },
-        "backend_options": {},
+        "backend_options": {
+          "lmul_eighths": 32
+        },
         "compile_target": {
           "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause_zba",
           "abi": "lp64d",
@@ -4705,7 +4707,9 @@
         "constexprs": {
           "BLOCK": 32
         },
-        "backend_options": {},
+        "backend_options": {
+          "lmul_eighths": 32
+        },
         "compile_target": {
           "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause_zba",
           "abi": "lp64d",

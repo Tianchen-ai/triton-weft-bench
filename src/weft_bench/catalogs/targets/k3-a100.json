@@ -4558,7 +4558,9 @@
         "constexprs": {
           "BLOCK": 32
         },
-        "backend_options": {},
+        "backend_options": {
+          "lmul_eighths": 32
+        },
         "compile_target": {
           "arch": "riscv64",
           "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause_zba",
