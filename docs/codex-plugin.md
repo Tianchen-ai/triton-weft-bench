@@ -8,10 +8,10 @@ It does not introduce another benchmark engine or require an MCP service.
 
 ## Install
 
-From a checkout, with Codex CLI installed:
+Install the [published Bench wheel](install.md), then register the plugin from a
+checkout with Codex CLI installed:
 
 ```sh
-python3 -m pip install -e .
 codex plugin marketplace add .
 codex plugin add weft-bench@weft-tools
 codex plugin list --marketplace weft-tools --json
@@ -39,8 +39,9 @@ Optional `environments` entries select a separate CLI/configuration with the lau
 prefix `--environment NAME`. Each entry contains its own `command` and `config`.
 An explicitly selected environment overrides inherited `WEFT_BENCH_CONFIG`; CLI
 `--config` still takes precedence. Omitting the prefix keeps the existing default.
-This supports an isolated Triton–Weft installation while mainline performance work
-continues with its current CLI and machine configuration.
+The formal installation uses one Triton–Weft CLI/configuration and selects hardware
+with `--target`. Optional environments remain available for explicit comparisons;
+they do not select a compiler merely from the plugin name.
 Machine addresses, SSH credentials, model paths and saved results are not packaged.
 See [environment setup](targets.md) for the bench target configuration.
 

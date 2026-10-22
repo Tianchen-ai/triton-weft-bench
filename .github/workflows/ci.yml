@@ -10,5 +10,9 @@ jobs:
           python-version: '3.10'
       - run: python -m pip install .
       - run: weft-bench list
-      - run: python -m unittest discover -s tests -v
+      - name: CLI, workflow and catalog checks (no target compiler required)
+        run: |
+          python -m unittest discover -s tests -p test_tool.py -v
+          python -m unittest discover -s tests -p test_workflow.py -v
+          python -m unittest discover -s tests -p test_release_structure.py -v
       - run: python -m pip wheel . --no-deps --wheel-dir dist

@@ -1,12 +1,10 @@
 # Install and choose an environment
 
-Bench is a Python CLI/library. Install it in a virtual environment:
+Bench is a Python CLI/library. Install the published wheel in a virtual environment:
 
 ```sh
-git clone https://github.com/Tianchen-ai/triton-weft-bench.git
-cd triton-weft-bench
 python3 -m venv .venv
-.venv/bin/python -m pip install -e .
+.venv/bin/python -m pip install https://github.com/Tianchen-ai/triton-weft-bench/releases/download/v0.4.0/triton_weft_bench-0.4.0-py3-none-any.whl
 .venv/bin/weft-bench list
 ```
 
@@ -30,8 +28,22 @@ Keep development/compiler environments separate from shared system packages.
 Use the compiler's supported PyTorch integration installer in the selected private
 Torch environment; Bench does not patch framework or compiler implementations.
 
-The published wheel can also be installed from the project's Release assets.
-Historical Weft results remain readable; the formal catalogs use Triton–Weft.
+For development, clone this repository and install it with `python -m pip install -e .`
+in the selected environment. Historical Weft results remain readable; the formal
+catalogs use Triton–Weft.
+
+The GitHub Host tooling job checks the CLI, workflow and catalog contracts without
+a target compiler. Native contraction checks require the installed Triton–Weft
+wheel, NumPy and a CPU with the tested matrix extension. Run them explicitly on
+that target, keeping generated artifacts in Bench output:
+
+```sh
+WEFT_BENCH_ENGINE_OUTPUT="$PWD/output/current/engine-check" \
+TRITON_CACHE_DIR="$PWD/output/current/engine-check/cache" \
+python -m unittest discover -s tests -p test_contraction_engines.py -v
+```
+
+These native checks are not counted as passed by the compiler-free CI job.
 
 ## Configure and make the first comparison
 
