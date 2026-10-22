@@ -938,7 +938,7 @@
         "symbol": "dot",
         "signature": {},
         "constexprs": {
-          "LANES": 16
+          "LANES": 8
         },
         "backend_options": {},
         "compile_target": {

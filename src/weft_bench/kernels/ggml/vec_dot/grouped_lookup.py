@@ -14,7 +14,7 @@ def lookup_pair(table, first, second, lane):
 
 @triton.jit
 def compute_iq1_s(W, X, grid, K):
-    """Keep one numerical scale group live while decoding its codebook bytes."""
+    """Combine the two codebook pairs before each exact scale-group reduction."""
     lane = tl.arange(0, 16, dtype=tl.u16, axis="element")
     table = grid.values
     result = tl.f32(0)
@@ -25,7 +25,7 @@ def compute_iq1_s(W, X, grid, K):
             g = tl.u16(group)
             metadata = tl.u16(w.qh[g])
             scale = tl.i32((metadata >> tl.u16(12) & tl.u16(7)) * tl.u16(2) + tl.u16(1))
-            partial = tl.i32(0)
+            partial = tl.i16(lane) * tl.i16(0)
             for pair in tl.static_range(2):
                 p = tl.u16(pair)
                 first = tl.u16(w.q[g * tl.u16(4) + p * tl.u16(2)])
@@ -34,8 +34,10 @@ def compute_iq1_s(W, X, grid, K):
                 second |= (metadata >> (p * tl.u16(6) + tl.u16(3)) & tl.u16(7)) << tl.u16(8)
                 weight = lookup_pair(table, first, second, lane)
                 activation = x.q[g * tl.u16(32) + p * tl.u16(16) + lane]
-                partial += tl.reduce_dot(activation, weight, over=("element",), acc_dtype=tl.i32)
-            main += scale * partial
+                partial += tl.i16(activation) * tl.i16(weight)
+            # IQ1_S's fixed GGML codebook is ternary: the two signed-byte
+            # products sum to at most 256 per lane before widening reduction.
+            main += scale * tl.reduce(tl.i32(partial), axis="element")
             delta = tl.i32((tl.i16(metadata) >> tl.i16(15)) | tl.i16(1))
             correction += scale * delta * (tl.i32(x.bsum[g * tl.u16(2)]) +
                                            tl.i32(x.bsum[g * tl.u16(2) + tl.u16(1)]))
