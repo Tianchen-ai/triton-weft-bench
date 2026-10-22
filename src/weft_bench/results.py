@@ -286,6 +286,14 @@ def save(rows, destination):
         "status",
         "correctness",
         "tokens_per_second",
+        "model_policy",
+        "replacement",
+        "replacement_counter_scope",
+        "vec_dot_calls",
+        "quantize_calls",
+        "ime_calls",
+        "ime2_calls",
+        "amx_calls",
         "error",
     ]
     with path.with_suffix(".csv").open("w", newline="", encoding="utf-8-sig") as stream:
@@ -295,6 +303,13 @@ def save(rows, destination):
             data = row.to_dict()
             data["shape"] = ";".join(f"{k}={v}" for k, v in row.shape.items())
             data["tokens_per_second"] = row.details.get("tokens_per_second", "")
+            data["model_policy"] = row.details.get("model_policy")
+            data["replacement"] = row.details.get("replacement")
+            counts = row.details.get("replacement_counts", {})
+            data["replacement_counter_scope"] = counts.get("scope")
+            for kind in ("vec_dot", "quantize", "ime", "ime2", "amx"):
+                observed = counts.get(kind + "_observed" if kind in ("ime2", "amx") else "observed")
+                data[kind + "_calls"] = counts.get(kind) if observed else None
             native = row.details.get("native", {})
             cpu_samples = native.get("calling_thread_samples_ms", [])
             data["calling_thread_median_ms"] = statistics.median(cpu_samples) if cpu_samples else None

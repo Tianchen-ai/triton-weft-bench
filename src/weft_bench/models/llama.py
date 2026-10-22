@@ -204,6 +204,7 @@ def benchmark_model(
                 "input_policy": models[name],
                 "dtype": "GGUF",
                 "phase": phase,
+                "model_policy": target.settings.get("model_policy"),
                 "measurement": {"repetitions": repetitions, "profile": profile},
                 "execution": {**params, "cpus": deployment["cpus"]},
                 "model": models[name],
