@@ -1,0 +1,10 @@
+{
+  "name": "weft-tools",
+  "interface": {"displayName": "Triton Weft Tools"},
+  "plugins": [{
+    "name": "weft-bench",
+    "source": {"source": "local", "path": "./plugins/weft-bench"},
+    "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
+    "category": "Developer Tools"
+  }]
+}

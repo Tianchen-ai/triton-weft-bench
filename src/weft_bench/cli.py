@@ -8,7 +8,7 @@ from pathlib import Path
 import sys
 
 from .api import benchmark
-from .loading import load_config, select_target
+from .loading import load_config, select_target, select_model
 from .operators import SUITES, OperatorSelection, catalog, get, configured_suites
 from .results import apply_baselines, read, save, table
 from .types import Measurement
@@ -43,19 +43,23 @@ def parser():
         help="select GGML workloads, input presets or llama.cpp replacement roles",
     )
     listing.add_argument(
-        "--kind", choices=("operators", "inputs", "replacements", "suites"), default="operators"
+        "--kind", choices=("operators", "inputs", "replacements", "suites", "targets", "kernels", "baselines", "models"), default="operators"
     )
     listing.add_argument("--config", help="include suites from an external target configuration")
     listing.add_argument("--target")
     show = commands.add_parser("show", help="show a workload input/output contract")
     show.add_argument("case")
     show.add_argument("--inputs", default="default")
+    show.add_argument("--target")
+    show.add_argument("--config")
     prepare = commands.add_parser(
         "prepare-model",
         help="prepare a llama.cpp package from explicit replacement parameters",
     )
     prepare.add_argument("--target", required=True)
     prepare.add_argument("--config")
+    prepare.add_argument("--model", help="select the configured model's package build environment")
+    prepare.add_argument("--model-profile", help="select a normal backend and replacement policy")
     prepare.add_argument("--replace", action="append", default=[])
     prepare.add_argument("--replacement-file")
     prepare.add_argument("--output", required=True)
@@ -171,7 +175,7 @@ def parser():
             command.add_argument("--eviction-bytes", type=int, default=64 * 1024 * 1024)
         else:
             command.add_argument(
-                "--scenario", choices=("default", "smoke"), default="default"
+                "--scenario", choices=("default", "smoke"), default=None
             )
             command.add_argument("--replace", action="append", default=[])
             command.add_argument("--replacement-file")
@@ -182,6 +186,7 @@ def parser():
             command.add_argument(
                 "--phase", choices=("prefill", "decode", "both"), default="both"
             )
+            command.add_argument("--model-profile", help="configured normal-backend and replacement policy")
             command.add_argument("--profile", action="store_true")
             command.add_argument(
                 "--build",
@@ -209,11 +214,14 @@ def parser():
 
 def main(argv=None):
     args = parser().parse_args(argv)
+    output_run = None
+    run_error = None
     try:
         if args.command == "capture-model-reference":
             from .models.validation import capture_model_reference, attach_validation
 
             target = select_target(load_config(args.config), args.target)
+            target, _ = select_model(target, args.model)
             report = capture_model_reference(args.model, target, output=args.output)
             if args.attach_run:
                 rows = read(args.attach_run)
@@ -228,6 +236,7 @@ def main(argv=None):
             from .models.validation import validate_model
 
             target = select_target(load_config(args.config), args.target)
+            target, _ = select_model(target, args.model)
             if args.check_dots:
                 target.settings["llama"].setdefault("validation", {})["check_dots"] = True
             report = validate_model(args.model, target, args.impl, output=Path(args.output),
@@ -289,6 +298,11 @@ def main(argv=None):
 
             inputs = resolve_inputs(args.inputs)
             case = inputs.resolve(get(args.case))
+            if args.target:
+                from .catalogs import describe_case
+                target = select_target(load_config(args.config), args.target)
+                print(json.dumps(describe_case(case, target), indent=2))
+                return 0
             print(
                 json.dumps(
                     {
@@ -312,6 +326,12 @@ def main(argv=None):
             )
             mapping.update(parse_mapping(args.replace))
             target = select_target(load_config(args.config), args.target)
+            if target.settings.get("model_profiles"):
+                if not args.model:
+                    raise ValueError("prepare-model requires --model to select a package build environment")
+                target, _ = select_model(target, args.model, args.model_profile)
+            if not mapping:
+                mapping = {role: "default" for role in target.settings.get("llama", {}).get("triton", {}).get("bindings", {})}
             print(
                 json.dumps(prepare_replacements(mapping, target, args.output), indent=2)
             )
@@ -321,6 +341,7 @@ def main(argv=None):
             from .models import gguf_info
 
             target = select_target(load_config(args.config), args.target)
+            target, _ = select_model(target, args.model)
             output = Path(args.output)
             output.parent.mkdir(parents=True, exist_ok=True)
             executor = Executor(target, output.parent / "metadata-reader")
@@ -470,6 +491,40 @@ def main(argv=None):
             )
             return 0
         if args.command == "list":
+            from .catalogs import target_names, target_catalog, references, models
+            if args.kind == "targets":
+                configured = load_config(args.config)["targets"] if args.config else {}
+                print(json.dumps({"catalogs": target_names(), "configured": list(configured)}, indent=2))
+                return 0
+            if args.kind == "baselines":
+                print(json.dumps(references(), indent=2))
+                return 0
+            if args.kind == "models":
+                entries = models()
+                if args.target:
+                    entries = {key: value for key, value in entries.items() if value["target"] == args.target}
+                configured = {}
+                if args.config:
+                    config = load_config(args.config)
+                    for name in ([args.target] if args.target else config["targets"]):
+                        settings = select_target(config, name).settings
+                        configured[name] = {model: {policy: {
+                            "inputs": record["inputs"], "baseline": record.get("baseline"), "package_recipe": record.get("package_recipe"),
+                            "model_path": record["llama"]["models"].get(model),
+                            "implementations": {key: {k: v[k] for k in ("binary", "package") if k in v}
+                                                for key, v in record["llama"]["implementations"].items()}}
+                            for policy, record in choices.items()}
+                            for model, choices in settings.get("model_profiles", {}).items()}
+                print(json.dumps({"protocols": entries, "configured": configured}, indent=2))
+                return 0
+            if args.kind == "kernels":
+                targets = [args.target] if args.target else target_names()
+                for name in targets:
+                    for case, record in target_catalog(name)["cases"].items():
+                        candidate = record["candidate"]
+                        engines = record["artifact_evidence"]["used_extensions"]
+                        print(f"{name}\t{case}\t{candidate['source']}:{candidate['symbol']}\t{','.join(engines) or 'no matrix extension recorded'}")
+                return 0
             if not args.target and (args.config or args.kind == "suites"):
                 raise ValueError("listing configured suites requires --target")
             settings = select_target(load_config(args.config), args.target).settings if args.target else {}
@@ -521,15 +576,28 @@ def main(argv=None):
             return 0
         config = load_config(args.config)
         target = select_target(config, args.target)
-        output = Path(
-            args.output
-            or (
-                str(Path(target.settings.get("output_root", "runs"))) + "/"
-                + datetime.now().strftime("%Y%m%d-%H%M%S-%f")
-                + "-"
-                + args.target
-            )
-        )
+        if args.command == "op" and bool(args.case) == bool(args.suite):
+            raise ValueError("select one case or --suite")
+        if args.command == "e2e" and not args.case:
+            raise ValueError("select one configured model")
+        model_profile = None
+        if args.command == "e2e":
+            target, model_profile = select_model(target, args.case, args.model_profile)
+            if model_profile and not args.baseline:
+                args.baseline = model_profile.get("baseline")
+        elif args.command == "op" and not args.baseline:
+            args.baseline = target.settings.get("baselines", {}).get("operators")
+        destination = Path(args.output) if args.output else (
+            Path(target.settings.get("output_root", "output/current")) / args.target /
+            args.command / (args.case or args.suite))
+        if args.baseline:
+            baseline_path = Path(args.baseline).resolve()
+            output_path = destination.resolve()
+            if baseline_path == output_path or output_path in baseline_path.parents:
+                raise ValueError("candidate output cannot replace its fixed baseline or a containing directory")
+        from .output import OutputRun
+        output_run = OutputRun(destination)
+        output = output_run.stage
         default_impl = (
             "weft"
             if args.baseline
@@ -579,7 +647,8 @@ def main(argv=None):
             suites = configured_suites(target.settings)
             if args.suite and args.suite not in suites:
                 raise ValueError(f"unknown suite {args.suite!r}; use list --kind suites with this config/target")
-            selections = suites[args.suite] if args.suite else [OperatorSelection(args.case)]
+            selections = suites[args.suite] if args.suite else [OperatorSelection(
+                args.case, target.settings.get("case_catalog", {}).get(args.case, {}).get("shape", {}))]
             for selection in selections:
                 name = selection.name
                 print(f"Running {name} on {target.name}", file=sys.stderr, flush=True)
@@ -610,7 +679,8 @@ def main(argv=None):
             from .models.api import compare_model
             from .models.replacements import parse_mapping
 
-            selected = ModelInputs.preset(args.scenario)
+            selected = (ModelInputs(**model_profile["inputs"]) if model_profile and args.scenario is None
+                        else ModelInputs.preset(args.scenario or "default"))
             overrides = {
                 k: getattr(args, k)
                 for k in ("prefill", "decode", "depth", "threads", "repetitions")
@@ -667,11 +737,11 @@ def main(argv=None):
                     validation_reference=args.validation_reference,
                 )
         if args.baseline:
-            apply_baselines(
-                rows,
-                read(args.baseline),
-                args.baseline_impl or ("ggml" if args.command == "op" else "normal"),
-            )
+            reference_rows = read(args.baseline)
+            for row in rows:
+                selected_reference = target.settings.get("case_catalog", {}).get(row.case, {}).get("reference")
+                apply_baselines([row], reference_rows,
+                    args.baseline_impl or (selected_reference or "ggml" if args.command == "op" else "normal"))
         elif args.baseline_impl or (
             len(implementations) > 1 and ("ggml" in implementations or "normal" in implementations)
         ):
@@ -688,16 +758,23 @@ def main(argv=None):
                 baseline,
             )
         print(table(rows))
-        print(save(rows, output))
+        save(rows, output)
+        print(output_run.destination / "results.json")
         for row in rows:
             if row.error:
                 print(f"{row.case}/{row.implementation}: {row.error}", file=sys.stderr)
             for hot in row.details.get("hotspots", []):
                 print("  hotspot:", hot)
-        return int(any(row.status != "ok" for row in rows))
+        if any(row.status != "ok" for row in rows):
+            run_error = "one or more selected cases failed; see results.json"
+        return int(run_error is not None)
     except (ValueError, OSError, KeyError, TypeError, ExecutionError) as error:
+        run_error = error
         print(f"weft-bench: {error}", file=sys.stderr)
         return 2
+    finally:
+        if output_run is not None:
+            output_run.finish(run_error or sys.exc_info()[1])
 
 
 if __name__ == "__main__":

@@ -115,7 +115,14 @@ def compile_source(case, target, options, directory):
 class TritonAdapter:
     @staticmethod
     def configure_candidate(case, options, candidate):
-        options = {**options, **options.get("bindings", {}).get(case.name, {})}
+        binding = options.get("bindings", {}).get(case.name, {})
+        original = {**options, **binding}
+        changing_source = candidate.source and (candidate.source != original.get("source") or
+                                               candidate.symbol != original.get("symbol"))
+        # Source-specific constants, packing and workspaces describe the chosen
+        # author program. A replacement inherits the target environment, not the
+        # unrelated program's signature or tuning choice.
+        options = {**options, "signature": {}, "constexprs": {}} if changing_source else original
         options.pop("bindings", None)
         if candidate.compiler:
             raise ValueError("Triton candidates use their configured Python/toolchain, not --compiler")
@@ -256,6 +263,8 @@ class TritonAdapter:
             "persistent_inputs": packed_details,
             "artifacts": {"weft": str(artifact.resolve())},
             "candidate_native_build": metadata["native_build"],
+            "compiler_decisions": metadata["compilation"],
+            "physical_program": {key: abi[key] for key in ("physical_resources", "physical_operations") if key in abi},
             "required_extensions": abi["required_extensions"],
             "used_extensions": abi["used_extensions"],
             "native_runtime": runtime,

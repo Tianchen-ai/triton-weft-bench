@@ -3,8 +3,8 @@
 Bench is a Python CLI/library. Install it in a virtual environment:
 
 ```sh
-git clone https://github.com/Tianchen-ai/Weft-Bench.git
-cd Weft-Bench
+git clone https://github.com/Tianchen-ai/triton-weft-bench.git
+cd triton-weft-bench
 python3 -m venv .venv
 .venv/bin/python -m pip install -e .
 .venv/bin/weft-bench list
@@ -30,13 +30,13 @@ Keep development/compiler environments separate from shared system packages.
 Use the compiler's supported PyTorch integration installer in the selected private
 Torch environment; Bench does not patch framework or compiler implementations.
 
-For the legacy Weft compiler, configure its existing compile/runtime paths instead.
-It remains a separate implementation adapter, with the same workload and input API.
+The published wheel can also be installed from the project's Release assets.
+Historical Weft results remain readable; the formal catalogs use Triton–Weft.
 
 ## Configure and make the first comparison
 
-Keep configuration outside the checkout. Start with `configs/example.json` for the
-legacy adapter; use the [Triton–Weft target fields](targets.md#tritonweft-candidates)
+Keep private configuration in an ignored `.local/` directory or the user's config directory.
+Start with `configs/example.json` and the [Triton–Weft target fields](targets.md#tritonweft-candidates)
 for source or AOT candidates. Replace example paths with your own compiler, library
 and model paths, then select the file explicitly:
 

@@ -1,0 +1,1040 @@
+{
+  "sg2044/normal CPU/RVV/llama2-7b-q4_0/prefill": {
+    "target": "sg2044",
+    "model": "llama2-7b-q4_0",
+    "phase": "prefill",
+    "normal_backend": "normal CPU/RVV",
+    "shape": {
+      "prompt": 128,
+      "generate": 0,
+      "depth": 0
+    },
+    "roles": [
+      "ggml.from_float/q8_0",
+      "ggml.from_float/q8_K",
+      "ggml.vec_dot/q4_0",
+      "ggml.vec_dot/q4_K"
+    ],
+    "measurement": {
+      "repetitions": 7,
+      "profile": false
+    },
+    "execution": {
+      "prompt": 128,
+      "generate": 0,
+      "depth": 0,
+      "threads": 64,
+      "batch": 2048,
+      "ubatch": 512,
+      "kv_k": "f16",
+      "kv_v": "f16",
+      "extra_args": [],
+      "cpus": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62,
+        63
+      ]
+    },
+    "numerical_check": "sampled-logits-within-tolerance"
+  },
+  "sg2044/normal CPU/RVV/llama2-7b-q4_0/decode": {
+    "target": "sg2044",
+    "model": "llama2-7b-q4_0",
+    "phase": "decode",
+    "normal_backend": "normal CPU/RVV",
+    "shape": {
+      "prompt": 0,
+      "generate": 32,
+      "depth": 512
+    },
+    "roles": [
+      "ggml.from_float/q8_0",
+      "ggml.from_float/q8_K",
+      "ggml.vec_dot/q4_0",
+      "ggml.vec_dot/q4_K"
+    ],
+    "measurement": {
+      "repetitions": 7,
+      "profile": false
+    },
+    "execution": {
+      "prompt": 0,
+      "generate": 32,
+      "depth": 512,
+      "threads": 64,
+      "batch": 2048,
+      "ubatch": 512,
+      "kv_k": "f16",
+      "kv_v": "f16",
+      "extra_args": [],
+      "cpus": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62,
+        63
+      ]
+    },
+    "numerical_check": "sampled-logits-within-tolerance"
+  },
+  "sg2044/normal CPU/RVV/deepseek8b-q4_k_m/prefill": {
+    "target": "sg2044",
+    "model": "deepseek8b-q4_k_m",
+    "phase": "prefill",
+    "normal_backend": "normal CPU/RVV",
+    "shape": {
+      "prompt": 128,
+      "generate": 0,
+      "depth": 0
+    },
+    "roles": [
+      "ggml.from_float/q8_0",
+      "ggml.from_float/q8_K",
+      "ggml.vec_dot/q4_0",
+      "ggml.vec_dot/q4_K"
+    ],
+    "measurement": {
+      "repetitions": 7,
+      "profile": false
+    },
+    "execution": {
+      "prompt": 128,
+      "generate": 0,
+      "depth": 0,
+      "threads": 64,
+      "batch": 2048,
+      "ubatch": 512,
+      "kv_k": "f16",
+      "kv_v": "f16",
+      "extra_args": [],
+      "cpus": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62,
+        63
+      ]
+    },
+    "numerical_check": "sampled-logits-within-tolerance"
+  },
+  "sg2044/normal CPU/RVV/deepseek8b-q4_k_m/decode": {
+    "target": "sg2044",
+    "model": "deepseek8b-q4_k_m",
+    "phase": "decode",
+    "normal_backend": "normal CPU/RVV",
+    "shape": {
+      "prompt": 0,
+      "generate": 32,
+      "depth": 512
+    },
+    "roles": [
+      "ggml.from_float/q8_0",
+      "ggml.from_float/q8_K",
+      "ggml.vec_dot/q4_0",
+      "ggml.vec_dot/q4_K"
+    ],
+    "measurement": {
+      "repetitions": 7,
+      "profile": false
+    },
+    "execution": {
+      "prompt": 0,
+      "generate": 32,
+      "depth": 512,
+      "threads": 64,
+      "batch": 2048,
+      "ubatch": 512,
+      "kv_k": "f16",
+      "kv_v": "f16",
+      "extra_args": [],
+      "cpus": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62,
+        63
+      ]
+    },
+    "numerical_check": "sampled-logits-within-tolerance"
+  },
+  "k1/normal RVV/IME/llama2-7b-q4_0/prefill": {
+    "target": "k1",
+    "model": "llama2-7b-q4_0",
+    "phase": "prefill",
+    "normal_backend": "normal RVV/IME",
+    "shape": {
+      "prompt": 128,
+      "generate": 0,
+      "depth": 0
+    },
+    "roles": [
+      "ggml.ime1/q4_centered_decode",
+      "ggml.ime1/q4_centered_prefill",
+      "ggml.vec_dot/q6_K"
+    ],
+    "measurement": {
+      "repetitions": 7,
+      "profile": false
+    },
+    "execution": {
+      "prompt": 128,
+      "generate": 0,
+      "depth": 0,
+      "threads": 8,
+      "batch": 2048,
+      "ubatch": 512,
+      "kv_k": "f16",
+      "kv_v": "f16",
+      "extra_args": [],
+      "cpus": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    },
+    "numerical_check": "sampled-logits-within-tolerance"
+  },
+  "k1/normal RVV/IME/llama2-7b-q4_0/decode": {
+    "target": "k1",
+    "model": "llama2-7b-q4_0",
+    "phase": "decode",
+    "normal_backend": "normal RVV/IME",
+    "shape": {
+      "prompt": 0,
+      "generate": 32,
+      "depth": 512
+    },
+    "roles": [
+      "ggml.ime1/q4_centered_decode",
+      "ggml.ime1/q4_centered_prefill",
+      "ggml.vec_dot/q6_K"
+    ],
+    "measurement": {
+      "repetitions": 7,
+      "profile": false
+    },
+    "execution": {
+      "prompt": 0,
+      "generate": 32,
+      "depth": 512,
+      "threads": 8,
+      "batch": 2048,
+      "ubatch": 512,
+      "kv_k": "f16",
+      "kv_v": "f16",
+      "extra_args": [],
+      "cpus": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    },
+    "numerical_check": "sampled-logits-within-tolerance"
+  },
+  "k1/normal RVV/IME/deepseek8b-q4_k_m/prefill": {
+    "target": "k1",
+    "model": "deepseek8b-q4_k_m",
+    "phase": "prefill",
+    "normal_backend": "normal RVV/IME",
+    "shape": {
+      "prompt": 128,
+      "generate": 0,
+      "depth": 0
+    },
+    "roles": [
+      "ggml.ime1/q4_affine_prefill",
+      "ggml.vec_dot/q4_K",
+      "ggml.vec_dot/q6_K"
+    ],
+    "measurement": {
+      "repetitions": 7,
+      "profile": false
+    },
+    "execution": {
+      "prompt": 128,
+      "generate": 0,
+      "depth": 0,
+      "threads": 8,
+      "batch": 2048,
+      "ubatch": 512,
+      "kv_k": "f16",
+      "kv_v": "f16",
+      "extra_args": [],
+      "cpus": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    },
+    "numerical_check": "sampled-logits-within-tolerance"
+  },
+  "k1/normal RVV/IME/deepseek8b-q4_k_m/decode": {
+    "target": "k1",
+    "model": "deepseek8b-q4_k_m",
+    "phase": "decode",
+    "normal_backend": "normal RVV/IME",
+    "shape": {
+      "prompt": 0,
+      "generate": 32,
+      "depth": 512
+    },
+    "roles": [
+      "ggml.ime1/q4_affine_prefill",
+      "ggml.vec_dot/q4_K",
+      "ggml.vec_dot/q6_K"
+    ],
+    "measurement": {
+      "repetitions": 7,
+      "profile": false
+    },
+    "execution": {
+      "prompt": 0,
+      "generate": 32,
+      "depth": 512,
+      "threads": 8,
+      "batch": 2048,
+      "ubatch": 512,
+      "kv_k": "f16",
+      "kv_v": "f16",
+      "extra_args": [],
+      "cpus": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    },
+    "numerical_check": "sampled-logits-within-tolerance"
+  },
+  "k3-a100-8t/CPU/RVV-only/deepseek8b-q4_k_m/prefill": {
+    "target": "k3-a100-8t",
+    "model": "deepseek8b-q4_k_m",
+    "phase": "prefill",
+    "normal_backend": "CPU/RVV-only",
+    "shape": {
+      "prompt": 32,
+      "generate": 0,
+      "depth": 0
+    },
+    "roles": [
+      "ggml.vec_dot/q4_K",
+      "ggml.vec_dot/q6_K"
+    ],
+    "measurement": {
+      "repetitions": 3,
+      "profile": false
+    },
+    "execution": {
+      "prompt": 32,
+      "generate": 0,
+      "depth": 0,
+      "threads": 8,
+      "batch": 2048,
+      "ubatch": 512,
+      "kv_k": "f16",
+      "kv_v": "f16",
+      "extra_args": [],
+      "cpus": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ]
+    },
+    "numerical_check": "sampled-logits-within-tolerance"
+  },
+  "k3-a100-8t/CPU/RVV-only/deepseek8b-q4_k_m/decode": {
+    "target": "k3-a100-8t",
+    "model": "deepseek8b-q4_k_m",
+    "phase": "decode",
+    "normal_backend": "CPU/RVV-only",
+    "shape": {
+      "prompt": 0,
+      "generate": 8,
+      "depth": 32
+    },
+    "roles": [
+      "ggml.vec_dot/q4_K",
+      "ggml.vec_dot/q6_K"
+    ],
+    "measurement": {
+      "repetitions": 3,
+      "profile": false
+    },
+    "execution": {
+      "prompt": 0,
+      "generate": 8,
+      "depth": 32,
+      "threads": 8,
+      "batch": 2048,
+      "ubatch": 512,
+      "kv_k": "f16",
+      "kv_v": "f16",
+      "extra_args": [],
+      "cpus": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ]
+    },
+    "numerical_check": "sampled-logits-within-tolerance"
+  },
+  "k3-a100-8t/SPERT/IME2 runtime enabled/deepseek8b-q4_k_m/prefill": {
+    "target": "k3-a100-8t",
+    "model": "deepseek8b-q4_k_m",
+    "phase": "prefill",
+    "normal_backend": "SPERT/IME2 runtime enabled",
+    "shape": {
+      "prompt": 32,
+      "generate": 0,
+      "depth": 0
+    },
+    "roles": [
+      "ggml.ime2/i8_decode",
+      "ggml.ime2/i8_prefill"
+    ],
+    "measurement": {
+      "repetitions": 3,
+      "profile": false
+    },
+    "execution": {
+      "prompt": 32,
+      "generate": 0,
+      "depth": 0,
+      "threads": 8,
+      "batch": 2048,
+      "ubatch": 512,
+      "kv_k": "f16",
+      "kv_v": "f16",
+      "extra_args": [
+        "-ngl",
+        "99"
+      ],
+      "cpus": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ]
+    },
+    "numerical_check": "sampled-logits-within-tolerance"
+  },
+  "k3-a100-8t/SPERT/IME2 runtime enabled/deepseek8b-q4_k_m/decode": {
+    "target": "k3-a100-8t",
+    "model": "deepseek8b-q4_k_m",
+    "phase": "decode",
+    "normal_backend": "SPERT/IME2 runtime enabled",
+    "shape": {
+      "prompt": 0,
+      "generate": 8,
+      "depth": 32
+    },
+    "roles": [
+      "ggml.ime2/i8_decode",
+      "ggml.ime2/i8_prefill"
+    ],
+    "measurement": {
+      "repetitions": 3,
+      "profile": false
+    },
+    "execution": {
+      "prompt": 0,
+      "generate": 8,
+      "depth": 32,
+      "threads": 8,
+      "batch": 2048,
+      "ubatch": 512,
+      "kv_k": "f16",
+      "kv_v": "f16",
+      "extra_args": [
+        "-ngl",
+        "99"
+      ],
+      "cpus": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ]
+    },
+    "numerical_check": "sampled-logits-within-tolerance"
+  },
+  "x86-8t-controlled/normal x86/AMX/llama2-7b-q4_0/prefill": {
+    "target": "x86-8t-controlled",
+    "model": "llama2-7b-q4_0",
+    "phase": "prefill",
+    "normal_backend": "normal x86/AMX",
+    "shape": {
+      "prompt": 128,
+      "generate": 0,
+      "depth": 0
+    },
+    "roles": [
+      "ggml.amx/q4_0_decode",
+      "ggml.amx/q4_0_prefill",
+      "ggml.from_float/q8_0"
+    ],
+    "measurement": {
+      "repetitions": 7,
+      "profile": false
+    },
+    "execution": {
+      "prompt": 128,
+      "generate": 0,
+      "depth": 0,
+      "threads": 8,
+      "batch": 2048,
+      "ubatch": 512,
+      "kv_k": "f16",
+      "kv_v": "f16",
+      "extra_args": [
+        "-ngl",
+        "0"
+      ],
+      "cpus": [
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39
+      ],
+      "numa": {
+        "memory_nodes": [
+          0
+        ]
+      }
+    },
+    "numerical_check": "sampled-logits-within-tolerance"
+  },
+  "x86-8t-controlled/normal x86/AMX/llama2-7b-q4_0/decode": {
+    "target": "x86-8t-controlled",
+    "model": "llama2-7b-q4_0",
+    "phase": "decode",
+    "normal_backend": "normal x86/AMX",
+    "shape": {
+      "prompt": 0,
+      "generate": 32,
+      "depth": 512
+    },
+    "roles": [
+      "ggml.amx/q4_0_decode",
+      "ggml.amx/q4_0_prefill",
+      "ggml.from_float/q8_0"
+    ],
+    "measurement": {
+      "repetitions": 7,
+      "profile": false
+    },
+    "execution": {
+      "prompt": 0,
+      "generate": 32,
+      "depth": 512,
+      "threads": 8,
+      "batch": 2048,
+      "ubatch": 512,
+      "kv_k": "f16",
+      "kv_v": "f16",
+      "extra_args": [
+        "-ngl",
+        "0"
+      ],
+      "cpus": [
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39
+      ],
+      "numa": {
+        "memory_nodes": [
+          0
+        ]
+      }
+    },
+    "numerical_check": "sampled-logits-within-tolerance"
+  },
+  "x86-8t-controlled/normal x86/AMX/deepseek8b-q4_k_m/prefill": {
+    "target": "x86-8t-controlled",
+    "model": "deepseek8b-q4_k_m",
+    "phase": "prefill",
+    "normal_backend": "normal x86/AMX",
+    "shape": {
+      "prompt": 128,
+      "generate": 0,
+      "depth": 0
+    },
+    "roles": [
+      "ggml.amx/q4_K_decode",
+      "ggml.amx/q4_K_prefill",
+      "ggml.amx/q6_K_decode",
+      "ggml.from_float/q8_K"
+    ],
+    "measurement": {
+      "repetitions": 7,
+      "profile": false
+    },
+    "execution": {
+      "prompt": 128,
+      "generate": 0,
+      "depth": 0,
+      "threads": 8,
+      "batch": 2048,
+      "ubatch": 512,
+      "kv_k": "f16",
+      "kv_v": "f16",
+      "extra_args": [
+        "-ngl",
+        "0"
+      ],
+      "cpus": [
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39
+      ],
+      "numa": {
+        "memory_nodes": [
+          0
+        ]
+      }
+    },
+    "numerical_check": "sampled-logits-within-tolerance"
+  },
+  "x86-8t-controlled/normal x86/AMX/deepseek8b-q4_k_m/decode": {
+    "target": "x86-8t-controlled",
+    "model": "deepseek8b-q4_k_m",
+    "phase": "decode",
+    "normal_backend": "normal x86/AMX",
+    "shape": {
+      "prompt": 0,
+      "generate": 32,
+      "depth": 512
+    },
+    "roles": [
+      "ggml.amx/q4_K_decode",
+      "ggml.amx/q4_K_prefill",
+      "ggml.amx/q6_K_decode",
+      "ggml.from_float/q8_K"
+    ],
+    "measurement": {
+      "repetitions": 7,
+      "profile": false
+    },
+    "execution": {
+      "prompt": 0,
+      "generate": 32,
+      "depth": 512,
+      "threads": 8,
+      "batch": 2048,
+      "ubatch": 512,
+      "kv_k": "f16",
+      "kv_v": "f16",
+      "extra_args": [
+        "-ngl",
+        "0"
+      ],
+      "cpus": [
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39
+      ],
+      "numa": {
+        "memory_nodes": [
+          0
+        ]
+      }
+    },
+    "numerical_check": "sampled-logits-within-tolerance"
+  },
+  "x86-8t-controlled/normal x86/AMX/qwen2.5-14b-q4_k_m/prefill": {
+    "target": "x86-8t-controlled",
+    "model": "qwen2.5-14b-q4_k_m",
+    "phase": "prefill",
+    "normal_backend": "normal x86/AMX",
+    "shape": {
+      "prompt": 128,
+      "generate": 0,
+      "depth": 0
+    },
+    "roles": [
+      "ggml.amx/q4_K_decode",
+      "ggml.amx/q4_K_prefill",
+      "ggml.amx/q6_K_decode",
+      "ggml.from_float/q8_K"
+    ],
+    "measurement": {
+      "repetitions": 7,
+      "profile": false
+    },
+    "execution": {
+      "prompt": 128,
+      "generate": 0,
+      "depth": 0,
+      "threads": 8,
+      "batch": 2048,
+      "ubatch": 512,
+      "kv_k": "f16",
+      "kv_v": "f16",
+      "extra_args": [
+        "-ngl",
+        "0"
+      ],
+      "cpus": [
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39
+      ],
+      "numa": {
+        "memory_nodes": [
+          0
+        ]
+      }
+    },
+    "numerical_check": "sampled-logits-within-tolerance"
+  },
+  "x86-8t-controlled/normal x86/AMX/qwen2.5-14b-q4_k_m/decode": {
+    "target": "x86-8t-controlled",
+    "model": "qwen2.5-14b-q4_k_m",
+    "phase": "decode",
+    "normal_backend": "normal x86/AMX",
+    "shape": {
+      "prompt": 0,
+      "generate": 32,
+      "depth": 512
+    },
+    "roles": [
+      "ggml.amx/q4_K_decode",
+      "ggml.amx/q4_K_prefill",
+      "ggml.amx/q6_K_decode",
+      "ggml.from_float/q8_K"
+    ],
+    "measurement": {
+      "repetitions": 7,
+      "profile": false
+    },
+    "execution": {
+      "prompt": 0,
+      "generate": 32,
+      "depth": 512,
+      "threads": 8,
+      "batch": 2048,
+      "ubatch": 512,
+      "kv_k": "f16",
+      "kv_v": "f16",
+      "extra_args": [
+        "-ngl",
+        "0"
+      ],
+      "cpus": [
+        32,
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39
+      ],
+      "numa": {
+        "memory_nodes": [
+          0
+        ]
+      }
+    },
+    "numerical_check": "sampled-logits-within-tolerance"
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "ggml-cpu-rvv": {
+    "provider": "GGML", "source": "https://github.com/ggml-org/llama.cpp",
+    "revision": "Retained source snapshot and compile database identify each fixed build; no unrecorded commit is inferred.",
+    "targets": ["sg2044", "k1", "k3-a100"],
+    "workloads": "Quantized dot/rows, quantize/dequantize, projection, normalization, RoPE, softmax and dense computation",
+    "boundary": "Native leaf or full prepared graph, exactly as recorded by each case",
+    "build": "Clang 23, Release -O3, native ISA/VLEN, normal repack and available vendor features retained"
+  },
+  "ggml-cpu-x86": {
+    "provider": "GGML", "source": "https://github.com/ggml-org/llama.cpp", "revision": "620d222",
+    "targets": ["x86-1t"], "boundary": "Selected native function or complete model-default projection",
+    "build": "Clang 23, Release -O3, native x86 ISA; AMX-named buffer does not prove AMX instructions"
+  },
+  "ggml-ime1": {
+    "provider": "GGML SpacemiT IME1", "targets": ["k1"],
+    "entry": "spacemit_kernels::ime1::gemm_kernel_i8i4",
+    "boundary": "Packed M4/M1 row tile; persistent preparation outside both measurements",
+    "build": "Same recorded GGML source and normal IME1 build as the corresponding baseline"
+  },
+  "ggml-ime2": {
+    "provider": "SpacemiT IME2", "targets": ["k3-a100"], "revision": "6df9f75",
+    "entry": "spacemit_kernels::ime2::gemm_kernel_i8i8",
+    "boundary": "Signed I8 packed M4/M1, N32, K512; Q6_K/Q8_0 storage contract",
+    "source_file": "ggml/src/ggml-spacemit/ime2_kernels.cpp",
+    "local_patches": ["ggml-iq2-s-rvv1024.patch", "ggml-iqxxs-rvv.patch"],
+    "build": "Clang 23 and compatible external assembler; A100 registration before affinity"
+  },
+  "openblas": {
+    "provider": "OpenBLAS", "source": "https://github.com/OpenMathLib/OpenBLAS", "version": "0.3.34",
+    "workloads": ["gemm_f32"], "entry": "cblas_sgemm", "boundary": "LP64 SGEMM X[M,K] times W[N,K] transpose"
+  },
+  "onednn": {
+    "provider": "oneDNN", "source": "https://github.com/uxlfoundation/oneDNN", "version": "3.13.4",
+    "workloads": ["gemm_f32", "gemm_bf16_f32", "gemm_s8_s32"],
+    "boundary": "Plain-stride matmul execute plus wait, internal packing included; strict F32"
+  },
+  "llama-normal": {
+    "provider": "Normal llama.cpp", "source": "https://github.com/ggml-org/llama.cpp",
+    "boundary": "Prefill and decode separately; loading, compilation and startup excluded",
+    "build": "Retain normal repack, OpenMP and configured vendor backend; source and runtime policy per model",
+    "note": "K3 CPU/RVV and vendor IME2 are separate reference policies"
+  }
+}

@@ -3,9 +3,9 @@ name: benchmark
 description: 使用 Weft Bench 比较 Triton–Weft 的 x86/RVV kernel 与 GGML 等参考库，或测量 llama.cpp 的 prefill/decode；支持配置验证、固定 baseline 复用与失败复现，也保留旧 Weft 接入。
 ---
 
-# Weft Bench
+# Triton–Weft Bench
 
-直接使用已安装的 `weft-bench`。算子使用现有 workload、输入与 GGML reference；
+直接使用已安装的 `weft-bench`，默认候选为正式 Triton–Weft 安装。算子使用现有 workload、输入与固定 reference；
 模型使用正常 llama.cpp 与显式选择的 Weft package。插件负责操作指引和本机环境发现，
 测量、编译、package、SSH 与结果比较由现有工具完成。
 
@@ -27,8 +27,11 @@ python3 "$BENCH_SKILL/scripts/bench.py" list
 本机可在 `environments` 中配置独立的 Bench 安装和配置。启动器前缀
 `--environment NAME` 选择其中一组；未指定时保持原默认环境。显式环境的配置优先于继承的
 `WEFT_BENCH_CONFIG`，CLI `--config` 仍可覆盖。`--plugin-info` 会列出已配置环境名称。
-Triton–Weft 任务读取 [Triton native 接入](references/triton.md)，显式选择相应环境和实现；
-插件名称不决定编译器，未指定环境仍可能使用旧 Weft。
+正式环境通过 target 选择 sg2044、k1、k3-a100 或 x86-1t，不再依赖旧 Weft 默认路线。
+读取 [Triton native 接入](references/triton.md)，使用 `--plugin-info` 核对实际安装与配置。
+`list --kind targets|kernels|baselines|models|suites` 展示正式登记项；
+`show CASE --target TARGET` 给出 DSL、物理参数、计时范围和保留产物证据。
+数学上属于矩阵乘法不表示执行矩阵指令；区分作者 engine、产物扩展与实际分支观察。
 使用 x86 候选或参考库时读取 [x86 工作流](references/x86.md)。同一编译链支持 pointer/scalar、
 dense/packed View、动态及大型 local Value，含 Level/state/stage；保留作者原 shape/tile，
 按实际 artifact 的 ISA 与运行权限执行。Config、缓存与 AOT 语义见
@@ -51,7 +54,8 @@ dense/packed View、动态及大型 local Value，含 Level/state/stage；保留
 | 运行配置中的用例组 | `list --kind suites --config CONFIG --target TARGET`，再用 `op --suite NAME`；见 [环境与操作](references/workflows.md) |
 | 使用固定 ref | 同一场景加 `--baseline REF_RUN`；默认只测候选 |
 | 改前改后比较 | `compare BEFORE AFTER`；配置了旧版时也可用 `check --case CASE` |
-| 指定 llama.cpp 替换 | `e2e MODEL --replace ROLE=KERNEL --phase prefill|decode|both` |
+| 构建已选模型配方 | `prepare-model --model MODEL --target TARGET --output DIR`；配方已有明确角色和 source |
+| 指定 llama.cpp 替换 | `e2e MODEL --replace ROLE=KERNEL --phase prefill|decode|both`；`--model-profile` 选择配置的正常后端策略 |
 | 只检查模型数值或定位 dot 差异 | `validate-model MODEL --target TARGET --output DIR --validation-reference REF_DIR`；`--check-dots` 保存首个超差输入 |
 | 解释或复现失败 | `explain RUN --case CASE` / `replay RUN --case CASE` |
 | 验证编译器改动、安装包或运行时 | `verify --target TARGET --list` 查看任务配置，再按 `--case` / `--group` 选择；见 [验证与恢复](references/verification.md) |
@@ -84,6 +88,9 @@ dense/packed View、动态及大型 local Value，含 Level/state/stage；保留
 - `verify` 是配置驱动的正确性流程，不生成算子耗时或加速比。编译成功、数值通过、
   框架支持和性能改善分别呈现；不要因用户要求性能测量而自动运行完整验证清单。
 
-输出保存在任务选择的目录，通常位于仓库外的运行目录。返回结果表或 CSV/JSON 链接、
+输出保存在 Bench 的 `output/`：固定 baseline、current、reports 分开。默认 target/case 路径稳定，
+新状态写完后替换旧状态，失败不能被上次成功掩盖。依赖与环境位于 `.local/`，不进入 Git。
+当前安装与正式目录从 `--plugin-info` 和本地配置读取，公共说明不保存机器路径。
+返回结果表或 CSV/JSON 链接、
 对应范围和下一步定位入口；区分编译失败、数值失败、运行成功和性能改善。
 输出与 replay 材料可能包含本机路径、SSH 别名及配置，只在任务需要时共享。

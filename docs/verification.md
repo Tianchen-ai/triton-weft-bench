@@ -103,7 +103,7 @@ provenance snapshot. Destinations cannot replace worker files. For example:
   },
   "runtime": {
     "source_files": {
-      "public_affine_strided.py": "/work/Triton-Weft/third_party/weft/source/weft/dense/affine_strided.py"
+      "public_affine_strided.py": "/path/to/site-packages/weft_bench/kernels/dense/affine_strided.py"
     }
   }
 }

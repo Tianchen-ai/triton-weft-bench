@@ -46,6 +46,8 @@ def snapshot(entry, target):
         paths.append(probes / (entry["kind"] + "_process.py"))
         paths.append(probes / ("framework_kernels" if entry["kind"] == "framework" else "runtime_kernels.py"))
         if entry["kind"] == "runtime":
+            if entry["case"] == "distribution":
+                paths.append(probes / "cpu_distribution.py")
             paths.extend(probes / name for name in
                          ("riscv_kernels.py", "memory_kernels.py", "numerical_kernels.py",
                           "numerical_primitive_kernels.py", "numerical_primitives.py", "control_kernels.py", "helper_native.py",

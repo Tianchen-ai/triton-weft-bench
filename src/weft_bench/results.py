@@ -14,6 +14,15 @@ MIXED_PROJECTION_SCOPE = "projection-preserves-f32-activation"
 MODEL_WEIGHTS_SCOPE = PROJECTION_SCOPE + "/persistent-model-default-weights"
 
 
+def execution_contract(execution):
+    """Resolve an existing local launcher alias, preserving recorded evidence."""
+    numa = execution.get("numa", {})
+    command = numa.get("command")
+    if isinstance(command, str) and Path(command).is_absolute() and Path(command).is_file():
+        return {**execution, "numa": {**numa, "command": str(Path(command).resolve())}}
+    return execution
+
+
 def projection_scope(scope):
     for base in (PROJECTION_SCOPE, MIXED_PROJECTION_SCOPE):
         if scope in (base, base + "/persistent-model-default-weights"):
@@ -41,7 +50,7 @@ def contract(row):
         d.get("input_policy"),
         d.get("dtype"),
         d.get("phase"),
-        json.dumps(d.get("execution", {}), sort_keys=True),
+        json.dumps(execution_contract(d.get("execution", {})), sort_keys=True),
         json.dumps(d.get("model_build_policy"), sort_keys=True),
         json.dumps(backend_policy(d.get("runtime_environment", {})), sort_keys=True),
     )
@@ -290,11 +299,25 @@ def save(rows, destination):
     return path
 
 
-def read(path):
+def read(path, *, _visited=()):
     path = Path(path)
     if path.is_dir():
-        path = path / "results.json"
-    rows = [Result(**row) for row in json.loads(path.read_text())["results"]]
+        path = path / ("index.json" if (path / "index.json").is_file() else "results.json")
+    identity = path.resolve()
+    if identity in _visited:
+        raise ValueError("cyclic result index: " + str(path))
+    data = json.loads(path.read_text())
+    if "sources" in data:
+        rows = []
+        for source in data["sources"]:
+            location = path.parent / source["path"]
+            selected = read(location, _visited=(*_visited, identity))
+            rows.extend(row for row in selected
+                        if ("cases" not in source or row.case in source["cases"])
+                        and ("implementation" not in source or row.implementation == source["implementation"])
+                        and ("target" not in source or row.target == source["target"]))
+        return rows
+    rows = [Result(**row) for row in data["results"]]
     # A copied run can replay its own captured canonical IR on a different host.
     for row in rows:
         local = path.parent / "artifacts" / row.case / row.implementation

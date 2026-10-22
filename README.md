@@ -1,6 +1,6 @@
-# Weft Bench
+# Triton–Weft Bench
 
-Compare Triton–Weft or Weft kernels with GGML, or compare normal llama.cpp with
+Compare Triton–Weft kernels with GGML, or compare normal llama.cpp with
 explicitly selected kernel replacements. Pick an operation, inputs and implementation;
 Bench prepares the shared inputs, checks outputs and measures the native call.
 
@@ -10,30 +10,53 @@ OpenBLAS F32 GEMM, and oneDNN strict F32, BF16/F32 or S8/S32 matmul. See the
 a compiler candidate is available.
 
 ```sh
-git clone https://github.com/Tianchen-ai/Weft-Bench.git
-cd Weft-Bench
-python3 -m venv .venv
-.venv/bin/python -m pip install -e .
-export PATH="$PWD/.venv/bin:$PATH"
+python -m pip install https://github.com/Tianchen-ai/triton-weft-bench/releases/download/v0.4.0/triton_weft_bench-0.4.0-py3-none-any.whl
 export WEFT_BENCH_CONFIG=/path/to/bench.local.json
 
-# Preset kernel and input, compared with the configured GGML library.
-weft-bench op q4_k_dot --target rvv128
+# See the selected author program, reference and artifact evidence.
+weft-bench list --kind targets
+weft-bench show q4_k_dot --target k1
+weft-bench list --kind baselines
+weft-bench list --kind models --target k1 --config "$WEFT_BENCH_CONFIG"
+
+# Reuse the configured fixed reference; only the candidate is measured.
+weft-bench op q4_k_dot --target k1
 
 # Your kernel, existing workload and reference. No benchmark driver to write.
-weft-bench op rms_norm --weft /work/norm.py:my_norm --inputs decode --target rvv128
+weft-bench op rms_norm --weft /work/norm.py:my_norm --inputs decode --target k1
 
 # Select exactly which llama.cpp entry to replace.
-weft-bench e2e llama2-7b-q4_0 --target rvv128 \
+weft-bench e2e llama2-7b-q4_0 --target k1 \
   --replace ggml.vec_dot/q4_0=/work/dot.py:my_dot --phase both
 ```
 
 The supported scope is intentionally concrete: GGML operator references and preset
-llama.cpp workloads, with Triton–Weft or Weft source/artifact candidates. Runtime/library paths,
+llama.cpp workloads, with Triton–Weft source/artifact candidates. Historical Weft results
+remain readable. Runtime/library paths,
 compiler targets and local/SSH deployment are external configuration.
 The examples assume that configuration already exists. See [installation](docs/install.md)
 to choose the compiler adapter, native SDK and target environment. Target names are
 local aliases; installing Bench does not install a compiler, GGML or model weights.
+
+`main` is the product branch. The complete optimized corpus is an installable
+`weft_bench.kernels` package. Public catalogs contain the selected DSL, shape,
+physical parameters, reference provider and retained hardware evidence:
+
+| Target catalog | Registered cases |
+|---|---:|
+| SG2044 | 133 |
+| K1 | 137 |
+| K3 A100 | 133 + 2 IME2 |
+| x86 single-thread | 146 |
+
+The [catalog guide](docs/catalogs.md) explains these selections and the 9 model
+package recipes. A GEMM name does not imply matrix hardware: author constraints,
+instructions in an artifact and an observed conditional execution path are separate.
+
+Results default to stable target/case locations under `output/`. Fixed baselines,
+current results and reports are separate; `.local/` contains private dependencies
+and environments. Neither directory is published. A failed update becomes the
+current result and cannot masquerade as the preceding successful run.
 
 | Select independently | Meaning |
 |---|---|

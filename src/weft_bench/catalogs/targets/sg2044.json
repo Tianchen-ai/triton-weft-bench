@@ -1,0 +1,4849 @@
+{
+  "description": "Selected author programs and measurement contracts; local resources are configured separately.",
+  "cases": {
+    "q4_k_projection_decode": {
+      "shape": {
+        "M": 1,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "q4_k*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/mul_mat/q4_k_decode.py",
+        "symbol": "production_mul_mat_q4_k_decode",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 8,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q4_k_projection_prefill": {
+      "shape": {
+        "M": 128,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "q4_k*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/mul_mat/q4_k_staged.py",
+        "symbol": "production_mul_mat_q4_k_staged",
+        "signature": {},
+        "constexprs": {
+          "NC": 64,
+          "KC": 256,
+          "MC": 16,
+          "MR": 1
+        },
+        "backend_options": {
+          "lmul_eighths": 32,
+          "unroll": 2,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "gemm_f32": {
+      "shape": {
+        "M": 128,
+        "N": 256,
+        "K": 256
+      },
+      "scope": "preallocated-gemm",
+      "dtype": "f32",
+      "candidate": {
+        "source": "package:kernels/dense/basic/gemm_f32.py",
+        "symbol": "gemm_f32",
+        "signature": {},
+        "constexprs": {
+          "MC": 64,
+          "NC": 16,
+          "MR": 2,
+          "NR": 2
+        },
+        "backend_options": {
+          "lmul_eighths": 16,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q8_0_quantize": {
+      "shape": {
+        "rows": 1,
+        "K": 4096
+      },
+      "scope": "activation-quantization",
+      "dtype": "f32->q8_0",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/quantize/q8_0.py",
+        "symbol": "q8_0_quantize",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 32,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q8_1_quantize": {
+      "shape": {
+        "rows": 1,
+        "K": 4096
+      },
+      "scope": "activation-quantization",
+      "dtype": "f32->q8_1",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/quantize/q8_1.py",
+        "symbol": "q8_1_quantize",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 64,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q8_k_quantize": {
+      "shape": {
+        "rows": 1,
+        "K": 4096
+      },
+      "scope": "activation-quantization",
+      "dtype": "f32->q8_k",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/quantize/q8_k.py",
+        "symbol": "q8_K_quantize",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 16,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq1_m_dot": {
+      "shape": {
+        "rows": 1,
+        "K": 4096
+      },
+      "scope": "vec-dot-leaf",
+      "dtype": "iq1_m*q8_k",
+      "candidate": {
+        "source": "package:kernels/ggml/vec_dot/grouped_lookup.py",
+        "symbol": "iq1_m",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 64,
+          "unroll": 1,
+          "pipeline_depth": 1
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq1_m_dot_rows": {
+      "shape": {
+        "rows": 4096,
+        "K": 4096
+      },
+      "scope": "independent-dots-shared-activation",
+      "dtype": "iq1_m*q8_k",
+      "candidate": {
+        "source": "package:kernels/ggml/vec_dot/grouped_lookup.py",
+        "symbol": "iq1_m",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 64,
+          "unroll": 1,
+          "pipeline_depth": 1
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq1_s_dot": {
+      "shape": {
+        "rows": 1,
+        "K": 4096
+      },
+      "scope": "vec-dot-leaf",
+      "dtype": "iq1_s*q8_k",
+      "candidate": {
+        "source": "package:kernels/ggml/vec_dot/grouped_lookup.py",
+        "symbol": "iq1_s",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 64,
+          "unroll": 1,
+          "pipeline_depth": 1
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq1_s_dot_rows": {
+      "shape": {
+        "rows": 4096,
+        "K": 4096
+      },
+      "scope": "independent-dots-shared-activation",
+      "dtype": "iq1_s*q8_k",
+      "candidate": {
+        "source": "package:kernels/ggml/vec_dot/grouped_lookup.py",
+        "symbol": "iq1_s",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 64,
+          "unroll": 1,
+          "pipeline_depth": 1
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq2_s_dot": {
+      "shape": {
+        "rows": 1,
+        "K": 4096
+      },
+      "scope": "vec-dot-leaf",
+      "dtype": "iq2_s*q8_k",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/vec_dot/iq2_s_q8_k.py",
+        "symbol": "quantized_vec_dot_iq2_s_q8_k",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 32,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq2_s_dot_rows": {
+      "shape": {
+        "rows": 4096,
+        "K": 4096
+      },
+      "scope": "independent-dots-shared-activation",
+      "dtype": "iq2_s*q8_k",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/vec_dot/iq2_s_q8_k.py",
+        "symbol": "quantized_vec_dot_iq2_s_q8_k",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 32,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq2_xs_dot": {
+      "shape": {
+        "rows": 1,
+        "K": 4096
+      },
+      "scope": "vec-dot-leaf",
+      "dtype": "iq2_xs*q8_k",
+      "candidate": {
+        "source": "package:kernels/ggml/vec_dot/grouped_lookup.py",
+        "symbol": "iq2_xs",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 64,
+          "unroll": 1,
+          "pipeline_depth": 1
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq2_xs_dot_rows": {
+      "shape": {
+        "rows": 4096,
+        "K": 4096
+      },
+      "scope": "independent-dots-shared-activation",
+      "dtype": "iq2_xs*q8_k",
+      "candidate": {
+        "source": "package:kernels/ggml/vec_dot/grouped_lookup.py",
+        "symbol": "iq2_xs",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 64,
+          "unroll": 1,
+          "pipeline_depth": 1
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq2_xxs_dot": {
+      "shape": {
+        "rows": 1,
+        "K": 4096
+      },
+      "scope": "vec-dot-leaf",
+      "dtype": "iq2_xxs*q8_k",
+      "candidate": {
+        "source": "package:kernels/ggml/vec_dot/grouped_lookup.py",
+        "symbol": "iq2_xxs",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 32,
+          "unroll": 1,
+          "pipeline_depth": 1
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq2_xxs_dot_rows": {
+      "shape": {
+        "rows": 4096,
+        "K": 4096
+      },
+      "scope": "independent-dots-shared-activation",
+      "dtype": "iq2_xxs*q8_k",
+      "candidate": {
+        "source": "package:kernels/ggml/vec_dot/grouped_lookup.py",
+        "symbol": "iq2_xxs",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 64,
+          "unroll": 1,
+          "pipeline_depth": 1
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq3_s_dot": {
+      "shape": {
+        "rows": 1,
+        "K": 4096
+      },
+      "scope": "vec-dot-leaf",
+      "dtype": "iq3_s*q8_k",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/vec_dot/iq3_s_q8_k.py",
+        "symbol": "quantized_vec_dot_iq3_s_q8_k",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 32,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq3_s_dot_rows": {
+      "shape": {
+        "rows": 4096,
+        "K": 4096
+      },
+      "scope": "independent-dots-shared-activation",
+      "dtype": "iq3_s*q8_k",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/vec_dot/iq3_s_q8_k.py",
+        "symbol": "quantized_vec_dot_iq3_s_q8_k",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 32,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq3_xxs_dot": {
+      "shape": {
+        "rows": 1,
+        "K": 4096
+      },
+      "scope": "vec-dot-leaf",
+      "dtype": "iq3_xxs*q8_k",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/vec_dot/iq3_xxs_q8_k.py",
+        "symbol": "quantized_vec_dot_iq3_xxs_q8_k",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 64,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq3_xxs_dot_rows": {
+      "shape": {
+        "rows": 4096,
+        "K": 4096
+      },
+      "scope": "independent-dots-shared-activation",
+      "dtype": "iq3_xxs*q8_k",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/vec_dot/iq3_xxs_q8_k.py",
+        "symbol": "quantized_vec_dot_iq3_xxs_q8_k",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 64,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq4_nl_dot": {
+      "shape": {
+        "rows": 1,
+        "K": 4096
+      },
+      "scope": "vec-dot-leaf",
+      "dtype": "iq4_nl*q8_0",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/vec_dot/iq4_nl_q8_0.py",
+        "symbol": "quantized_vec_dot_iq4_nl_q8_0",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq4_nl_dot_rows": {
+      "shape": {
+        "rows": 4096,
+        "K": 4096
+      },
+      "scope": "independent-dots-shared-activation",
+      "dtype": "iq4_nl*q8_0",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/vec_dot/iq4_nl_q8_0.py",
+        "symbol": "quantized_vec_dot_iq4_nl_q8_0",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq4_xs_dot": {
+      "shape": {
+        "rows": 1,
+        "K": 4096
+      },
+      "scope": "vec-dot-leaf",
+      "dtype": "iq4_xs*q8_k",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/vec_dot/iq4_xs_q8_k.py",
+        "symbol": "quantized_vec_dot_iq4_xs_q8_k",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq4_xs_dot_rows": {
+      "shape": {
+        "rows": 4096,
+        "K": 4096
+      },
+      "scope": "independent-dots-shared-activation",
+      "dtype": "iq4_xs*q8_k",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/vec_dot/iq4_xs_q8_k.py",
+        "symbol": "quantized_vec_dot_iq4_xs_q8_k",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "mxfp4_dot": {
+      "shape": {
+        "rows": 1,
+        "K": 4096
+      },
+      "scope": "vec-dot-leaf",
+      "dtype": "mxfp4*q8_0",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/vec_dot/mxfp4_q8_0.py",
+        "symbol": "quantized_vec_dot_mxfp4_q8_0",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "mxfp4_dot_rows": {
+      "shape": {
+        "rows": 4096,
+        "K": 4096
+      },
+      "scope": "independent-dots-shared-activation",
+      "dtype": "mxfp4*q8_0",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/vec_dot/mxfp4_q8_0.py",
+        "symbol": "quantized_vec_dot_mxfp4_q8_0",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "nvfp4_dot": {
+      "shape": {
+        "rows": 1,
+        "K": 4096
+      },
+      "scope": "vec-dot-leaf",
+      "dtype": "nvfp4*q8_0",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/vec_dot/nvfp4_q8_0.py",
+        "symbol": "quantized_vec_dot_nvfp4_q8_0",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "nvfp4_dot_rows": {
+      "shape": {
+        "rows": 4096,
+        "K": 4096
+      },
+      "scope": "independent-dots-shared-activation",
+      "dtype": "nvfp4*q8_0",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/vec_dot/nvfp4_q8_0.py",
+        "symbol": "quantized_vec_dot_nvfp4_q8_0",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q1_0_dot": {
+      "shape": {
+        "rows": 1,
+        "K": 4096
+      },
+      "scope": "vec-dot-leaf",
+      "dtype": "q1_0*q8_0",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/vec_dot/q1_0_q8_0.py",
+        "symbol": "quantized_vec_dot_q1_0_q8_0",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 16,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q1_0_dot_rows": {
+      "shape": {
+        "rows": 4096,
+        "K": 4096
+      },
+      "scope": "independent-dots-shared-activation",
+      "dtype": "q1_0*q8_0",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/vec_dot/q1_0_q8_0.py",
+        "symbol": "quantized_vec_dot_q1_0_q8_0",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 4,
+          "pipeline_depth": 1
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q2_k_dot": {
+      "shape": {
+        "rows": 1,
+        "K": 4096
+      },
+      "scope": "vec-dot-leaf",
+      "dtype": "q2_k*q8_k",
+      "candidate": {
+        "source": "package:kernels/ggml/vec_dot/q2_k.py",
+        "symbol": "dot",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 16,
+          "unroll": 1,
+          "pipeline_depth": 1
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q2_k_dot_rows": {
+      "shape": {
+        "rows": 4096,
+        "K": 4096
+      },
+      "scope": "independent-dots-shared-activation",
+      "dtype": "q2_k*q8_k",
+      "candidate": {
+        "source": "package:kernels/ggml/vec_dot/q2_k.py",
+        "symbol": "dot",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 16,
+          "unroll": 1,
+          "pipeline_depth": 1
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q3_k_dot": {
+      "shape": {
+        "rows": 1,
+        "K": 4096
+      },
+      "scope": "vec-dot-leaf",
+      "dtype": "q3_k*q8_k",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/vec_dot/q3_k_q8_k.py",
+        "symbol": "quantized_vec_dot_q3_k_q8_k",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 32,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 1,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q3_k_dot_rows": {
+      "shape": {
+        "rows": 4096,
+        "K": 4096
+      },
+      "scope": "independent-dots-shared-activation",
+      "dtype": "q3_k*q8_k",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/vec_dot/q3_k_q8_k.py",
+        "symbol": "quantized_vec_dot_q3_k_q8_k",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 32,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 1,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q4_0_dot": {
+      "shape": {
+        "rows": 1,
+        "K": 4096
+      },
+      "scope": "vec-dot-leaf",
+      "dtype": "q4_0*q8_0",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/vec_dot/q4_0_q8_0.py",
+        "symbol": "quantized_vec_dot_q4_0_q8_0",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 2,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q4_0_dot_rows": {
+      "shape": {
+        "rows": 4096,
+        "K": 4096
+      },
+      "scope": "independent-dots-shared-activation",
+      "dtype": "q4_0*q8_0",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/vec_dot/q4_0_q8_0.py",
+        "symbol": "quantized_vec_dot_q4_0_q8_0",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 2,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q4_1_dot": {
+      "shape": {
+        "rows": 1,
+        "K": 4096
+      },
+      "scope": "vec-dot-leaf",
+      "dtype": "q4_1*q8_1",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/vec_dot/q4_1_q8_1.py",
+        "symbol": "quantized_vec_dot_q4_1_q8_1",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q4_1_dot_rows": {
+      "shape": {
+        "rows": 4096,
+        "K": 4096
+      },
+      "scope": "independent-dots-shared-activation",
+      "dtype": "q4_1*q8_1",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/vec_dot/q4_1_q8_1.py",
+        "symbol": "quantized_vec_dot_q4_1_q8_1",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q4_k_dot": {
+      "shape": {
+        "rows": 1,
+        "K": 4096
+      },
+      "scope": "vec-dot-leaf",
+      "dtype": "q4_k*q8_k",
+      "candidate": {
+        "source": "package:kernels/ggml/vec_dot/q4_k_q8_k.py",
+        "symbol": "quantized_vec_dot_q4_k_q8_k",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 8,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q4_k_dot_rows": {
+      "shape": {
+        "rows": 4096,
+        "K": 4096
+      },
+      "scope": "independent-dots-shared-activation",
+      "dtype": "q4_k*q8_k",
+      "candidate": {
+        "source": "package:kernels/ggml/vec_dot/q4_k_q8_k.py",
+        "symbol": "quantized_vec_dot_q4_k_q8_k",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 8,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "pointwise_issue_copies": 1,
+          "contraction_column_copies": 4,
+          "panel_transfer_fields": 4,
+          "panel_transfer_strategy": "issue-work",
+          "contraction_panel_k": 128,
+          "contraction_k_steps": 4,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record",
+          "max_widening_combine_groups": 2,
+          "matrix_extension": "none",
+          "local_tile_strategy": "target-default",
+          "private_stack_bytes": 65536,
+          "required_extensions": []
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q5_0_dot": {
+      "shape": {
+        "rows": 1,
+        "K": 4096
+      },
+      "scope": "vec-dot-leaf",
+      "dtype": "q5_0*q8_0",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/vec_dot/q5_0_q8_0.py",
+        "symbol": "quantized_vec_dot_q5_0_q8_0",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 16,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q5_0_dot_rows": {
+      "shape": {
+        "rows": 4096,
+        "K": 4096
+      },
+      "scope": "independent-dots-shared-activation",
+      "dtype": "q5_0*q8_0",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/vec_dot/q5_0_q8_0.py",
+        "symbol": "quantized_vec_dot_q5_0_q8_0",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 16,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q5_1_dot": {
+      "shape": {
+        "rows": 1,
+        "K": 4096
+      },
+      "scope": "vec-dot-leaf",
+      "dtype": "q5_1*q8_1",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/vec_dot/q5_1_q8_1.py",
+        "symbol": "quantized_vec_dot_q5_1_q8_1",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 16,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q5_1_dot_rows": {
+      "shape": {
+        "rows": 4096,
+        "K": 4096
+      },
+      "scope": "independent-dots-shared-activation",
+      "dtype": "q5_1*q8_1",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/vec_dot/q5_1_q8_1.py",
+        "symbol": "quantized_vec_dot_q5_1_q8_1",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 16,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q5_k_dot": {
+      "shape": {
+        "rows": 1,
+        "K": 4096
+      },
+      "scope": "vec-dot-leaf",
+      "dtype": "q5_k*q8_k",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/vec_dot/q5_k_q8_k.py",
+        "symbol": "quantized_vec_dot_q5_k_q8_k",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q5_k_dot_rows": {
+      "shape": {
+        "rows": 4096,
+        "K": 4096
+      },
+      "scope": "independent-dots-shared-activation",
+      "dtype": "q5_k*q8_k",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/vec_dot/q5_k_q8_k.py",
+        "symbol": "quantized_vec_dot_q5_k_q8_k",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q6_k_dot": {
+      "shape": {
+        "rows": 1,
+        "K": 4096
+      },
+      "scope": "vec-dot-leaf",
+      "dtype": "q6_k*q8_k",
+      "candidate": {
+        "source": "package:kernels/ggml/vec_dot/q6_k.py",
+        "symbol": "dot_stream_scale_groups",
+        "signature": {},
+        "constexprs": {
+          "GROUPS": 2
+        },
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q6_k_dot_rows": {
+      "shape": {
+        "rows": 4096,
+        "K": 4096
+      },
+      "scope": "independent-dots-shared-activation",
+      "dtype": "q6_k*q8_k",
+      "candidate": {
+        "source": "package:kernels/ggml/vec_dot/q6_k.py",
+        "symbol": "dot_stream_scale_groups",
+        "signature": {},
+        "constexprs": {
+          "GROUPS": 2
+        },
+        "backend_options": {
+          "lmul_eighths": 32,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q8_0_dot": {
+      "shape": {
+        "rows": 1,
+        "K": 4096
+      },
+      "scope": "vec-dot-leaf",
+      "dtype": "q8_0*q8_0",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/vec_dot/q8_0_q8_0.py",
+        "symbol": "quantized_vec_dot_q8_0_q8_0",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q8_0_dot_rows": {
+      "shape": {
+        "rows": 4096,
+        "K": 4096
+      },
+      "scope": "independent-dots-shared-activation",
+      "dtype": "q8_0*q8_0",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/vec_dot/q8_0_q8_0.py",
+        "symbol": "quantized_vec_dot_q8_0_q8_0",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "tq1_0_dot": {
+      "shape": {
+        "rows": 1,
+        "K": 4096
+      },
+      "scope": "vec-dot-leaf",
+      "dtype": "tq1_0*q8_k",
+      "candidate": {
+        "source": "package:kernels/ggml/vec_dot/ternary.py",
+        "symbol": "tq1_0",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 16,
+          "unroll": 1,
+          "pipeline_depth": 1
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "tq1_0_dot_rows": {
+      "shape": {
+        "rows": 4096,
+        "K": 4096
+      },
+      "scope": "independent-dots-shared-activation",
+      "dtype": "tq1_0*q8_k",
+      "candidate": {
+        "source": "package:kernels/ggml/vec_dot/ternary.py",
+        "symbol": "tq1_0",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 16,
+          "unroll": 1,
+          "pipeline_depth": 1
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "tq2_0_dot": {
+      "shape": {
+        "rows": 1,
+        "K": 4096
+      },
+      "scope": "vec-dot-leaf",
+      "dtype": "tq2_0*q8_k",
+      "candidate": {
+        "source": "package:kernels/ggml/vec_dot/ternary.py",
+        "symbol": "tq2_0",
+        "signature": {},
+        "constexprs": {
+          "LANES": 64
+        },
+        "backend_options": {
+          "lmul_eighths": 32,
+          "unroll": 1,
+          "pipeline_depth": 1
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "tq2_0_dot_rows": {
+      "shape": {
+        "rows": 4096,
+        "K": 4096
+      },
+      "scope": "independent-dots-shared-activation",
+      "dtype": "tq2_0*q8_k",
+      "candidate": {
+        "source": "package:kernels/ggml/vec_dot/ternary.py",
+        "symbol": "tq2_0",
+        "signature": {},
+        "constexprs": {
+          "LANES": 64
+        },
+        "backend_options": {
+          "lmul_eighths": 32,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq1_m_dequantize": {
+      "shape": {
+        "rows": 1024,
+        "K": 4096
+      },
+      "scope": "row-dequantization",
+      "dtype": "iq1_m->f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/dequantize/iq1_m.py",
+        "symbol": "row_dequantize_iq1_m",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq1_s_dequantize": {
+      "shape": {
+        "rows": 1024,
+        "K": 4096
+      },
+      "scope": "row-dequantization",
+      "dtype": "iq1_s->f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/dequantize/iq1_s.py",
+        "symbol": "row_dequantize_iq1_s",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 64,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq2_s_dequantize": {
+      "shape": {
+        "rows": 1024,
+        "K": 4096
+      },
+      "scope": "row-dequantization",
+      "dtype": "iq2_s->f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/dequantize/iq2_s.py",
+        "symbol": "row_dequantize_iq2_s",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 64,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq2_xs_dequantize": {
+      "shape": {
+        "rows": 1024,
+        "K": 4096
+      },
+      "scope": "row-dequantization",
+      "dtype": "iq2_xs->f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/dequantize/iq2_xs.py",
+        "symbol": "row_dequantize_iq2_xs",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq2_xxs_dequantize": {
+      "shape": {
+        "rows": 1024,
+        "K": 4096
+      },
+      "scope": "row-dequantization",
+      "dtype": "iq2_xxs->f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/dequantize/iq2_xxs.py",
+        "symbol": "row_dequantize_iq2_xxs",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 16,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq3_s_dequantize": {
+      "shape": {
+        "rows": 1024,
+        "K": 4096
+      },
+      "scope": "row-dequantization",
+      "dtype": "iq3_s->f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/dequantize/iq3_s.py",
+        "symbol": "row_dequantize_iq3_s",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 16,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq3_xxs_dequantize": {
+      "shape": {
+        "rows": 1024,
+        "K": 4096
+      },
+      "scope": "row-dequantization",
+      "dtype": "iq3_xxs->f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/dequantize/iq3_xxs.py",
+        "symbol": "row_dequantize_iq3_xxs",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq4_nl_dequantize": {
+      "shape": {
+        "rows": 1024,
+        "K": 4096
+      },
+      "scope": "row-dequantization",
+      "dtype": "iq4_nl->f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/dequantize/iq4_nl.py",
+        "symbol": "row_dequantize_iq4_nl",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq4_xs_dequantize": {
+      "shape": {
+        "rows": 1024,
+        "K": 4096
+      },
+      "scope": "row-dequantization",
+      "dtype": "iq4_xs->f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/dequantize/iq4_xs.py",
+        "symbol": "row_dequantize_iq4_xs",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "mxfp4_dequantize": {
+      "shape": {
+        "rows": 1024,
+        "K": 4096
+      },
+      "scope": "row-dequantization",
+      "dtype": "mxfp4->f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/dequantize/mxfp4.py",
+        "symbol": "row_dequantize_mxfp4",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "nvfp4_dequantize": {
+      "shape": {
+        "rows": 1024,
+        "K": 4096
+      },
+      "scope": "row-dequantization",
+      "dtype": "nvfp4->f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/dequantize/nvfp4.py",
+        "symbol": "row_dequantize_nvfp4",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q1_0_dequantize": {
+      "shape": {
+        "rows": 1024,
+        "K": 4096
+      },
+      "scope": "row-dequantization",
+      "dtype": "q1_0->f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/dequantize/q1_0.py",
+        "symbol": "row_dequantize_q1_0",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 16,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q2_k_dequantize": {
+      "shape": {
+        "rows": 1024,
+        "K": 4096
+      },
+      "scope": "row-dequantization",
+      "dtype": "q2_k->f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/dequantize/q2_k.py",
+        "symbol": "row_dequantize_q2_k",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q3_k_dequantize": {
+      "shape": {
+        "rows": 1024,
+        "K": 4096
+      },
+      "scope": "row-dequantization",
+      "dtype": "q3_k->f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/dequantize/q3_k.py",
+        "symbol": "row_dequantize_q3_k",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 32,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q4_0_dequantize": {
+      "shape": {
+        "rows": 1024,
+        "K": 4096
+      },
+      "scope": "row-dequantization",
+      "dtype": "q4_0->f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/dequantize/q4_0.py",
+        "symbol": "row_dequantize_q4_0",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q4_1_dequantize": {
+      "shape": {
+        "rows": 1024,
+        "K": 4096
+      },
+      "scope": "row-dequantization",
+      "dtype": "q4_1->f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/dequantize/q4_1.py",
+        "symbol": "row_dequantize_q4_1",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q4_k_dequantize": {
+      "shape": {
+        "rows": 1024,
+        "K": 4096
+      },
+      "scope": "row-dequantization",
+      "dtype": "q4_k->f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/dequantize/q4_k.py",
+        "symbol": "row_dequantize_q4_k",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 32,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q5_0_dequantize": {
+      "shape": {
+        "rows": 1024,
+        "K": 4096
+      },
+      "scope": "row-dequantization",
+      "dtype": "q5_0->f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/dequantize/q5_0.py",
+        "symbol": "row_dequantize_q5_0",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q5_1_dequantize": {
+      "shape": {
+        "rows": 1024,
+        "K": 4096
+      },
+      "scope": "row-dequantization",
+      "dtype": "q5_1->f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/dequantize/q5_1.py",
+        "symbol": "row_dequantize_q5_1",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q5_k_dequantize": {
+      "shape": {
+        "rows": 1024,
+        "K": 4096
+      },
+      "scope": "row-dequantization",
+      "dtype": "q5_k->f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/dequantize/q5_k.py",
+        "symbol": "row_dequantize_q5_k",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 16,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q6_k_dequantize": {
+      "shape": {
+        "rows": 1024,
+        "K": 4096
+      },
+      "scope": "row-dequantization",
+      "dtype": "q6_k->f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/dequantize/q6_k.py",
+        "symbol": "row_dequantize_q6_k",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q8_0_dequantize": {
+      "shape": {
+        "rows": 1024,
+        "K": 4096
+      },
+      "scope": "row-dequantization",
+      "dtype": "q8_0->f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/dequantize/q8_0.py",
+        "symbol": "row_dequantize_q8_0",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "tq1_0_dequantize": {
+      "shape": {
+        "rows": 1024,
+        "K": 4096
+      },
+      "scope": "row-dequantization",
+      "dtype": "tq1_0->f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/dequantize/tq1_0.py",
+        "symbol": "row_dequantize_tq1_0",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 32,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "tq2_0_dequantize": {
+      "shape": {
+        "rows": 1024,
+        "K": 4096
+      },
+      "scope": "row-dequantization",
+      "dtype": "tq2_0->f32",
+      "candidate": {
+        "source": "package:kernels/ggml/dequantize/tiles.py",
+        "symbol": "tq2_0",
+        "signature": {},
+        "constexprs": {
+          "LANES": 32
+        },
+        "backend_options": {
+          "lmul_eighths": 16
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "f16_projection_decode": {
+      "shape": {
+        "M": 1,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "f16*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/mul_mat/f16.py",
+        "symbol": "production_mul_mat_f16",
+        "signature": {},
+        "constexprs": {
+          "NC": 32,
+          "KC": 4096,
+          "MC": 16,
+          "MR": 4,
+          "NR": 2,
+          "KB": 4096
+        },
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "f16_projection_prefill": {
+      "shape": {
+        "M": 128,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "f16*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/mul_mat/f16.py",
+        "symbol": "production_mul_mat_f16",
+        "signature": {},
+        "constexprs": {
+          "NC": 32,
+          "KC": 4096,
+          "MC": 16,
+          "MR": 4,
+          "NR": 2,
+          "KB": 4096
+        },
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq1_m_projection_decode": {
+      "shape": {
+        "M": 1,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "iq1_m*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/mul_mat/grouped_lookup.py",
+        "symbol": "iq1_m",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 64,
+          "unroll": 1,
+          "pipeline_depth": 1
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq1_m_projection_prefill": {
+      "shape": {
+        "M": 128,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "iq1_m*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/mul_mat/grouped_lookup.py",
+        "symbol": "iq1_m",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 64,
+          "unroll": 1,
+          "pipeline_depth": 1
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq1_s_projection_decode": {
+      "shape": {
+        "M": 1,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "iq1_s*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/mul_mat/grouped_lookup.py",
+        "symbol": "iq1_s",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 64,
+          "unroll": 1,
+          "pipeline_depth": 1
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq1_s_projection_prefill": {
+      "shape": {
+        "M": 128,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "iq1_s*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/mul_mat/grouped_lookup.py",
+        "symbol": "iq1_s",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 64,
+          "unroll": 1,
+          "pipeline_depth": 1
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq2_s_projection_decode": {
+      "shape": {
+        "M": 1,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "iq2_s*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/mul_mat/iq2_s.py",
+        "symbol": "production_mul_mat_iq2_s",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 32,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq2_s_projection_prefill": {
+      "shape": {
+        "M": 128,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "iq2_s*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/mul_mat/iq2_s.py",
+        "symbol": "projection",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 16,
+          "unroll": 2,
+          "pipeline_depth": 1
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq2_xs_projection_decode": {
+      "shape": {
+        "M": 1,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "iq2_xs*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/mul_mat/grouped_lookup.py",
+        "symbol": "iq2_xs",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 64,
+          "unroll": 1,
+          "pipeline_depth": 1
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq2_xs_projection_prefill": {
+      "shape": {
+        "M": 128,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "iq2_xs*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/mul_mat/grouped_lookup.py",
+        "symbol": "iq2_xs",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 64,
+          "unroll": 1,
+          "pipeline_depth": 1
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq2_xxs_projection_decode": {
+      "shape": {
+        "M": 1,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "iq2_xxs*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/mul_mat/grouped_lookup.py",
+        "symbol": "iq2_xxs",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 64,
+          "unroll": 1,
+          "pipeline_depth": 1
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq2_xxs_projection_prefill": {
+      "shape": {
+        "M": 128,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "iq2_xxs*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/mul_mat/grouped_lookup.py",
+        "symbol": "iq2_xxs",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 64,
+          "unroll": 1,
+          "pipeline_depth": 1
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq3_s_projection_decode": {
+      "shape": {
+        "M": 1,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "iq3_s*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/mul_mat/iq3_s.py",
+        "symbol": "production_mul_mat_iq3_s",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 32,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq3_s_projection_prefill": {
+      "shape": {
+        "M": 128,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "iq3_s*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/mul_mat/iq3_s.py",
+        "symbol": "production_mul_mat_iq3_s",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 32,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq3_xxs_projection_decode": {
+      "shape": {
+        "M": 1,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "iq3_xxs*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/mul_mat/iq3_xxs.py",
+        "symbol": "production_mul_mat_iq3_xxs",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 32,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq3_xxs_projection_prefill": {
+      "shape": {
+        "M": 128,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "iq3_xxs*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/mul_mat/iq3_xxs.py",
+        "symbol": "production_mul_mat_iq3_xxs",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 32,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq4_nl_projection_decode": {
+      "shape": {
+        "M": 1,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "iq4_nl*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/mul_mat/iq4_nl_decode.py",
+        "symbol": "production_mul_mat_iq4_nl_decode",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq4_nl_projection_prefill": {
+      "shape": {
+        "M": 128,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "iq4_nl*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/mul_mat/iq4_nl.py",
+        "symbol": "production_mul_mat_iq4_nl",
+        "signature": {},
+        "constexprs": {
+          "NC": 32,
+          "MC": 16,
+          "MR": 4,
+          "NR": 2
+        },
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq4_xs_projection_decode": {
+      "shape": {
+        "M": 1,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "iq4_xs*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/mul_mat/iq4_xs_decode.py",
+        "symbol": "production_mul_mat_iq4_xs_decode",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "iq4_xs_projection_prefill": {
+      "shape": {
+        "M": 128,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "iq4_xs*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/mul_mat/iq4_xs.py",
+        "symbol": "production_mul_mat_iq4_xs",
+        "signature": {},
+        "constexprs": {
+          "NC": 32,
+          "MC": 16,
+          "MR": 2,
+          "NR": 4
+        },
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "mxfp4_projection_decode": {
+      "shape": {
+        "M": 1,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "mxfp4*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/mul_mat/mxfp4_decode.py",
+        "symbol": "production_mul_mat_mxfp4_decode",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "mxfp4_projection_prefill": {
+      "shape": {
+        "M": 128,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "mxfp4*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/mul_mat/mxfp4.py",
+        "symbol": "production_mul_mat_mxfp4",
+        "signature": {},
+        "constexprs": {
+          "NC": 32,
+          "MC": 16,
+          "MR": 2,
+          "NR": 4
+        },
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "nvfp4_projection_decode": {
+      "shape": {
+        "M": 1,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "nvfp4*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/mul_mat/nvfp4_decode.py",
+        "symbol": "production_mul_mat_nvfp4_decode",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "nvfp4_projection_prefill": {
+      "shape": {
+        "M": 128,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "nvfp4*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/mul_mat/nvfp4.py",
+        "symbol": "production_mul_mat_nvfp4",
+        "signature": {},
+        "constexprs": {
+          "NC": 32,
+          "MC": 16,
+          "MR": 2,
+          "NR": 4
+        },
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q1_0_projection_decode": {
+      "shape": {
+        "M": 1,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "q1_0*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/mul_mat/q1_0_decode.py",
+        "symbol": "production_mul_mat_q1_0_decode",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 16,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q1_0_projection_prefill": {
+      "shape": {
+        "M": 128,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "q1_0*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/mul_mat/q1_0.py",
+        "symbol": "production_mul_mat_q1_0",
+        "signature": {},
+        "constexprs": {
+          "NC": 32,
+          "MC": 16,
+          "MR": 2,
+          "NR": 4
+        },
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q2_k_projection_decode": {
+      "shape": {
+        "M": 1,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "q2_k*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/mul_mat/q2_k.py",
+        "symbol": "projection",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 16,
+          "unroll": 1,
+          "pipeline_depth": 1
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q2_k_projection_prefill": {
+      "shape": {
+        "M": 128,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "q2_k*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/mul_mat/q2_k.py",
+        "symbol": "projection",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 16,
+          "unroll": 1,
+          "pipeline_depth": 1
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q3_k_projection_decode": {
+      "shape": {
+        "M": 1,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "q3_k*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/mul_mat/q3_k_decode.py",
+        "symbol": "production_mul_mat_q3_k_decode",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 32,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 1,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q3_k_projection_prefill": {
+      "shape": {
+        "M": 128,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "q3_k*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/mul_mat/q3_k.py",
+        "symbol": "production_mul_mat_q3_k",
+        "signature": {},
+        "constexprs": {
+          "NC": 32,
+          "MC": 2,
+          "MR": 1,
+          "NR": 1
+        },
+        "backend_options": {
+          "lmul_eighths": 32,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q4_0_projection_decode": {
+      "shape": {
+        "M": 1,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "q4_0*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/mul_mat/q4_0_decode.py",
+        "symbol": "production_mul_mat_q4_0_decode",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q4_0_projection_prefill": {
+      "shape": {
+        "M": 128,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "q4_0*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/mul_mat/q4_0.py",
+        "symbol": "production_mul_mat_q4_0",
+        "signature": {},
+        "constexprs": {
+          "NC": 32,
+          "MC": 16,
+          "MR": 4,
+          "NR": 1
+        },
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 2,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q4_1_projection_decode": {
+      "shape": {
+        "M": 1,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "q4_1*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/mul_mat/q4_1_decode.py",
+        "symbol": "production_mul_mat_q4_1_decode",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q4_1_projection_prefill": {
+      "shape": {
+        "M": 128,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "q4_1*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/mul_mat/q4_1.py",
+        "symbol": "production_mul_mat_q4_1",
+        "signature": {},
+        "constexprs": {
+          "NC": 32,
+          "MC": 16,
+          "MR": 4,
+          "NR": 1
+        },
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q5_0_projection_decode": {
+      "shape": {
+        "M": 1,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "q5_0*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/mul_mat/q5_0_decode.py",
+        "symbol": "production_mul_mat_q5_0_decode",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 16,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q5_0_projection_prefill": {
+      "shape": {
+        "M": 128,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "q5_0*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/mul_mat/q5_0.py",
+        "symbol": "production_mul_mat_q5_0",
+        "signature": {},
+        "constexprs": {
+          "NC": 32,
+          "MC": 16,
+          "MR": 4,
+          "NR": 2
+        },
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q5_1_projection_decode": {
+      "shape": {
+        "M": 1,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "q5_1*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/mul_mat/q5_1_decode.py",
+        "symbol": "production_mul_mat_q5_1_decode",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 16,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q5_1_projection_prefill": {
+      "shape": {
+        "M": 128,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "q5_1*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/mul_mat/q5_1.py",
+        "symbol": "production_mul_mat_q5_1",
+        "signature": {},
+        "constexprs": {
+          "NC": 32,
+          "MC": 16,
+          "MR": 4,
+          "NR": 1
+        },
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q5_k_projection_decode": {
+      "shape": {
+        "M": 1,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "q5_k*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/mul_mat/q5_k_decode.py",
+        "symbol": "production_mul_mat_q5_k_decode",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q5_k_projection_prefill": {
+      "shape": {
+        "M": 128,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "q5_k*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/mul_mat/q5_k.py",
+        "symbol": "production_mul_mat_q5_k",
+        "signature": {},
+        "constexprs": {
+          "NC": 32,
+          "MC": 16,
+          "MR": 2,
+          "NR": 4
+        },
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q6_k_projection_decode": {
+      "shape": {
+        "M": 1,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "q6_k*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/mul_mat/q6_k_decode.py",
+        "symbol": "projection_streamed",
+        "signature": {},
+        "constexprs": {
+          "GROUPS": 2
+        },
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q6_k_projection_prefill": {
+      "shape": {
+        "M": 128,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "q6_k*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/mul_mat/q6_k.py",
+        "symbol": "production_mul_mat_q6_k",
+        "signature": {},
+        "constexprs": {
+          "NC": 64,
+          "MC": 16,
+          "MR": 4,
+          "NR": 2
+        },
+        "backend_options": {
+          "lmul_eighths": 32,
+          "unroll": 4,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q8_0_projection_decode": {
+      "shape": {
+        "M": 1,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "q8_0*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/mul_mat/q8_0_decode.py",
+        "symbol": "production_mul_mat_q8_0_decode",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "q8_0_projection_prefill": {
+      "shape": {
+        "M": 128,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "q8_0*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/blocks/mul_mat/q8_0.py",
+        "symbol": "production_mul_mat_q8_0",
+        "signature": {},
+        "constexprs": {
+          "NC": 32,
+          "MC": 16,
+          "MR": 4,
+          "NR": 2
+        },
+        "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 2,
+          "scalar_load_prime": 0,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record"
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "tq1_0_projection_decode": {
+      "shape": {
+        "M": 1,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "tq1_0*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/mul_mat/tq1_0.py",
+        "symbol": "projection_bounded",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 16,
+          "unroll": 1,
+          "pipeline_depth": 1
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "tq1_0_projection_prefill": {
+      "shape": {
+        "M": 128,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "tq1_0*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/mul_mat/tq1_0.py",
+        "symbol": "projection_bounded",
+        "signature": {},
+        "constexprs": {},
+        "backend_options": {
+          "lmul_eighths": 16,
+          "unroll": 1,
+          "pipeline_depth": 1
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "tq2_0_projection_decode": {
+      "shape": {
+        "M": 1,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "tq2_0*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/mul_mat/tq2_0.py",
+        "symbol": "projection",
+        "signature": {},
+        "constexprs": {
+          "LANES": 64
+        },
+        "backend_options": {
+          "lmul_eighths": 32,
+          "unroll": 1,
+          "pipeline_depth": 1
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "tq2_0_projection_prefill": {
+      "shape": {
+        "M": 128,
+        "N": 4096,
+        "K": 4096
+      },
+      "scope": "projection-includes-activation-quantization",
+      "dtype": "tq2_0*f32",
+      "candidate": {
+        "source": "package:kernels/ggml/mul_mat/tq2_0.py",
+        "symbol": "projection",
+        "signature": {},
+        "constexprs": {
+          "LANES": 64
+        },
+        "backend_options": {
+          "lmul_eighths": 32,
+          "unroll": 1,
+          "pipeline_depth": 1
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "affine": {
+      "shape": {
+        "N": 4096
+      },
+      "scope": "elementwise-scale-bias",
+      "dtype": "f32",
+      "candidate": {
+        "source": "package:kernels/dense/affine.py",
+        "symbol": "affine_full_tiles",
+        "signature": {},
+        "constexprs": {
+          "B": 1024
+        },
+        "backend_options": {
+          "lmul_eighths": 64,
+          "pointwise_issue_copies": 2
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "rms_norm": {
+      "shape": {
+        "M": 128,
+        "N": 4096
+      },
+      "scope": "rms_norm-affine",
+      "dtype": "f32",
+      "candidate": {
+        "program": "rms_norm",
+        "source": "package:kernels/programs/normalization.py",
+        "symbol": "rms_norm",
+        "signature": {},
+        "constexprs": {
+          "BLOCK": 32
+        },
+        "backend_options": {},
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "layer_norm": {
+      "shape": {
+        "M": 128,
+        "N": 4096
+      },
+      "scope": "layer_norm-affine",
+      "dtype": "f32",
+      "candidate": {
+        "program": "layer_norm",
+        "source": "package:kernels/programs/normalization.py",
+        "symbol": "layer_norm",
+        "signature": {},
+        "constexprs": {
+          "BLOCK": 32
+        },
+        "backend_options": {},
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "rope_split": {
+      "shape": {
+        "T": 128,
+        "H": 32,
+        "P": 64
+      },
+      "scope": "rope-precomputed-cos-sin",
+      "dtype": "f32",
+      "candidate": {
+        "program": "rope_split",
+        "source": "package:kernels/programs/attention.py",
+        "symbol": "rope_split",
+        "signature": {},
+        "constexprs": {
+          "BLOCK": 32
+        },
+        "backend_options": {},
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "softmax": {
+      "shape": {
+        "M": 4096,
+        "N": 128
+      },
+      "scope": "row-softmax",
+      "dtype": "f32",
+      "candidate": {
+        "source": "package:kernels/programs/attention.py",
+        "symbol": "softmax_row",
+        "signature": {},
+        "constexprs": {
+          "N": 128
+        },
+        "backend_options": {
+          "lmul_eighths": 16,
+          "unroll": 1
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "rope_full": {
+      "shape": {
+        "T": 128,
+        "H": 32,
+        "P": 64
+      },
+      "scope": "rope-neox-includes-coefficients",
+      "dtype": "f32",
+      "candidate": {
+        "source": "package:kernels/programs/attention.py",
+        "symbol": "rope_split",
+        "signature": {},
+        "constexprs": {
+          "BLOCK": 64
+        },
+        "backend_options": {
+          "lmul_eighths": 32,
+          "unroll": 1
+        },
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    },
+    "causal_attention": {
+      "shape": {
+        "B": 1,
+        "T": 4,
+        "S": 16,
+        "H": 4,
+        "G": 2,
+        "D": 32
+      },
+      "scope": "causal-grouped-query-attention",
+      "dtype": "f32",
+      "candidate": {
+        "program": "causal_attention",
+        "source": "package:kernels/programs/attention.py",
+        "symbol": "causal_attention",
+        "signature": {},
+        "constexprs": {
+          "D": 32
+        },
+        "backend_options": {},
+        "compile_target": {
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
+          "abi": "lp64d",
+          "vlen_bits": 128,
+          "arch": "riscv64",
+          "backend": "weft"
+        }
+      },
+      "reference": null,
+      "artifact_evidence": {
+        "used_extensions": [],
+        "matrix_in_artifact": false,
+        "runtime_instruction_path": "not_observed"
+      }
+    }
+  },
+  "suites": {
+    "full": [
+      "q4_k_projection_decode",
+      "q4_k_projection_prefill",
+      "gemm_f32",
+      "q8_0_quantize",
+      "q8_1_quantize",
+      "q8_k_quantize",
+      "iq1_m_dot",
+      "iq1_m_dot_rows",
+      "iq1_s_dot",
+      "iq1_s_dot_rows",
+      "iq2_s_dot",
+      "iq2_s_dot_rows",
+      "iq2_xs_dot",
+      "iq2_xs_dot_rows",
+      "iq2_xxs_dot",
+      "iq2_xxs_dot_rows",
+      "iq3_s_dot",
+      "iq3_s_dot_rows",
+      "iq3_xxs_dot",
+      "iq3_xxs_dot_rows",
+      "iq4_nl_dot",
+      "iq4_nl_dot_rows",
+      "iq4_xs_dot",
+      "iq4_xs_dot_rows",
+      "mxfp4_dot",
+      "mxfp4_dot_rows",
+      "nvfp4_dot",
+      "nvfp4_dot_rows",
+      "q1_0_dot",
+      "q1_0_dot_rows",
+      "q2_k_dot",
+      "q2_k_dot_rows",
+      "q3_k_dot",
+      "q3_k_dot_rows",
+      "q4_0_dot",
+      "q4_0_dot_rows",
+      "q4_1_dot",
+      "q4_1_dot_rows",
+      "q4_k_dot",
+      "q4_k_dot_rows",
+      "q5_0_dot",
+      "q5_0_dot_rows",
+      "q5_1_dot",
+      "q5_1_dot_rows",
+      "q5_k_dot",
+      "q5_k_dot_rows",
+      "q6_k_dot",
+      "q6_k_dot_rows",
+      "q8_0_dot",
+      "q8_0_dot_rows",
+      "tq1_0_dot",
+      "tq1_0_dot_rows",
+      "tq2_0_dot",
+      "tq2_0_dot_rows",
+      "iq1_m_dequantize",
+      "iq1_s_dequantize",
+      "iq2_s_dequantize",
+      "iq2_xs_dequantize",
+      "iq2_xxs_dequantize",
+      "iq3_s_dequantize",
+      "iq3_xxs_dequantize",
+      "iq4_nl_dequantize",
+      "iq4_xs_dequantize",
+      "mxfp4_dequantize",
+      "nvfp4_dequantize",
+      "q1_0_dequantize",
+      "q2_k_dequantize",
+      "q3_k_dequantize",
+      "q4_0_dequantize",
+      "q4_1_dequantize",
+      "q4_k_dequantize",
+      "q5_0_dequantize",
+      "q5_1_dequantize",
+      "q5_k_dequantize",
+      "q6_k_dequantize",
+      "q8_0_dequantize",
+      "tq1_0_dequantize",
+      "tq2_0_dequantize",
+      "f16_projection_decode",
+      "f16_projection_prefill",
+      "iq1_m_projection_decode",
+      "iq1_m_projection_prefill",
+      "iq1_s_projection_decode",
+      "iq1_s_projection_prefill",
+      "iq2_s_projection_decode",
+      "iq2_s_projection_prefill",
+      "iq2_xs_projection_decode",
+      "iq2_xs_projection_prefill",
+      "iq2_xxs_projection_decode",
+      "iq2_xxs_projection_prefill",
+      "iq3_s_projection_decode",
+      "iq3_s_projection_prefill",
+      "iq3_xxs_projection_decode",
+      "iq3_xxs_projection_prefill",
+      "iq4_nl_projection_decode",
+      "iq4_nl_projection_prefill",
+      "iq4_xs_projection_decode",
+      "iq4_xs_projection_prefill",
+      "mxfp4_projection_decode",
+      "mxfp4_projection_prefill",
+      "nvfp4_projection_decode",
+      "nvfp4_projection_prefill",
+      "q1_0_projection_decode",
+      "q1_0_projection_prefill",
+      "q2_k_projection_decode",
+      "q2_k_projection_prefill",
+      "q3_k_projection_decode",
+      "q3_k_projection_prefill",
+      "q4_0_projection_decode",
+      "q4_0_projection_prefill",
+      "q4_1_projection_decode",
+      "q4_1_projection_prefill",
+      "q5_0_projection_decode",
+      "q5_0_projection_prefill",
+      "q5_1_projection_decode",
+      "q5_1_projection_prefill",
+      "q5_k_projection_decode",
+      "q5_k_projection_prefill",
+      "q6_k_projection_decode",
+      "q6_k_projection_prefill",
+      "q8_0_projection_decode",
+      "q8_0_projection_prefill",
+      "tq1_0_projection_decode",
+      "tq1_0_projection_prefill",
+      "tq2_0_projection_decode",
+      "tq2_0_projection_prefill",
+      "affine",
+      "rms_norm",
+      "layer_norm",
+      "rope_split",
+      "softmax",
+      "rope_full",
+      "causal_attention"
+    ]
+  }
+}

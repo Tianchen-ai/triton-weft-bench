@@ -153,7 +153,8 @@ def run_probe(entry, target, directory):
     executor = Executor(target, directory / "worker")
     here = Path(__file__).parent
     probes = here / "probes"
-    files = [(probes / (kind + "_process.py"), "probe.py"),
+    worker_source = "cpu_distribution.py" if kind == "runtime" and entry["case"] == "distribution" else kind + "_process.py"
+    files = [(probes / worker_source, "probe.py"),
              (here.parent / "adapters/compile_triton.py", "compile_triton.py"),
              (here.parent / "adapters/cpu_target.py", "cpu_target.py")]
     if kind == "framework":
