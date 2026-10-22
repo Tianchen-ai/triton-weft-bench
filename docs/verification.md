@@ -18,6 +18,12 @@ weft-bench verify --config /work/bench.local.json --target cpu \
 come from configuration. By default, the `operators` group enumerates every binding
 of `verification.source_implementation`, rather than the small performance suite.
 One configured scenario is used for each binding. There is no shape/tuning sweep.
+Formal catalogs select their `weft` implementation and declared shapes by default.
+With the JIT adapter, verification calls the installed target's `kernel[grid]`,
+checks in-process and fresh-process cache reuse, and validates the exported artifact
+through the existing native oracle. Its result retains the JIT evidence separately.
+Prepared artifacts and `--prepare-only` are rejected for this route; configure an
+explicit native adapter when the task is AOT compilation or deployment validation.
 
 `--prepare-only --workers 2` compiles selected source entries on the host using
 the same Triton adapter, without device execution. Its `preparation.json` distinguishes

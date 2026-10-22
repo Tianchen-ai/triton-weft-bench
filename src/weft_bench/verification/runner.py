@@ -43,6 +43,7 @@ def native(entry, target, directory):
             "symbol": entry.get("symbol", entry["options"].get("symbol")),
             "diagnostics": detail.get("diagnostics"), "replay": detail.get("replay"),
             "outputs": detail.get("outputs"), "native": detail.get("native"),
+            "jit": detail.get("jit"), "candidate_origin": detail.get("candidate_origin"),
             "compilation": entry.get("compilation"), "artifacts": detail.get("artifacts")}
 
 

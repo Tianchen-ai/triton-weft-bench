@@ -18,6 +18,8 @@ from .triton_source import deploy_source, collect_artifact
 
 
 class TritonJitAdapter:
+    execution_mode = "jit"
+
     @staticmethod
     def configure_candidate(case, options, candidate):
         from .triton_native import TritonAdapter
@@ -43,6 +45,8 @@ class TritonJitAdapter:
         row.details["replay"] = save_request(case, name, target, measurement, directory)
         stage = "prepare"
         try:
+            if options.get("artifact") or options.get("path"):
+                raise ValueError("JIT requires DSL source; select the native adapter to validate an exported artifact")
             if measurement.cache != "reuse":
                 raise NotImplementedError("JIT calls currently use prepared-data reuse; compiled-cache cold start is measured separately")
             declared = ports(case)

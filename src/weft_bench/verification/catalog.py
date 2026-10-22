@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 
 from ..operators import get
+from ..loading import load_object
 
 
 def compilations(settings, target):
@@ -58,7 +59,8 @@ def plan(target, *, groups=None, cases=None, use_prepared=True):
         options.pop("artifact", None)
         options.pop("path", None)
         entry = {"id": "operators/" + name, "group": "operators", "kind": "native",
-                 "case": name, "shape": {**case.shape, **scenario.get("shape", {})},
+                 "case": name, "shape": {**case.shape, **target.settings.get("case_catalog", {}).get(name, {}).get("shape", {}),
+                                         **scenario.get("shape", {})},
                  "inputs": scenario.get("inputs", {}), "options": options,
                  "source": options["source"], "symbol": options["symbol"]}
         if use_prepared and scenario.get("artifact"):
@@ -120,6 +122,12 @@ def plan(target, *, groups=None, cases=None, use_prepared=True):
             raise ValueError("duplicate verification id " + identity)
         names.add(identity)
         entry["target"] = target.name
+        factory = entry.get("options", {}).get("factory")
+        if factory and getattr(load_object(factory), "execution_mode", None) == "jit":
+            entry["execution_mode"] = "jit"
+            if entry.get("artifact") or entry["kind"] == "compilation_failed":
+                raise ValueError(identity + ": JIT verification requires source execution on the target; "
+                                 "prepared compilation records belong to a separate native verification configuration")
     selected = [entry for entry in entries if
                 (not groups or entry["group"] in groups) and
                 (not cases or any(fnmatch.fnmatchcase(entry["id"], pattern) for pattern in cases))]

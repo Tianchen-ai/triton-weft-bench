@@ -8,9 +8,9 @@ it does not remeasure fixed GGML or llama.cpp baselines.
 Select the task's configured environment and verification config explicitly:
 
 ```sh
-python3 "$BENCH_SKILL/scripts/bench.py" --environment triton-weft verify \
+python3 "$BENCH_SKILL/scripts/bench.py" verify \
   --config /work/bench.local.json --target cpu --list
-python3 "$BENCH_SKILL/scripts/bench.py" --environment triton-weft verify \
+python3 "$BENCH_SKILL/scripts/bench.py" verify \
   --config /work/bench.local.json --target cpu --case 'operators/q4_k_dot' \
   --output /work/verify/cpu
 ```
@@ -18,6 +18,11 @@ python3 "$BENCH_SKILL/scripts/bench.py" --environment triton-weft verify \
 Environment, target, group and case names come from configuration. `--list` does
 not connect to a device. Select cases affected by the task; a complete configured
 inventory is appropriate only when that is the requested scope.
+Formal catalogs select their `weft` candidate and declared shapes for `verify`.
+With the JIT adapter, source runs through the target's installed `kernel[grid]`;
+the result retains in-process reuse, fresh-process cache reuse and the native
+check of that same JIT artifact. Prepared artifacts and `--prepare-only` are
+rejected for JIT entries. Use an explicit native adapter for AOT validation.
 
 The repository's `configs/verification-riscv.example.json` lists optional scan,
 atomic RMW/CAS/contention, noinline-helper and loop/context-return probes. Add
@@ -87,7 +92,7 @@ Verification inputs accept the same preset, JSON path or mapping as the regular 
 
 ## Prepare, execute and resume
 
-- `--prepare-only --workers N` compiles source entries on the host using Triton's
+- For an explicit native adapter, `--prepare-only --workers N` compiles source entries on the host using Triton's
   existing compiler. Its `preparation.json` reports `compiled`, an expected
   `rejected`, or the actual failure. It is not numerical evidence.
 - `verification.prepared_entries` in the external target config selects one or

@@ -16,6 +16,9 @@ def prepare(target, *, output, groups=None, cases=None, workers=1, resume=False,
     if workers < 1:
         raise ValueError("preparation workers must be positive")
     entries = plan(target, groups=groups, cases=cases, use_prepared=False)
+    if any(entry.get("execution_mode") == "jit" for entry in entries):
+        raise ValueError("--prepare-only cannot verify JIT: run source entries on the target, "
+                         "or select a separate native adapter for AOT preparation")
     output = Path(output).resolve()
     manifest = output / "preparation.json"
     results = {row["case"]: row for row in json.loads(manifest.read_text())} if manifest.exists() else {}

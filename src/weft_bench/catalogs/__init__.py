@@ -37,7 +37,8 @@ def apply_catalog(settings, implementations):
     suites = {key: [{"case": case, "shape": cases[case]["shape"]} for case in names]
               for key, names in selected["suites"].items()}
     settings = {**settings, "operator_suites": {**suites, **settings.get("operator_suites", {})},
-                "case_catalog": cases}
+                "case_catalog": cases,
+                "verification": {"source_implementation": "weft", **settings.get("verification", {})}}
     implementations = deepcopy(implementations)
     candidate = implementations.setdefault("weft", {"factory": "weft_bench.adapters.triton_jit:TritonJitAdapter"})
     bindings = {}

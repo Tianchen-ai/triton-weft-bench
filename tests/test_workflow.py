@@ -14,6 +14,32 @@ from weft_bench.adapters.dense import bind_metadata
 
 
 class WorkflowTests(unittest.TestCase):
+    def test_catalog_verification_uses_jit_and_selected_shapes(self):
+        from weft_bench.catalogs import apply_catalog
+        from weft_bench.verification.catalog import plan
+
+        settings, implementations = apply_catalog({"catalog": "x86-1t"}, {})
+        target = Target("cpu", settings, implementations)
+        selected = plan(target, cases=["operators/q4_k_projection_decode"])
+        self.assertEqual(settings["verification"]["source_implementation"], "weft")
+        self.assertEqual(selected[0]["execution_mode"], "jit")
+        self.assertEqual(selected[0]["shape"], settings["case_catalog"]["q4_k_projection_decode"]["shape"])
+        settings["verification"]["operators"] = {"q4_k_projection_decode": {"artifact": "/unused/precompiled"}}
+        with self.assertRaisesRegex(ValueError, "JIT verification requires source"):
+            plan(target, cases=["operators/q4_k_projection_decode"])
+
+    def test_jit_verification_cannot_prepare_host_artifacts(self):
+        from weft_bench.catalogs import apply_catalog
+        from weft_bench.verification.prepare import prepare
+
+        settings, implementations = apply_catalog({"catalog": "x86-1t"}, {})
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "must-not-create"
+            with self.assertRaisesRegex(ValueError, "--prepare-only cannot verify JIT"):
+                prepare(Target("cpu", settings, implementations), output=output,
+                        cases=["operators/q4_k_projection_decode"])
+            self.assertFalse(output.exists())
+
     def row(self, implementation="weft", ms=1):
         return (
             Result(
