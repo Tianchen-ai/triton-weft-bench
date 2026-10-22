@@ -16,6 +16,35 @@ from weft_bench.types import Result
 
 
 class ReleaseStructureTests(unittest.TestCase):
+    def test_reference_source_alias_preserves_original_build_evidence(self):
+        from weft_bench.adapters.reference import inspect_ggml_compilation
+        from weft_bench.execution import Executor
+        from weft_bench.types import Target
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source/ggml/src/ggml-cpu/ops.cpp"
+            source.parent.mkdir(parents=True)
+            source.touch()
+            alias = root / "old-source"
+            alias.symlink_to(root / "source", target_is_directory=True)
+            original = str(alias / "ggml/src/ggml-cpu/ops.cpp")
+            entry = {"file": original, "directory": str(root),
+                     "arguments": ["clang++", "-O3", "-c", original]}
+            database = root / "compile_commands.json"
+            database.write_text(json.dumps([entry]))
+            target = Target("host", {"ggml": {"source": str(root / "source"),
+                            "libraries": str(root / "lib"), "compile_commands": str(database)}}, {})
+            executor = Executor(target, root / "evidence")
+            result = inspect_ggml_compilation(target, executor, require_optimized=True)
+            self.assertTrue(result["optimized"])
+            self.assertEqual(result["cpu_units"][0]["source"], original)
+            self.assertEqual(json.loads((executor.local / "reference-compile-commands.json").read_text()), [entry])
+            other = root / "other/ggml/src/ggml-cpu"
+            other.mkdir(parents=True)
+            target.settings["ggml"]["source"] = str(root / "other")
+            with self.assertRaisesRegex(ValueError, "CPU translation units"):
+                inspect_ggml_compilation(target, executor, require_optimized=True)
+
     def test_model_input_alias_requires_the_same_existing_file(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

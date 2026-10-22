@@ -7,6 +7,16 @@ import shlex
 from .dense import dense_defines
 
 
+def resolved_sources(executor, paths):
+    """Resolve source aliases on the execution host, keeping build records intact."""
+    paths = list(paths)
+    output = executor.command(["realpath", "-e", "-z", "--", *map(str, paths)], stage="prepare").stdout
+    resolved = output.split("\0")
+    if len(resolved) != len(paths) + 1 or resolved[-1] != "":
+        raise ValueError("source-path resolution did not return one existing path per input")
+    return [Path(path) for path in resolved[:-1]]
+
+
 def prepare_ime2_reference(target, executor):
     """Link the selected upstream IME2 translation unit without replacing its math."""
     settings = target.settings.get("ime2_reference", {})
@@ -44,11 +54,16 @@ def inspect_ggml_compilation(target, executor, *, require_optimized):
     commands = json.loads(executor.command(["cat", database], stage="prepare").stdout)
     root = Path(settings["source"]) / "ggml/src/ggml-cpu"
     units, records = [], []
+    candidates = []
     for entry in commands:
         source = Path(entry["file"])
         if not source.is_absolute():
             source = Path(entry["directory"]) / source
-        if not source.is_relative_to(root) or source.suffix not in (".c", ".cpp", ".cc"):
+        if "ggml-cpu" in source.parts and source.suffix in (".c", ".cpp", ".cc"):
+            candidates.append((entry, source))
+    resolved_root, *resolved = resolved_sources(executor, [root, *(source for _, source in candidates)])
+    for (entry, source), resolved_source in zip(candidates, resolved):
+        if not resolved_source.is_relative_to(resolved_root):
             continue
         arguments = entry.get("arguments") or shlex.split(entry["command"])
         levels = [flag for flag in arguments if flag in ("-O", "-O0", "-O1", "-O2", "-O3", "-Og", "-Os", "-Oz", "-Ofast")]
@@ -76,7 +91,7 @@ def prepare_mixed_projection_reference(target, executor):
     database = settings.get("compile_commands", str(Path(settings["libraries"]).parent / "compile_commands.json"))
     commands = json.loads(executor.command(["cat", database], stage="prepare").stdout)
     builds = [entry for entry in commands if entry["file"].endswith("/ggml-cpu/amx/mmq.cpp")]
-    if len(builds) != 1 or builds[0]["file"] != source:
+    if len(builds) != 1 or len(set(resolved_sources(executor, [builds[0]["file"], source]))) != 1:
         raise NotImplementedError("mixed F16/F32 reference requires the selected GGML build's AMX F16 source evidence")
     text = executor.command(["cat", source], stage="prepare").stdout
     traits_source = str(root / "amx/amx.cpp")

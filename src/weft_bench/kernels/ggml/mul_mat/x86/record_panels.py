@@ -17,7 +17,8 @@ def project(W, X, Xq: tl.View[ggml.Q8_K, (M, K)], Y, Panel, Activation, D, M, N,
             DECODE: tl.constexpr, STORAGE: tl.constexpr, grid=None, auxiliary=None,
             MINIMUM: tl.constexpr = None, Minima=None, Dmin=None, BIAS: tl.constexpr = 0,
             GROUPS: tl.constexpr = 16, COMPONENTS: tl.constexpr = False,
-            INTEGER_CORRECTION: tl.constexpr = False, FACTOR: tl.constexpr = 1, Sums=None):
+            INTEGER_CORRECTION: tl.constexpr = False, FACTOR: tl.constexpr = 1, Sums=None,
+            CORRECTION_ENGINE: tl.constexpr = "auto"):
     """Reuse scaled records across rows; keep all preparation in the call."""
     tl.static_assert(RK == 256 and RK % GROUPS == 0)
     CORRECTION: tl.constexpr = COMPONENTS or MINIMUM is not None
@@ -89,7 +90,8 @@ def project(W, X, Xq: tl.View[ggml.Q8_K, (M, K)], Y, Panel, Activation, D, M, N,
                     else:
                         grouped = tl.reshape(activation, (BM, GROUPS, RK // GROUPS), axes=("M", "group", "term"), order=("M", "RK"))
                         sums = tl.sum(grouped, 2, dtype=tl.i16)
-                    correction = tl.reduce_dot(sums, minimum, over="group", acc_dtype=tl.i32)
+                    correction = tl.reduce_dot(sums, minimum, over="group", acc_dtype=tl.i32,
+                                               engine=CORRECTION_ENGINE)
                     if INTEGER_CORRECTION:
                         products = products * tl.i32(FACTOR) - correction
                 result = tl.f32(products) * (xd * d)
@@ -171,7 +173,8 @@ def iq1_m(W: tl.View[ggml.IQ1_M, (N, K)], X: tl.View[tl.f32, (M, K)], Xq: tl.Vie
           BM: tl.constexpr = 16, BN: tl.constexpr = 16, RK: tl.constexpr = 256, GROUPS: tl.constexpr = 32):
     tl.static_assert(GROUPS == 32)
     project(W, X, Xq, Y, Panel, Activation, D, M, N, K, BM, BN, RK, decode_iq1_m_byte, tl.i8, grid, f16_bits,
-            Minima=Minima, GROUPS=GROUPS, COMPONENTS=True, INTEGER_CORRECTION=True, FACTOR=8, Sums=Sums)
+            Minima=Minima, GROUPS=GROUPS, COMPONENTS=True, INTEGER_CORRECTION=True, FACTOR=8, Sums=Sums,
+            CORRECTION_ENGINE="vector")
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "quantized", "Panel": "weights", "Activation": "activation", "D": "scale", "Y": "output"})
