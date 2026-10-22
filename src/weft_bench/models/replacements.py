@@ -163,6 +163,21 @@ def prepare_observer(config, target, output):
         raise ValueError("configure build_directory when preparing the model observer")
     directory = Path(output)
     executor = Executor(target, directory)
+    runtime = target.settings.get("triton_runtime", {})
+    if target.settings.get("llama", {}).get("package_backend") == "triton" and runtime.get("library"):
+        sdk = Path(runtime["library"]).parent.parent
+        if Path(config["weft_include"]) != sdk / "share/llama.cpp/include":
+            raise ValueError("model observer headers and selected native runtime must come from the same SDK")
+        configured = executor.command(
+            ["cmake", "-S", config["source"], "-B", build,
+             "-DWeft_DIR=" + str(sdk / "lib/cmake/Weft")],
+            stage="model_sdk_configure",
+            check=False,
+        )
+        (directory / "configure.log").write_text(configured.stdout + configured.stderr)
+        (directory / "commands.json").write_text(json.dumps(executor.commands, indent=2))
+        if configured.returncode:
+            raise ExecutionError("model_sdk_configure", executor.commands[-1], configured)
     helper = executor.upload(Path(__file__).with_name("observe.py"), "observe.py")
     request = executor.write(
         "observe.json",
@@ -182,7 +197,10 @@ def prepare_observer(config, target, output):
     compiled = executor.command(
         ["cmake", "--build", build, "--target", "llama-bench", "-j2"],
         stage="model_build",
+        check=False,
     )
     (directory / "build.log").write_text(compiled.stdout + compiled.stderr)
     (directory / "commands.json").write_text(json.dumps(executor.commands, indent=2))
+    if compiled.returncode:
+        raise ExecutionError("model_build", executor.commands[-1], compiled)
     return {"prepared": True, **state}

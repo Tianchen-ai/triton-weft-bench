@@ -177,11 +177,13 @@ class TritonAdapter:
             raise ValueError("candidate must be an exported Triton native artifact")
         if manifest.get("dispatch") != "triton_weft_instance_dispatch":
             raise ValueError("candidate does not expose the Triton single-instance dispatch ABI")
+        from .cpu_target import compiler_target
         expected_target = selected_target(options, target.settings["target"])
+        actual_target = compiler_target(manifest["target"])
         for key, value in expected_target.items():
-            if manifest["target"].get(key) != value:
+            if actual_target[key] != value:
                 raise ValueError(f"Triton artifact target differs in {key}: "
-                                 f"requested {value!r}, artifact {manifest['target'].get(key)!r}")
+                                 f"requested {value!r}, artifact {actual_target[key]!r}")
         abi = manifest["kernel"]
         if any(a["name"].startswith("__triton_") for a in abi["arguments"]):
             raise ValueError("single-instance measurement cannot use the internal grid ABI")

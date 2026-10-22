@@ -23,6 +23,13 @@ def execution_contract(execution):
     return execution
 
 
+def input_identity(policy):
+    """Resolve a live local model-file alias without changing recorded paths."""
+    if isinstance(policy, str) and Path(policy).is_absolute() and Path(policy).is_file():
+        return str(Path(policy).resolve())
+    return policy
+
+
 def projection_scope(scope):
     for base in (PROJECTION_SCOPE, MIXED_PROJECTION_SCOPE):
         if scope in (base, base + "/persistent-model-default-weights"):
@@ -47,7 +54,7 @@ def contract(row):
         json.dumps(row.shape, sort_keys=True),
         row.scope,
         json.dumps(timing, sort_keys=True),
-        d.get("input_policy"),
+        input_identity(d.get("input_policy")),
         d.get("dtype"),
         d.get("phase"),
         json.dumps(execution_contract(d.get("execution", {})), sort_keys=True),
@@ -68,6 +75,27 @@ def execution_issue(row):
         if launch_threads is not None and launch_threads != threads:
             return f"grid launch threads={launch_threads!r} differ from execution.threads={threads!r}"
     return None
+
+
+def frequency_policy_differences(row, reference):
+    """Compare observed policy, not instantaneous frequency or system load."""
+    def policies(result):
+        return {item["cpu"]: item["frequency_policy"]
+                for item in result.details.get("observed_environment", {}).get("affinity", [])
+                if item.get("frequency_policy")}
+
+    current, previous = policies(row), policies(reference)
+    fields = ("driver", "governor", "energy_preference", "minimum_khz", "maximum_khz")
+    differences = {}
+    # Historical observations without these fields remain unknown; never infer
+    # their policy from today's device configuration.
+    for cpu in current.keys() & previous.keys():
+        changed = {key: {"current": current[cpu][key], "reference": previous[cpu][key]}
+                   for key in fields if key in current[cpu] and key in previous[cpu]
+                   and current[cpu][key] != previous[cpu][key]}
+        if changed:
+            differences[str(cpu)] = changed
+    return differences
 
 
 def _projection_evidence(row):
@@ -137,7 +165,7 @@ def _projection_evidence(row):
 
 def comparison_basis(row, reference):
     """Explain the sole supported scope equivalence; all other fields stay exact."""
-    if execution_issue(row) or execution_issue(reference):
+    if execution_issue(row) or execution_issue(reference) or frequency_policy_differences(row, reference):
         return None
     current, previous = contract(row), contract(reference)
     if current[3] == previous[3] or current[:3] + current[4:] != previous[:3] + previous[4:]:
@@ -157,7 +185,7 @@ def comparison_basis(row, reference):
 
 def contracts_match(row, reference):
     # Preserve exact historical comparisons, including cases without new metadata.
-    if execution_issue(row) or execution_issue(reference):
+    if execution_issue(row) or execution_issue(reference) or frequency_policy_differences(row, reference):
         return False
     return contract(row) == contract(reference) or comparison_basis(row, reference) is not None
 
@@ -208,6 +236,8 @@ def apply_baselines(rows, baselines, name=None):
                        for key, current, reference in zip(fields, contract(row), contract(b))
                        if current != reference},
                     **({"execution_entry": {"reference_error": execution_issue(b)}} if execution_issue(b) else {}),
+                    **({"frequency_policy": frequency_policy_differences(row, b)}
+                       if frequency_policy_differences(row, b) else {}),
                 }}
                 for b in baselines if b.case == row.case and b.target == row.target
                 and (name is None or b.implementation == name)

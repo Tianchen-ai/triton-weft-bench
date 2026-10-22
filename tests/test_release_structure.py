@@ -11,11 +11,38 @@ from unittest.mock import patch
 from weft_bench.catalogs import target_catalog, target_names, resolve_source, references
 from weft_bench.cli import main
 from weft_bench.output import OutputRun
-from weft_bench.results import contracts_match
+from weft_bench.results import contracts_match, apply_baselines
 from weft_bench.types import Result
 
 
 class ReleaseStructureTests(unittest.TestCase):
+    def test_model_input_alias_requires_the_same_existing_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            model, different, alias = root / "model.gguf", root / "different.gguf", root / "old.gguf"
+            model.write_bytes(b"model")
+            different.write_bytes(b"model")
+            alias.symlink_to(model)
+            first = Result("model/decode", "normal", "cpu", {}, "llama-decode", "ok", 1,
+                           details={"input_policy": str(model)})
+            second = replace(first, implementation="weft", details={"input_policy": str(alias)})
+            self.assertTrue(contracts_match(first, second))
+            self.assertFalse(contracts_match(first, replace(second, details={"input_policy": str(different)})))
+
+    def test_observed_frequency_policy_changes_prevent_false_speedups(self):
+        def result(implementation, governor, frequency):
+            return Result("dot", implementation, "cpu", {}, "native", "ok", 1.0, details={
+                "observed_environment": {"affinity": [{"cpu": 32, "frequency_policy": {
+                    "governor": governor, "current_khz": frequency}}]}})
+        reference = result("ggml", "performance", 3200000)
+        candidate = result("weft", "performance", 2800000)
+        self.assertTrue(contracts_match(candidate, reference))
+        candidate = result("weft", "powersave", 3200000)
+        apply_baselines([candidate], [reference], "ggml")
+        self.assertIsNone(candidate.speedup)
+        self.assertEqual(candidate.details["comparison_differences"][0]["differences"]
+                         ["frequency_policy"]["32"]["governor"]["reference"], "performance")
+
     def test_cpu_profile_preserves_explicit_matrix_capability(self):
         from weft_bench.adapters.cpu_target import compiler_target
         fields = {"arch": "riscv64", "march": "rv64gcv", "abi": "lp64d", "vlen_bits": 1024}
