@@ -1,0 +1,28 @@
+{
+  "targets": {
+    "cpu": {
+      "deployment": {"cpus": [0, 1], "workspace": "/work/weft-bench"},
+      "implementations": {"triton_source": {}},
+      "verification": {
+        "source_implementation": "triton_source",
+        "compiler_environment": "installed-triton-weft",
+        "runtime": {
+          "python": "/opt/triton-weft/bin/python",
+          "environment": {"PYTHONDONTWRITEBYTECODE": "1"},
+          "toolchain": {}
+        },
+        "entries": [
+          {"id": "runtime/integer_float_conversion", "group": "runtime", "kind": "runtime", "case": "integer_float_conversion"},
+          {"id": "riscv/associative_scan", "group": "riscv", "kind": "runtime", "case": "associative_scan"},
+          {"id": "riscv/scan_affine_reverse", "group": "riscv", "kind": "runtime", "case": "scan_affine_reverse"},
+          {"id": "riscv/atomic_rmw", "group": "riscv", "kind": "runtime", "case": "atomic_rmw"},
+          {"id": "riscv/atomic_cas", "group": "riscv", "kind": "runtime", "case": "atomic_cas"},
+          {"id": "riscv/atomic_contention", "group": "riscv", "kind": "runtime", "case": "atomic_contention", "request": {"atomic_threads": 2}},
+          {"id": "riscv/helper_noinline", "group": "riscv", "kind": "runtime", "case": "helper_noinline"},
+          {"id": "riscv/helper_loop_returns", "group": "riscv", "kind": "runtime", "case": "helper_loop_returns"},
+          {"id": "riscv/helper_context_return", "group": "riscv", "kind": "runtime", "case": "helper_context_return"}
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,27 @@
+diff --git a/ggml/src/ggml-cpu/arch/riscv/quants.c b/ggml/src/ggml-cpu/arch/riscv/quants.c
+index 47e9180..d591672 100644
+--- a/ggml/src/ggml-cpu/arch/riscv/quants.c
++++ b/ggml/src/ggml-cpu/arch/riscv/quants.c
+@@ -4139,8 +4139,11 @@ static NOINLINE void ggml_vec_dot_iq2_s_q8_K_vl1024(int n, float * GGML_RESTRICT
+         vint8m2_t v_q8 = __riscv_vle8_v_i8m2(q8, 256);
+         q8 += 256;
+ 
+-        vint8m2_t v_q8_signed = __riscv_vrsub_vx_i8m2_mu(m_negative, v_q8, v_q8, 0, 256);
+-        vint16m4_t v_dot = __riscv_vwmul_vv_i16m4(v_grid_i8, v_q8_signed, 256);
++        // Q8_K includes -128, whose negation is not representable in int8.
++        // The IQ2_S grid contains positive values fitting int8, so applying
++        // its sign before widening preserves the complete Q8_K input domain.
++        vint8m2_t v_grid_signed = __riscv_vrsub_vx_i8m2_mu(m_negative, v_grid_i8, v_grid_i8, 0, 256);
++        vint16m4_t v_dot = __riscv_vwmul_vv_i16m4(v_grid_signed, v_q8, 256);
+ 
+         vint32m1_t v_zero = __riscv_vmv_v_x_i32m1(0, 1);
+ 
+@@ -4186,7 +4189,7 @@ static NOINLINE void ggml_vec_dot_iq2_s_q8_K_vl1024(int n, float * GGML_RESTRICT
+         vuint8m1_t v_hi_ext = __riscv_vlmul_ext_v_u8mf2_u8m1(v_hi8);
+         vuint8m1_t v_lo_g = __riscv_vrgather_vv_u8m1(v_lo_ext, v_half, 16);
+         vuint8m1_t v_hi_g = __riscv_vrgather_vv_u8m1(v_hi_ext, v_half, 16);
+-        vuint8m1_t v_nib = __riscv_vmerge_vvm_u8m1(v_lo_g, v_hi_g, m_even, 16);
++        vuint8m1_t v_nib = __riscv_vmerge_vvm_u8m1(v_hi_g, v_lo_g, m_even, 16);
+ 
+         static const uint8_t iq2s_scale_lut_16_local[16] = {
+             1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31

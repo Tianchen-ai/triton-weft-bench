@@ -1,0 +1,50 @@
+{
+  "defaults": {
+    "weft_root": "/path/to/Weft",
+    "compiler": "/path/to/weft-compile"
+  },
+  "targets": {
+    "rvv128": {
+      "target": {"march": "rv64gcv_zfh_zvfh", "abi": "lp64d", "vlen_bits": 128},
+      "deployment": {"host": "your-ssh-alias", "workspace": "/tmp/weft-bench", "cpus": [0], "python": "/path/to/target/weft-python"},
+      "toolchain": {"cc": ["clang"], "cxx": ["clang++"], "cflags": [], "ldflags": []},
+      "ggml": {"source": "/path/to/llama.cpp", "libraries": "/path/to/llama.cpp/build/bin", "compile_commands": "/path/to/llama.cpp/build/compile_commands.json"},
+      "check": {
+        "reference": "/path/to/runs/rvv128-ref/results.json",
+        "previous": "/path/to/runs/rvv128-previous/results.json",
+        "current_impl": "weft", "reference_impl": "ggml", "previous_impl": "weft", "threshold": 0.03
+      },
+      "llama": {
+        "threads": 8,
+        "models": {
+          "llama2-7b-q4_0": "/path/to/llama-2-7b-chat.Q4_0.gguf",
+          "deepseek8b-q4_k_m": "/path/to/DeepSeek-R1-Distill-Llama-8B-Q4_K_M.gguf"
+        },
+        "implementations": {
+          "normal": {"binary": "/path/to/normal/bin/llama-bench"},
+          "weft": {"binary": "/path/to/integrated/bin/llama-bench",
+                   "source": "/path/to/integrated/llama.cpp", "build_directory": "/path/to/integrated/build",
+                   "weft_include": "/path/to/weft-sdk/share/weft/llama.cpp/include",
+                   "env": {"LD_LIBRARY_PATH": "/path/to/weft-sdk/lib"}}
+        }
+      }
+    },
+    "rvv256-ime": {
+      "target": {"march": "rv64gcv_zfh_zvfh_zba", "abi": "lp64d", "vlen_bits": 256},
+      "capabilities": ["spacemit-ime1"],
+      "deployment": {"host": "your-ime-ssh-alias", "workspace": "/tmp/weft-bench", "cpus": [3], "python": "/path/to/target/weft-python"},
+      "toolchain": {"cc": ["clang-18"], "cxx": ["clang++-18"], "cflags": ["-fno-integrated-as"]},
+      "ggml": {"source": "/path/to/vendor/llama.cpp", "libraries": "/path/to/vendor/build/bin", "compile_commands": "/path/to/vendor/build/compile_commands.json"},
+      "check": {
+        "reference": "/path/to/runs/rvv256-ref/results.json",
+        "previous": "/path/to/runs/rvv256-previous/results.json"
+      },
+      "bindings": {
+        "ime_centered": {"symbol": "q4_centered_packed_prefill", "options": {"meta": {"MR": 4, "NR": 16}, "matrix_extension": "spacemit-ime1", "require_extensions": ["spacemit-ime1"]}},
+        "ime_affine": {"symbol": "q4_affine_packed_prefill", "options": {"meta": {"MR": 4, "NR": 16}, "matrix_extension": "spacemit-ime1", "require_extensions": ["spacemit-ime1"]}},
+        "q4_k_projection_decode": {"source": "examples/kernels/mul_mat/q4_k_decode.py", "symbol": "production_mul_mat_q4_k_decode", "options": {"meta": {}}},
+        "q4_k_projection_prefill": {"source": "examples/kernels/mul_mat/q4_k_staged.py", "symbol": "production_mul_mat_q4_k_staged", "options": {"lmul_eighths": 16, "meta": {"NC": 64, "KC": 512, "MC": 8, "MR": 2}}}
+      }
+    }
+  }
+}

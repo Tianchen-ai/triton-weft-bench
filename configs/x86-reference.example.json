@@ -1,0 +1,285 @@
+{
+  "defaults": {
+    "target": {
+      "architecture": "x86_64",
+      "march": "native"
+    },
+    "record_environment": true,
+    "output_root": "/work/x86-bench/runs",
+    "default_implementations": {
+      "op": [
+        "ggml"
+      ],
+      "e2e": [
+        "normal"
+      ]
+    },
+    "toolchain": {
+      "cc": [
+        "clang"
+      ],
+      "cxx": [
+        "clang++"
+      ],
+      "cflags": [
+        "-fopenmp=libomp",
+        "-I/opt/bench-deps/openmp/include"
+      ],
+      "ldflags": [
+        "-L/opt/bench-deps/openmp/lib",
+        "-Wl,-rpath,/opt/bench-deps/openmp/lib"
+      ]
+    },
+    "ggml": {
+      "source": "/opt/bench-deps/llama.cpp",
+      "libraries": "/opt/bench-deps/llama-build/bin",
+      "compile_commands": "/opt/bench-deps/llama-build/compile_commands.json",
+      "projection_weights": "model-default"
+    },
+    "quantization_contracts": {
+      "q8_k": "first-absolute-max-rtne"
+    },
+    "references": {
+      "openblas": {
+        "include": "/opt/bench-deps/openblas/include/openblas",
+        "library": "/opt/bench-deps/openblas/lib/libopenblas.so"
+      },
+      "onednn": {
+        "include": "/opt/bench-deps/onednn/include",
+        "library": "/opt/bench-deps/onednn/lib/libdnnl.so",
+        "threading": "omp"
+      }
+    },
+    "verification": {
+      "source_implementation": "ggml",
+      "entries": [
+        {
+          "id": "ggml/q4_k_dot",
+          "group": "reference",
+          "kind": "native",
+          "case": "q4_k_dot",
+          "shape": {
+            "rows": 1,
+            "K": 256
+          },
+          "implementation": "ggml"
+        },
+        {
+          "id": "openblas/gemm_f32",
+          "group": "reference",
+          "kind": "native",
+          "case": "gemm_f32",
+          "shape": {
+            "M": 32,
+            "N": 64,
+            "K": 128
+          },
+          "implementation": "openblas"
+        },
+        {
+          "id": "onednn/gemm_f32",
+          "group": "reference",
+          "kind": "native",
+          "case": "gemm_f32",
+          "shape": {
+            "M": 32,
+            "N": 64,
+            "K": 128
+          },
+          "implementation": "onednn"
+        },
+        {
+          "id": "onednn/gemm_bf16_f32",
+          "group": "reference",
+          "kind": "native",
+          "case": "gemm_bf16_f32",
+          "shape": {
+            "M": 17,
+            "N": 33,
+            "K": 257
+          },
+          "implementation": "onednn"
+        },
+        {
+          "id": "onednn/gemm_s8_s32",
+          "group": "reference",
+          "kind": "native",
+          "case": "gemm_s8_s32",
+          "shape": {
+            "M": 17,
+            "N": 33,
+            "K": 257
+          },
+          "implementation": "onednn"
+        }
+      ]
+    }
+  },
+  "implementations": {
+    "ggml": {
+      "factory": "weft_bench.adapters.native:GGMLAdapter"
+    },
+    "openblas": {
+      "kind": "native",
+      "factory": "weft_bench.adapters.cpu_reference:OpenBLASAdapter",
+      "library": "openblas"
+    },
+    "onednn": {
+      "kind": "native",
+      "factory": "weft_bench.adapters.cpu_reference:OneDNNAdapter",
+      "library": "onednn",
+      "weights": "plain"
+    }
+  },
+  "targets": {
+    "x86-1t": {
+      "threads": 1,
+      "deployment": {
+        "cpus": [
+          0
+        ],
+        "numa": {
+          "memory_nodes": [
+            0
+          ],
+          "command": "numactl"
+        }
+      },
+      "env": {
+        "OMP_NUM_THREADS": "1",
+        "OMP_DYNAMIC": "FALSE",
+        "ONEDNN_VERBOSE": "0",
+        "DNNL_VERBOSE": "0"
+      },
+      "llama": {
+        "models": {
+          "llama2-7b-q4_0": "/models/llama-2-7b-chat.Q4_0.gguf",
+          "deepseek8b-q4_k_m": "/models/DeepSeek-R1-Distill-Llama-8B-Q4_K_M.gguf"
+        },
+        "args": [
+          "-ngl",
+          "0"
+        ],
+        "implementations": {
+          "normal": {
+            "binary": "/opt/bench-deps/llama-build/bin/llama-bench",
+            "source": "/opt/bench-deps/llama.cpp",
+            "build_directory": "/opt/bench-deps/llama-build"
+          }
+        },
+        "threads": 1,
+        "cpus": [
+          0
+        ]
+      }
+    },
+    "x86-8t": {
+      "threads": 8,
+      "deployment": {
+        "cpus": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "numa": {
+          "memory_nodes": [
+            0
+          ],
+          "command": "numactl"
+        }
+      },
+      "env": {
+        "OMP_NUM_THREADS": "8",
+        "OMP_DYNAMIC": "FALSE",
+        "ONEDNN_VERBOSE": "0",
+        "DNNL_VERBOSE": "0"
+      },
+      "llama": {
+        "models": {
+          "llama2-7b-q4_0": "/models/llama-2-7b-chat.Q4_0.gguf",
+          "deepseek8b-q4_k_m": "/models/DeepSeek-R1-Distill-Llama-8B-Q4_K_M.gguf"
+        },
+        "args": [
+          "-ngl",
+          "0"
+        ],
+        "implementations": {
+          "normal": {
+            "binary": "/opt/bench-deps/llama-build/bin/llama-bench",
+            "source": "/opt/bench-deps/llama.cpp",
+            "build_directory": "/opt/bench-deps/llama-build"
+          }
+        },
+        "threads": 8,
+        "cpus": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ]
+      },
+      "verification": {
+        "source_implementation": "ggml",
+        "entries": [
+          {
+            "id": "openblas/gemm_f32",
+            "group": "reference",
+            "kind": "native",
+            "case": "gemm_f32",
+            "shape": {
+              "M": 32,
+              "N": 64,
+              "K": 128
+            },
+            "implementation": "openblas"
+          },
+          {
+            "id": "onednn/gemm_f32",
+            "group": "reference",
+            "kind": "native",
+            "case": "gemm_f32",
+            "shape": {
+              "M": 32,
+              "N": 64,
+              "K": 128
+            },
+            "implementation": "onednn"
+          },
+          {
+            "id": "onednn/gemm_bf16_f32",
+            "group": "reference",
+            "kind": "native",
+            "case": "gemm_bf16_f32",
+            "shape": {
+              "M": 17,
+              "N": 33,
+              "K": 257
+            },
+            "implementation": "onednn"
+          },
+          {
+            "id": "onednn/gemm_s8_s32",
+            "group": "reference",
+            "kind": "native",
+            "case": "gemm_s8_s32",
+            "shape": {
+              "M": 17,
+              "N": 33,
+              "K": 257
+            },
+            "implementation": "onednn"
+          }
+        ]
+      }
+    }
+  }
+}

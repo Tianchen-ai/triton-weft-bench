@@ -1,0 +1,4 @@
+{
+  "ggml.vec_dot/q4_0": "default",
+  "ggml.from_float/q8_0": "default"
+}

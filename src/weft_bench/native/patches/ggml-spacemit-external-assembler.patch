@@ -1,0 +1,42 @@
+--- a/ggml/src/ggml-cpu/cmake/FindSMTIME.cmake
++++ b/ggml/src/ggml-cpu/cmake/FindSMTIME.cmake
+@@ -4,7 +4,7 @@
+     set(SMT_MARCH_STR "-march=rv64gcv_zfh_zvfh_zba_zicbop")
+     if ((CMAKE_C_COMPILER_ID STREQUAL "GNU" AND
+          CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL 15) OR
+-        CMAKE_C_COMPILER_ID MATCHES "Clang")
++        (CMAKE_C_COMPILER_ID MATCHES "Clang" AND NOT CMAKE_C_FLAGS MATCHES "-fno-integrated-as"))
+         string(APPEND SMT_MARCH_STR "_xsmtvdotii")
+     endif()
+     set(CMAKE_REQUIRED_FLAGS "${SMT_MARCH_STR}")
+--- a/ggml/src/ggml-cpu/CMakeLists.txt
++++ b/ggml/src/ggml-cpu/CMakeLists.txt
+@@ -573,7 +573,7 @@
+                 # the IME `vmadot` family of instructions).
+                 if ((CMAKE_C_COMPILER_ID STREQUAL "GNU" AND
+                      CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL 15) OR
+-                    CMAKE_C_COMPILER_ID MATCHES "Clang")
++                    (CMAKE_C_COMPILER_ID MATCHES "Clang" AND NOT CMAKE_C_FLAGS MATCHES "-fno-integrated-as"))
+                     string(APPEND MARCH_STR "_xsmtvdotii")
+                 endif()
+             endif()
+--- a/ggml/src/ggml-spacemit/CMakeLists.txt
++++ b/ggml/src/ggml-spacemit/CMakeLists.txt
+@@ -19,7 +19,7 @@
+     set(SMT_MARCH_STR "-march=rv64gcv_zfh_zvfh_zba_zicbop")
+     if((CMAKE_C_COMPILER_ID STREQUAL "GNU" AND
+         CMAKE_C_COMPILER_VERSION VERSION_GREATER_EQUAL 15) OR
+-       CMAKE_C_COMPILER_ID MATCHES "Clang")
++       (CMAKE_C_COMPILER_ID MATCHES "Clang" AND NOT CMAKE_C_FLAGS MATCHES "-fno-integrated-as"))
+         string(APPEND SMT_MARCH_STR "_xsmtvdotii")
+     endif()
+     set(CMAKE_REQUIRED_FLAGS "${SMT_MARCH_STR}")
+@@ -81,7 +81,7 @@
+     set(SPACEMIT_MARCH "-march=rv64gcv_zfh_zvfh_zba_zbb_zbs_zicbop_zihintpause_zawrs_zicond_zvbb")
+     if(RISCV64_SPACEMIT_IME_SPEC MATCHES "IME" AND
+        ((CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 15) OR
+-        CMAKE_CXX_COMPILER_ID MATCHES "Clang"))
++        (CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT CMAKE_CXX_FLAGS MATCHES "-fno-integrated-as")))
+         set(SPACEMIT_MARCH "-march=rv64gcv_zfh_zvfh_zba_zbb_zbs_zicbop_zihintpause_zawrs_zicond_zvbb_xsmtvdotii")
+     endif()
+     target_compile_options(${TARGET_NAME} PRIVATE ${SPACEMIT_MARCH})

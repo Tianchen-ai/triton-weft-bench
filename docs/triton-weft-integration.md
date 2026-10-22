@@ -1,0 +1,135 @@
+# Triton–Weft integration
+
+Bench calls the installed Triton–Weft compiler through its public interfaces:
+`@triton.jit(model="weft")`, `triton.compile`, `CompiledKernel.export`, `triton.load`
+and `triton.Package.create`. The compiler owns lowering, autotuning, caching and
+native code generation. Bench owns workload inputs, numerical oracles, measurement
+and results. [Installation](install.md) and [target configuration](targets.md)
+describe the environment setup.
+
+## Source and native artifacts
+
+Set the implementation factory to
+`weft_bench.adapters.triton_native:TritonAdapter`. An implementation name such as
+`weft` or `candidate` is only a label; the factory selects the compiler path.
+
+| Input | Configuration |
+|---|---|
+| Source | Host `python`, optional `pythonpath`, `source`, `symbol`, `signature`, `constexprs`, `backend_options`, `toolchain` |
+| Exported AOT | `artifact` directory with native library, manifest, header and runtime dependencies |
+| Single instance | `entry: "single"` (default) |
+| Native grid | `entry: "grid"`, `grid`, `num_cpu_threads` |
+
+The target declares its ISA/VLEN and execution-side `triton_runtime.include` and
+`triton_runtime.library`. Cross compilation uses the configured host toolchain and
+target sysroot. Bench loads the exported candidate library directly; its C++ compiler
+builds the measurement worker, not a second version of the candidate C.
+
+An implementation can specify `compile_target` independently of the measurement
+machine's `target`. For example, `{"arch":"x86_64", "march":"x86-64-v4",
+"abi":"sysv", "vlen_bits":0}` selects the compiler ISA while an execution target
+can describe the actual host as `sapphirerapids`. The exported manifest is checked
+against the compiler descriptor, which is saved for replay. Fixed references keep
+their original machine and measurement contracts. `architecture` is accepted as
+an alias for `arch`; legacy configurations with an `rv64` march still select
+`riscv64`. Other architectures must be explicit. The product SDK checks whether
+the executing CPU supports the artifact.
+
+The typed artifact ABI supplies argument order, encoding, access, dimensions and
+strides. View arguments must match the declared logical shape. Pointer arguments
+use the workload's actual storage and explicit size/stride arguments; an empty
+pointer shape does not mean one element. No adapter parses C parameter names.
+
+Native grid execution invokes the product launcher once for the whole workload.
+It requires whole-workload buffers and cannot wrap an existing row/tile-loop
+workload in another grid. Runtime capability checks remain active. The configured
+CPU affinity must cover the intended worker set.
+
+## Timing scopes
+
+| Scope | Included |
+|---|---|
+| Native single instance | Complete candidate C ABI call |
+| Native grid | Complete native grid launch, worker scheduling and synchronization |
+| Python JIT grid | Warm `kernel[grid]` call, including Python binding and runtime guards |
+| Model phase | The selected llama.cpp prefill or decode measurement window |
+
+Compilation, allocation, input generation, numerical checking, state restoration
+and first runtime initialization are outside normal timing. Work required by the
+algorithm, such as projection quantization, stays inside the call. Existing multi-row
+dot and packed IME cases retain their original boundaries. A grid time cannot be
+divided by its instance count and presented as a leaf-call measurement.
+
+An adapter change does not invalidate an otherwise identical fixed baseline.
+Shape, inputs, cache mode, call scope and execution settings determine whether a
+comparison is meaningful. Mismatches remain visible in results and `explain`.
+
+## Target-side Python JIT
+
+`weft_bench.adapters.triton_jit:TritonJitAdapter` uses a configured target-side
+`python`, `environment` and `toolchain`, with source/symbol, constexprs, grid and
+thread options. The existing native fixture supplies input storage and the oracle.
+Results separate cold compile+launch, first cache-hit launch and warm Python timing.
+The Python-call scope is not compared with native-only GGML as operator speedup.
+
+Python JIT uses the product's native target detection on RISC-V or x86. Bench
+checks the requested execution architecture before launch and records the detected
+compiler target. An optional `compile_target` is an exact expectation for JIT,
+not an override of the product driver. Use source/AOT compilation to select a
+different ISA from the native JIT target.
+
+Optional `check_python_aot` checks exported/reloaded execution.
+`check_torch_compile` checks first and cached `torch.compile(fullgraph=True)` calls
+in a compatible configured framework environment. These checks are outside warm
+timing and default to off. This adapter's shared Tensor fixture currently supports
+float32, one output, whole-workload calls and reused inputs. Other numerical and
+framework contracts use explicitly selected [verification cases](verification.md).
+
+Optional `profile_runtime` retains normal uninstrumented samples and records
+available Python runtime segments separately. If the installed runtime uses a C++
+launcher that cannot expose those segments, they are `unavailable`; unobserved
+internal work is not reported as zero.
+
+## llama.cpp packages
+
+Set `llama.package_backend` to `triton` and select the host package preparation
+environment in `llama.triton`. `--replace ROLE=ARTIFACT` calls the public package
+API and deploys the native package. Source replacements additionally need the
+role's signature, constexprs, backend options and toolchain. This route does not
+recompile or relink the exported candidate on the execution machine.
+
+Use compatible normal and integrated llama.cpp builds with matching ordinary
+backend settings. Replacement roles and measurement phases are independent:
+`--phase prefill|decode|both` selects the windows; the package selects the hooks.
+Consult `list --kind replacements` for the current role catalog, including distinct
+prefill/decode IME entries. Only measured-window call-count increments establish a
+hit. `not_hit` means an observed zero count; `not_observed` means no usable observation.
+
+`e2e --validate --validation-reference PATH` checks full-vocabulary logits for the
+configured prompt and teacher-forced decode sample outside phase timing. Its saved
+normal-model numerical reference is separate from the timing baseline. Select
+`llama.validation` prompt length, decode steps and tolerances before execution;
+this sample does not establish correctness for every model input.
+
+## Diagnosis and reusable workloads
+
+Native replay defaults to a saved artifact. Source-origin runs can use `--source`
+with the recorded Triton environment/options; the legacy `--compiler` flag does
+not select a Triton compiler. Historical flat snapshots with relative imports
+require the matching package checkout. Preserve available IR, C, compiler diagnostics
+and the actual executed artifact; compilation alone is not numerical evidence.
+
+Optional `shared-semantics` and `pointer-semantics` workloads share the existing
+worker. They cover ordinary array operations, masked/strided pointers, reductions,
+helper control flow and typed operations. Alias cases restore state before each
+call; Linux protected-page cases detect forbidden masked accesses. Scan and atomic
+cases also use this worker, with explicit mutable state and returned-old-value
+checks. These workloads do not enter `quick` or invent GGML performance references.
+
+`causal_attention` is an optional complete attention workload with grouped-query
+heads, a causal prefix and an independent numerical oracle. Its full candidate call
+is timed, including required internal state updates. It currently has no bound GGML
+performance implementation.
+
+The [Codex plugin](codex-plugin.md) exposes these same paths. Its environment names,
+compiler installations, machine addresses and model paths remain external settings.

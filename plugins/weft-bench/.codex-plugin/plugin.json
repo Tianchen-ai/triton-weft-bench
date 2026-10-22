@@ -1,0 +1,18 @@
+{
+  "name": "weft-bench",
+  "version": "0.3.1",
+  "description": "Compare Triton-Weft kernels, run GGML/OpenBLAS/oneDNN references, and measure normal or explicitly replaced llama.cpp model phases.",
+  "skills": "./skills/",
+  "requires_local_executor": true,
+  "interface": {
+    "displayName": "Weft Bench",
+    "shortDescription": "Triton–Weft 与 x86/RVV 参考库、模型计时",
+    "longDescription": "让 Triton–Weft 与 Weft 开发 agent 使用现有 bench：选择 workload、输入和候选 kernel，复用 GGML baseline，执行配置好的编译/数值/运行时验证，按参数替换 llama.cpp 并分别测量 prefill/decode。机器与模型配置保留在本地。",
+    "developerName": "Weft contributors",
+    "category": "Developer Tools",
+    "defaultPrompt": [
+      "用 Weft Bench 对比当前 kernel 与 GGML，复用已有 baseline。",
+      "用 Weft Bench 测量指定 llama.cpp 替换在 prefill 和 decode 中的效果。"
+    ]
+  }
+}

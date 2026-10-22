@@ -1,0 +1,46 @@
+--- a/ggml/src/ggml-cpu/arch/riscv/quants.c
++++ b/ggml/src/ggml-cpu/arch/riscv/quants.c
+@@ -4757,8 +4757,9 @@
+         vint8m4_t q2_all = __riscv_vreinterpret_v_u8m4_i8m4(__riscv_vreinterpret_v_u64m4_u8m4(vq2_64));
+         vint8m4_t s2_all = __riscv_vreinterpret_v_u8m4_i8m4(__riscv_vreinterpret_v_u64m4_u8m4(vs2_64));
+ 
+-        vint8m4_t q8s_all = __riscv_vmul_vv_i8m4(q8_all, s2_all, 256);
+-        vint16m8_t dot_all = __riscv_vwmul_vv_i16m8(q8s_all, q2_all, 256);
++        // Sign the positive codebook values, preserving Q8_K's -128 input.
++        vint8m4_t q2s_all = __riscv_vmul_vv_i8m4(q2_all, s2_all, 256);
++        vint16m8_t dot_all = __riscv_vwmul_vv_i16m8(q8_all, q2s_all, 256);
+ 
+         float sum = 0.0f;
+         vint32m1_t zero_vec = __riscv_vmv_v_x_i32m1(0, 1);
+@@ -4766,8 +4767,10 @@
+         for (int j = 0; j < 8; ++j) {
+             uint32_t s_p = __riscv_vmv_x_s_u32mf2_u32(__riscv_vslidedown_vx_u32mf2(v_sc32, j, 8));
+             int16_t sc = 2 * ((s_p >> 28) & 0xF) + 1;
+-            dot_all=__riscv_vslidedown_vx_i16m8(dot_all,j*32,32);
+-            vint32m1_t sum_v = __riscv_vwredsum_vs_i16m8_i32m1(dot_all, zero_vec, 32);
++            // Each slice reads the complete product, not a prior short slice
++            // whose agnostic tail no longer contains the remaining sub-blocks.
++            vint16m8_t dot_slice = __riscv_vslidedown_vx_i16m8(dot_all, j*32, 32);
++            vint32m1_t sum_v = __riscv_vwredsum_vs_i16m8_i32m1(dot_slice, zero_vec, 32);
+             int32_t isum = __riscv_vmv_x_s_i32m1_i32(sum_v);
+             sum += (float)isum * sc;
+         }
+@@ -5435,17 +5438,14 @@
+         vint16m4_t v_dot = __riscv_vwmul_vv_i16m4(v_q8, v_q3_final, 256);
+         float block_sum = 0.0f;
+         vint32m1_t v_zero = __riscv_vmv_v_x_i32m1(0, 1);
+-        vint16m4_t v_accum = v_dot;
+-
+         for (int j = 0; j < 8; ++j) {
+             float scale = (float)(2 * (aux32[j] >> 28) + 1);
+ 
++            vint16m4_t v_accum = __riscv_vslidedown_vx_i16m4(v_dot, j * 32, 32);
+             vint32m1_t v_partial_sum = __riscv_vwredsum_vs_i16m4_i32m1(v_accum, v_zero, 32);
+ 
+             int32_t partial_sum_i = __riscv_vmv_x_s_i32m1_i32(v_partial_sum);
+             block_sum += partial_sum_i * scale;
+-            v_accum = __riscv_vslidedown_vx_i16m4(v_accum, 32, 32);
+-
+         }
+ 
+         sumf += d * block_sum;

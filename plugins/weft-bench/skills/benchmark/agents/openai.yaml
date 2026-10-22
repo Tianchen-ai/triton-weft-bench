@@ -1,0 +1,6 @@
+interface:
+  display_name: "Weft Bench"
+  short_description: "比较 Triton–Weft 与 GGML，验证编译产物并测量模型替换"
+  default_prompt: "使用 $benchmark，在任务配置的 Triton–Weft 或 Weft 环境中对比当前 kernel 与 GGML，复用已确认的 baseline。"
+policy:
+  allow_implicit_invocation: true
