@@ -214,14 +214,27 @@ def byte_sum_tail(X: tl.View[tl.i8, (N,)], U: tl.View[tl.u8, (N,)], Y: tl.View[t
 
 @triton.jit(model="weft")
 def byte_sum_rows(X: tl.View[tl.i8, (M, N)], U: tl.View[tl.u8, (M, N)],
-                  Y: tl.View[tl.i32, (M, 4)]):
-    with tl.level.rows(M, group=4) as rows:
-        with tl.level.blocks(N, extent=257) as block:
+                  Y: tl.View[tl.i32, (M, 4)], ROWS: tl.constexpr = 4, BLOCK: tl.constexpr = 257):
+    with tl.level.rows(M, group=ROWS) as rows:
+        with tl.level.blocks(N, extent=BLOCK) as block:
             x, u = tl.load(X[rows, block]), tl.load(U[rows, block])
             tl.store(Y[rows, 0], tl.i32(tl.sum(x, 1, dtype=tl.i16)))
             tl.store(Y[rows, 1], tl.sum(tl.i32(x), 1))
             tl.store(Y[rows, 2], tl.i32(tl.sum(u, 1, dtype=tl.i16)))
             tl.store(Y[rows, 3], tl.sum(tl.i32(u), 1))
+
+
+@triton.jit(model="weft")
+def integer_sum_rows(X: tl.View[tl.i64, (M, N)], Y: tl.View[tl.i64, (M,)],
+                     BITS: tl.constexpr, UNSIGNED: tl.constexpr):
+    with tl.level.rows(M, group=3) as rows:
+        with tl.level.blocks(N, extent=257) as block:
+            source = tl.load(X[rows, block])
+            if BITS == 8:
+                values = tl.u8(source) if UNSIGNED else tl.i8(source)
+            else:
+                values = tl.u64(source) if UNSIGNED else source
+            tl.store(Y[rows], tl.i64(tl.reduce(values, op="add", axis="N")))
 
 
 @triton.jit

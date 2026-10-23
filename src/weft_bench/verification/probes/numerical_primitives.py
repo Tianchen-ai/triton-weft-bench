@@ -887,7 +887,7 @@ def amx_snapshot_contract(root, options, compile_target):
 
 
 def byte_sum_contract(root, options, compile_target):
-    from numerical_primitive_kernels import byte_sum_tail, byte_sum_rows
+    from numerical_primitive_kernels import byte_sum_tail, byte_sum_rows, integer_sum_rows
     compiled = None
     records = []
     for n in (0, 1, 7, 8, 17, 33, 255, 256, 257):
@@ -914,37 +914,72 @@ def byte_sum_contract(root, options, compile_target):
             exact(output,expected)
             exact(storage[[0,1,-2,-1]],np.full(4,-12345,np.int32))
             records.append({"N":n,"uniform_extreme":uniform})
+    for n in (7, 33, 257):
+        backing = (np.arange(272)*71 % 256).astype(np.uint8)
+        u = backing[:n]
+        x = ((np.arange(n)*37 % 256)-128).astype(np.int8)
+        output = backing.view(np.int32)[2:6]
+        expected_storage = backing.copy()
+        sx, su = sum(map(int, x)), sum(map(int, u))
+        expected_storage.view(np.int32)[2:6] = [wrap_integer(sx,16),sx,wrap_integer(su,16),su]
+        compiled[(1,)](x, u, output)
+        exact(backing, expected_storage)
+        records.append({"N": n, "unsigned_input_overlaps_output": True})
     evidence=native_evidence(compiled,root,"byte-sum",["reduce"])
-    rows_compiled = None
-    for m, n in ((0, 33), (4, 0), (1, 7), (3, 32), (4, 33), (5, 257)):
-        x = ((np.arange(m*n)*37 % 256)-128).astype(np.int8).reshape(m, n)
-        u = (np.arange(m*n)*71 % 256).astype(np.uint8).reshape(m, n)
-        if m:
-            x[-1].fill(-128); u[-1].fill(255)
-        storage, output = guarded(m*4, np.int32)
-        output = output.reshape(m, 4)
-        expected = output.copy()
-        if n:
-            for row in range(m):
-                sx, su = sum(map(int, x[row])), sum(map(int, u[row]))
-                expected[row] = [wrap_integer(sx, 16), sx, wrap_integer(su, 16), su]
+    rows_evidence = []
+    for tile_rows, block in ((1, 32), (1, 257), (4, 257)):
+        rows_compiled = None
+        shapes = ((0, 7), (4, 0), (1, 7), (3, 32)) if block == 32 else ((0, 33), (4, 0), (1, 7), (3, 32), (4, 33), (5, 257))
+        for m, n in shapes:
+            x = ((np.arange(m*n)*37 % 256)-128).astype(np.int8).reshape(m, n)
+            u = (np.arange(m*n)*71 % 256).astype(np.uint8).reshape(m, n)
+            if m:
+                x[-1].fill(-128); u[-1].fill(255)
+            storage, output = guarded(m*4, np.int32)
+            output = output.reshape(m, 4)
+            expected = output.copy()
+            if n:
+                for row in range(m):
+                    sx, su = sum(map(int, x[row])), sum(map(int, u[row]))
+                    expected[row] = [wrap_integer(sx, 16), sx, wrap_integer(su, 16), su]
+            if compile_target is None:
+                current = byte_sum_rows[(1,)](x, u, output, ROWS=tile_rows, BLOCK=block, **options)
+                if rows_compiled is None: rows_compiled = current
+                assert current is rows_compiled, "row byte sums specialized runtime shapes"
+            else:
+                if rows_compiled is None:
+                    from triton import compile
+                    from triton.compiler import ASTSource
+                    from triton.backends.compiler import CPUTarget
+                    rows_compiled = compile(ASTSource(byte_sum_rows, {}, {"ROWS": tile_rows, "BLOCK": block}),
+                        target=CPUTarget(backend="weft", **compile_target), options=options)
+                rows_compiled[(1,)](x, u, output)
+            exact(output, expected)
+            exact(storage[[0, 1,-2,-1]], np.full(4, -12345, np.int32))
+            records.append({"M": m, "N": n, "row_tile": tile_rows, "block": block})
+        rows_evidence.append(native_evidence(rows_compiled, root, f"byte-sum-rows-{tile_rows}-{block}", ["reduce"]))
+        if tile_rows == 1 and block == 32 and "riscvir" in rows_compiled.asm:
+            assert '"weft_riscv.rvv_widen_reduce"' in rows_compiled.asm["riscvir"], "singleton row widening reduction was not selected"
+    for bits, unsigned in ((8, False), (8, True), (64, False), (64, True)):
+        source = np.resize(np.array([-(1 << 63), (1 << 63)-1, -128, 255, 1], np.int64), (5, 257))
+        storage, output = guarded(5, np.int64)
+        expected = np.array([wrap_integer(wrap_integer(sum(wrap_integer(int(x), bits, not unsigned)
+                             for x in row), bits, not unsigned), 64) for row in source], np.int64)
         if compile_target is None:
-            current = byte_sum_rows[(1,)](x, u, output, **options)
-            if rows_compiled is None: rows_compiled = current
-            assert current is rows_compiled, "row byte sums specialized runtime shapes"
+            width_compiled = integer_sum_rows[(1,)](source, output, BITS=bits, UNSIGNED=unsigned, **options)
         else:
-            if rows_compiled is None:
-                from triton import compile
-                from triton.compiler import ASTSource
-                from triton.backends.compiler import CPUTarget
-                rows_compiled = compile(ASTSource(byte_sum_rows, {}, {}),
-                    target=CPUTarget(backend="weft", **compile_target), options=options)
-            rows_compiled[(1,)](x, u, output)
+            from triton import compile
+            from triton.compiler import ASTSource
+            from triton.backends.compiler import CPUTarget
+            width_compiled = compile(ASTSource(integer_sum_rows, {}, {"BITS": bits, "UNSIGNED": unsigned}),
+                target=CPUTarget(backend="weft", **compile_target), options=options)
+            width_compiled[(1,)](source, output)
         exact(output, expected)
-        exact(storage[[0, 1, -2, -1]], np.full(4, -12345, np.int32))
-    rows_evidence = native_evidence(rows_compiled, root, "byte-sum-rows", ["reduce"])
+        exact(storage[[0,1,-2,-1]], np.full(4, -12345, np.int64))
+        rows_evidence.append(native_evidence(width_compiled, root, f"integer-sum-{bits}-{unsigned}", ["reduce"]))
+        records.append({"bits": bits, "unsigned": unsigned, "modular_overflow": True, "tail_rows": True})
     return {"subcases":records,"signed_and_unsigned":True,"i16_wrap":True,"empty_preserves_output":True,
-            "projected_rows_and_tails": True, "evidence":[evidence, rows_evidence]}
+            "projected_rows_and_tails": True, "evidence":[evidence, *rows_evidence]}
 
 
 def extrema_and_half(root, options, compile_target):

@@ -5038,7 +5038,7 @@
       "dtype": "packed-i4*i8",
       "candidate": {
         "source": "package:kernels/ggml/mul_mat/ime1/kernels.py",
-        "symbol": "q4_affine_packed_decode",
+        "symbol": "q4_affine_packed_decode_correction",
         "signature": {},
         "constexprs": {
           "MR": 1,

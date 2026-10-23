@@ -183,6 +183,26 @@ def q4_affine_packed_decode(W: wl.View[IMEQ4Affine_I[16], (N, K)], Xq: wl.View[I
 
 
 @triton.jit(model="weft", strided=("Y",))
+def q4_affine_packed_decode_correction(W: wl.View[IMEQ4Affine_I[16], (N, K)], Xq: wl.View[IMEQ8_I[1], (M, K)], Y: wl.View[wl.f32, (M, N)], *, MR: wl.constexpr, NR: wl.constexpr):
+    # The IME affine packing contract stores a Q4 zero point in [0, 15].
+    # Apply its correction once per block, after the exact integer products.
+    with wl.level.rows(M, group=wl.auto("MR")) as mb:
+        with wl.level.cols(N, group=wl.auto("NR")) as nb:
+            acc = wl.state(wl.f32, [MR, NR], init=0)
+            with wl.level.blocks(K, extent=32) as kb:
+                x = wl.load(Xq[mb, kb])
+                w = wl.load(W[nb, kb])
+                partial = wl.state(wl.i32, [MR, NR], init=0)
+                with wl.level.subtiles(extent=8) as s:
+                    partial += wl.dot(x.q[s], wl.i8(w.q[s]), over="k", acc_dtype=wl.i32)
+                total = wl.i32(wl.reduce(wl.i16(x.q), axis="k"))
+                corrected = partial - total * wl.i32(w.zp)
+                scale = x.d * wl.f32(w.d)
+                acc += wl.f32(corrected) * scale
+            wl.store(Y[mb, nb], acc)
+
+
+@triton.jit(model="weft", strided=("Y",))
 def q4_centered_packed_prefill(W: wl.View[IMEQ4Centered_I[16], (N, K)], Xq: wl.View[IMEQ8_I[4], (M, K)], Y: wl.View[wl.f32, (M, N)], *, MR: wl.constexpr, NR: wl.constexpr):
     packed_mat_centered(W, Xq, Y, MR=MR, NR=NR)
 
