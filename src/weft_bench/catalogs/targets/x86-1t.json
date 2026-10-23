@@ -4748,6 +4748,34 @@
       },
       "reference_catalog": "ggml-cpu-x86"
     },
+    "amx_q6_k_prefill_strided": {
+      "shape": {"M": 32, "N": 32, "K": 4096, "LDC": 4096},
+      "scope": "native-amx-q6_k-tile/strided-output/prequantized/persistent-model-default",
+      "dtype": "q6_k*q8_k",
+      "candidate": {
+        "persistent_inputs": ["W"],
+        "persistent_providers": {"W": "ggml-amx-q6_k"},
+        "source": "package:kernels/ggml/mul_mat/x86/amx_k_layout.py",
+        "symbol": "q6_k_prefill_scaled",
+        "signature": {},
+        "constexprs": {"M": 32, "N": 32, "BM": 32, "BN": 32, "BK": 64},
+        "backend_options": {},
+        "compile_target": {
+          "arch": "x86_64",
+          "march": "x86-64-v4+avx512vnni+avx512fp16+amx-tile+amx-int8",
+          "abi": "sysv",
+          "vlen_bits": 0,
+          "backend": "weft"
+        }
+      },
+      "reference": "ggml",
+      "artifact_evidence": {
+        "used_extensions": ["amx-int8"],
+        "matrix_in_artifact": true,
+        "runtime_instruction_path": "not_observed"
+      },
+      "reference_catalog": "ggml-cpu-x86"
+    },
     "amx_q4_0_prefill_strided": {
       "shape": {
         "M": 32,
@@ -4970,6 +4998,7 @@
       "amx_q4_k_decode_tile",
       "amx_q6_k_decode_tile",
       "amx_q4_k_prefill_strided",
+      "amx_q6_k_prefill_strided",
       "amx_q4_0_prefill_strided",
       "rope_full"
     ]

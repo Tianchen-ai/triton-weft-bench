@@ -174,19 +174,28 @@ def q6_k_prefill_tile(W: tl.View[AMXQ6_KRows[16], (N, K)], Xq: tl.View[ggml.Q8_K
 @triton.jit(model="weft", alias_groups={"Y": "output"}, strided=("Y",))
 def q6_k_prefill_scaled(W: tl.View[AMXQ6_KRows[16], (N, K)], Xq: tl.View[ggml.Q8_K, (M, K)],
                         Y: tl.View[tl.f32, (M, N)], M: tl.constexpr = 32, N: tl.constexpr = 32,
-                        BM: tl.constexpr = 16, BN: tl.constexpr = 16):
+                        BM: tl.constexpr = 32, BN: tl.constexpr = 32, BK: tl.constexpr = 64):
     tl.static_assert(M == 32 and N == 32)
+    tl.static_assert(BK % 16 == 0 and 256 % BK == 0)
     with tl.level.cols(N, group=BN) as columns:
         with tl.level.rows(M, group=BM) as rows:
             result = tl.state(tl.f32, [BM, BN], init=0)
             with tl.level.blocks(K, extent=256) as block:
                 w, x = W[columns, block], Xq[rows, block]
-                lane = tl.arange(0, 256, dtype=tl.u32, axis="K")
-                bits = tl.u8(tl.load(w.low)) | (tl.u8(tl.load(w.high)) << tl.u8(4))
-                weight = tl.i16(bits) - tl.i16(32)
-                scales = tl.i16(tl.load(w.scales)[:, lane // tl.u32(16)])
-                # The full I6 x I8 scale product fits I16. The author chooses
-                # this exact integer realization before the closed contraction.
-                products = tl.reduce_dot(tl.load(x.q), weight * scales, over="K", acc_dtype=tl.i32)
+                lane = tl.arange(0, BK, dtype=tl.u32, axis="K")
+                scales = tl.load(w.scales)
+                for first in tl.static_range(0, 256, BK):
+                    low = tl.load(tl.subview(w.low, offsets=(0, first), extents=(BN, BK)))
+                    high = tl.load(tl.subview(w.high, offsets=(0, first), extents=(BN, BK)))
+                    bits = tl.u8(low) | (tl.u8(high) << tl.u8(4))
+                    weight = tl.i16(bits) - tl.i16(32)
+                    scale = tl.i16(scales[:, (lane + tl.u32(first)) // tl.u32(16)])
+                    activation = tl.load(tl.subview(x.q, offsets=(0, first), extents=(BM, BK)))
+                    # The full I6 x I8 scale product fits I16.
+                    partial = tl.reduce_dot(activation, weight * scale, over="K", acc_dtype=tl.i32)
+                    if first == 0:
+                        products = partial
+                    else:
+                        products += partial
                 result += tl.f32(products) * (tl.f32(tl.load(x.ds)) * tl.f32(tl.load(w.d)))
             tl.store(Y[rows, columns], result)

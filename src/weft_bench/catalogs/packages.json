@@ -496,6 +496,20 @@
     "model": "deepseek8b-q4_k_m",
     "policy": "normal",
     "bindings": {
+      "ggml.amx/q6_K_prefill": {
+        "source": "package:kernels/ggml/mul_mat/x86/amx_k_layout.py",
+        "symbol": "q6_k_prefill_scaled",
+        "signature": {},
+        "constexprs": {"M": 32, "N": 32, "BM": 32, "BN": 32, "BK": 64},
+        "backend_options": {},
+        "compile_target": {
+          "arch": "x86_64",
+          "march": "x86-64-v4+avx512vnni+avx512fp16+amx-tile+amx-int8",
+          "abi": "sysv",
+          "vlen_bits": 0,
+          "backend": "weft"
+        }
+      },
       "ggml.amx/q4_K_prefill": {
         "source": "package:kernels/ggml/mul_mat/x86/amx_k_layout.py",
         "symbol": "q4_k_prefill_tile",
@@ -575,6 +589,20 @@
     "model": "qwen2.5-14b-q4_k_m",
     "policy": "normal",
     "bindings": {
+      "ggml.amx/q6_K_prefill": {
+        "source": "package:kernels/ggml/mul_mat/x86/amx_k_layout.py",
+        "symbol": "q6_k_prefill_scaled",
+        "signature": {},
+        "constexprs": {"M": 32, "N": 32, "BM": 32, "BN": 32, "BK": 64},
+        "backend_options": {},
+        "compile_target": {
+          "arch": "x86_64",
+          "march": "x86-64-v4+avx512vnni+avx512fp16+amx-tile+amx-int8",
+          "abi": "sysv",
+          "vlen_bits": 0,
+          "backend": "weft"
+        }
+      },
       "ggml.amx/q4_K_prefill": {
         "source": "package:kernels/ggml/mul_mat/x86/amx_k_layout.py",
         "symbol": "q4_k_prefill_tile",

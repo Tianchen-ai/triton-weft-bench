@@ -55,12 +55,21 @@ class OutputRun:
                 jit = details.get("jit")
                 if jit:
                     locations.extend([jit, jit.get("runtime", {}), jit.get("disk_cache", {})])
+                locations.extend(details[name] for name in ("replacement_plan", "model_validation")
+                                 if isinstance(details.get(name), dict))
                 for record in locations:
                     for key in ("artifact", "artifacts", "worker", "replay", "diagnostics", "paper_evidence",
-                                "paper_validation_recheck", "validation", "model_paths"):
+                                "paper_validation_recheck", "validation", "model_paths", "package",
+                                "source_package", "replacement_package", "candidate_package"):
                         if key in record:
                             record[key] = relocate(record[key])
             result.write_text(json.dumps(data, indent=2))
+        for manifest in self.stage.rglob("replacements.json"):
+            data = json.loads(manifest.read_text())
+            for key in ("package", "source_package"):
+                if key in data:
+                    data[key] = relocate(data[key])
+            manifest.write_text(json.dumps(data, indent=2))
         (self.stage / "run-state.json").write_text(json.dumps({
             "status": "failed" if error else "completed", "error": str(error) if error else None,
             "updated_at": datetime.now(timezone.utc).isoformat(),

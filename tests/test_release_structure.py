@@ -106,7 +106,7 @@ class ReleaseStructureTests(unittest.TestCase):
         self.assertEqual(configured["python"], base["python"])
 
     def test_catalog_sources_and_explicit_suite_membership(self):
-        expected = {"sg2044": 133, "k1": 137, "k3-a100": 135, "x86-1t": 146}
+        expected = {"sg2044": 133, "k1": 137, "k3-a100": 135, "x86-1t": 147}
         self.assertEqual(set(target_names()), set(expected))
         for target, count in expected.items():
             catalog = target_catalog(target)
@@ -136,8 +136,13 @@ class ReleaseStructureTests(unittest.TestCase):
             run = OutputRun(path)
             original = str(run.stage / "artifact")
             (run.stage / "artifact").mkdir()
+            (run.stage / "replacements.json").write_text(json.dumps({
+                "package": original, "source_package": original}))
             (run.stage / "results.json").write_text(json.dumps({"results": [{"details": {
                 "artifacts": {"weft": original}, "worker": original,
+                "replacement_package": original,
+                "replacement_plan": {"source_package": original, "package": original},
+                "model_validation": {"candidate_package": original, "command": ["check", original]},
                 "jit": {"diagnostics": original, "command": ["jit", original],
                         "runtime": {"artifact": original},
                         "disk_cache": {"artifact": original}},
@@ -150,6 +155,14 @@ class ReleaseStructureTests(unittest.TestCase):
             detail = json.loads((path / "results.json").read_text())["results"][0]["details"]
             self.assertEqual(detail["artifacts"]["weft"], str(path / "artifact"))
             self.assertEqual(detail["worker"], str(path / "artifact"))
+            self.assertEqual(detail["replacement_package"], str(path / "artifact"))
+            self.assertEqual(detail["replacement_plan"]["package"], str(path / "artifact"))
+            self.assertEqual(detail["replacement_plan"]["source_package"], str(path / "artifact"))
+            self.assertEqual(detail["model_validation"]["candidate_package"], str(path / "artifact"))
+            self.assertEqual(detail["model_validation"]["command"], ["check", original])
+            package = json.loads((path / "replacements.json").read_text())
+            self.assertEqual(package, {"package": str(path / "artifact"),
+                                       "source_package": str(path / "artifact")})
             self.assertEqual(detail["jit"]["diagnostics"], str(path / "artifact"))
             for stage in ("runtime", "disk_cache"):
                 artifact = Path(detail["jit"][stage]["artifact"])
