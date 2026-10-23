@@ -69,11 +69,13 @@ void execute(const char* name,Run run,Collect collect,Reset reset,Check check,st
     }
     stage="check";check();
     if(option("WB_CHECK_ONLY",0)!=0) {
-      std::printf("WB_RESULT {\"implementation\":%s,\"status\":\"checked\",\"correctness\":%s,\"samples_ms\":[],\"invocations\":1,\"output_elements\":%zu}\n",json(name).c_str(),json(correctness).c_str(),output.size());
+      std::printf("WB_RESULT {\"implementation\":%s,\"status\":\"checked\",\"correctness\":%s,\"samples_ms\":[],\"invocations\":1,\"output_elements\":%zu",json(name).c_str(),json(correctness).c_str(),output.size());
+      describe_output_storage(output.data(), output.size() * sizeof(T));
+      std::printf("}\n");
       return;
     }
     stage="measure";
-    measure(run,reset,correctness,stateful,name);
+    measure(run,reset,correctness,stateful,name,output.data(),output.size()*sizeof(T));
   } catch(const std::exception &e) {
     std::printf("WB_RESULT {\"implementation\":%s,\"status\":%s,\"stage\":%s,\"error\":%s,\"outputs_available\":%s,\"samples_ms\":[]}\n",json(name).c_str(),json(std::string(stage)=="check"?"check_failed":"run_failed").c_str(),json(stage).c_str(),json(e.what()).c_str(),exported?"true":"false");
   }

@@ -48,10 +48,19 @@ inline void evict(std::vector<std::uint8_t> &data) {
   barrier();
 }
 
+inline void describe_output_storage(const void *data, std::size_t bytes) {
+  if (!data) return;
+  const auto address = reinterpret_cast<std::uintptr_t>(data);
+  const auto alignment = std::min<std::uintptr_t>(4096, address & (~address + 1));
+  std::printf(",\"output_storage\":{\"bytes\":%zu,\"alignment_bytes\":%zu,\"address_mod_256\":%zu}",
+              bytes, std::size_t(alignment), std::size_t(address & 255));
+}
+
 // reset() restores mutable input between invocations, outside the measured region.
 // Algorithm-required output initialization belongs inside run().
 template<class Run, class Reset>
-void measure(Run run, Reset reset, const char *correctness = "within-tolerance", bool stateful = false, const char *implementation = "") {
+void measure(Run run, Reset reset, const char *correctness = "within-tolerance", bool stateful = false, const char *implementation = "",
+             const void *output = nullptr, std::size_t outputBytes = 0) {
   const int warmup = static_cast<int>(option("WB_WARMUP", 3));
   const int samples = static_cast<int>(option("WB_SAMPLES", 5));
   const double budget = option("WB_BATCH_MS", 10);
@@ -128,7 +137,9 @@ void measure(Run run, Reset reset, const char *correctness = "within-tolerance",
   if (frequency_before > 0) std::printf("%ld", frequency_before); else std::printf("null");
   std::printf(",\"after\":");
   if (frequency_after > 0) std::printf("%ld", frequency_after); else std::printf("null");
-  std::printf("},\"cpu_time_scope\":\"calling-thread-only\",\"iterations\":%zu,\"calibration_ms\":%.12g,\"correctness\":\"%s\",\"cache\":\"%s\"}\n", iterations, calibration_ms, correctness, cold ? "cold" : "reuse");
+  std::printf("},\"cpu_time_scope\":\"calling-thread-only\",\"iterations\":%zu,\"calibration_ms\":%.12g,\"correctness\":\"%s\",\"cache\":\"%s\"", iterations, calibration_ms, correctness, cold ? "cold" : "reuse");
+  describe_output_storage(output, outputBytes);
+  std::printf("}\n");
 }
 template<class Run> void measure(Run run, const char *correctness = "within-tolerance") {
   measure(run, [] {}, correctness);
