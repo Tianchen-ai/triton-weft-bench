@@ -227,3 +227,9 @@ On the first operator mismatch, it saves packed inputs, both outputs and an
 available dequantized-dot diagnostic. `dot-inputs.json` can be passed directly to
 the corresponding `op --check-only` invocation. Successful row checks record their
 actual call count; the independent full-logit tolerance is still enforced.
+For rounding investigations, `llama.validation.dot_check_type` can select one
+GGML type (for example `q6_K`), and `dot_check_tolerance` accepts explicit `atol`
+and `rtol` values no larger than the operator check's defaults (0.0001, 0.002).
+These are capture thresholds only; they never relax operator or model acceptance.
+The report records the checked type and thresholds, and captured input paths
+remain usable after a stable output directory is replaced.

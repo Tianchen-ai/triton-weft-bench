@@ -5,11 +5,19 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <dlfcn.h>
 #include <fstream>
 #include <iomanip>
 #include <string>
 #include <vector>
+
+#ifndef WB_DOT_ATOL
+#define WB_DOT_ATOL 0.0001
+#endif
+#ifndef WB_DOT_RTOL
+#define WB_DOT_RTOL 0.002
+#endif
 
 namespace {
 thread_local ggml_weft_dot_binding selected{};
@@ -38,7 +46,7 @@ void checked_dot(const uint8_t *w, const uint8_t *x, float *y, size_t n) {
     selected.original(static_cast<int>(n), &reference, 0, w, 0, x, 0, 1);
     // Same float tolerance as the ordinary quantized operator checker.
     if (std::isfinite(*y) && std::isfinite(reference) &&
-        std::abs(double(*y) - reference) <= 1e-4 + 2e-3 * std::abs(double(reference)))
+        std::abs(double(*y) - reference) <= WB_DOT_ATOL + WB_DOT_RTOL * std::abs(double(reference)))
         return;
     if (captured.test_and_set()) return;
     const char *prefix = std::getenv("WB_DOT_CAPTURE");
@@ -68,7 +76,7 @@ void checked_dot(const uint8_t *w, const uint8_t *x, float *y, size_t n) {
     if (std::isfinite(*y)) report << *y; else report << "null";
     report << ",\"dequantized_dot\":";
     if (oracle_available && std::isfinite(oracle)) report << oracle; else report << "null";
-    report << ",\"atol\":0.0001,\"rtol\":0.002}\n";
+    report << ",\"atol\":" << WB_DOT_ATOL << ",\"rtol\":" << WB_DOT_RTOL << "}\n";
     report.close();
     if (!report) std::_Exit(87);
     std::fprintf(stderr, "WB_DOT_CHECK mismatch type=%s K=%zu candidate=%.9g native=%.9g; captured %s\n",
@@ -85,7 +93,8 @@ extern "C" ggml_weft_dot_binding ggml_weft_select_vec_dot(ggml_type type, ggml_v
         std::_Exit(87);
     }
     auto binding = select(type, original);
-    if (binding.function) {
+    static const char *filter = std::getenv("WB_DOT_CHECK_TYPE");
+    if (binding.function && (!filter || std::strcmp(filter, ggml_type_name(type)) == 0)) {
         selected = binding;
         weight_type = type;
         binding.function = checked_dot;

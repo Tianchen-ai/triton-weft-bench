@@ -104,25 +104,48 @@ def dot_block_scaled(W: tl.View[ggml.Q6_K, (K,)], X: tl.View[ggml.Q8_K, (K,)],
 
 @triton.jit
 def stream_scale_groups(W: tl.View[ggml.Q6_K, (K,)], X: tl.View[ggml.Q8_K, (K,)],
-                        GROUPS: tl.constexpr = 1):
+                        GROUPS: tl.constexpr = 1, UPDATE_K: tl.constexpr = 256):
     tl.static_assert(GROUPS == 1 or GROUPS == 2 or GROUPS == 4 or GROUPS == 8)
+    tl.static_assert(UPDATE_K == 128 or UPDATE_K == 256)
     lane = tl.arange(0, 16, dtype=tl.u8, axis="k")
     result = tl.f32(0)
     with tl.level.blocks(K, extent=256) as block:
         w, x = tl.load(W[block]), tl.load(X[block])
-        total = tl.i32(0)
-        for window in tl.static_range(16 // GROUPS):
-            for offset in tl.static_range(GROUPS):
-                group = window * GROUPS + offset
-                coordinate = tl.u8(group) * tl.u8(16) + lane
-                code = tl.i8(w.ql[coordinate]) | (tl.i8(w.qh[coordinate]) << tl.u8(4))
-                partial = tl.reduce_dot(x.q[coordinate], code - tl.i8(32), over="k", acc_dtype=tl.i32)
-                total += partial * tl.i32(w.scales[group])
-        result += tl.f32(w.d) * tl.f32(x.ds) * tl.f32(total)
+        # The author chooses the floating update boundary to match the native
+        # consumer's rounding path: the RVV128 GGML row updates every 128 K.
+        for update in tl.static_range(256 // UPDATE_K):
+            total = tl.i32(0)
+            for window in tl.static_range(UPDATE_K // (16 * GROUPS)):
+                for offset in tl.static_range(GROUPS):
+                    group = update * (UPDATE_K // 16) + window * GROUPS + offset
+                    coordinate = tl.u8(group) * tl.u8(16) + lane
+                    code = tl.i8(w.ql[coordinate]) | (tl.i8(w.qh[coordinate]) << tl.u8(4))
+                    partial = tl.reduce_dot(x.q[coordinate], code - tl.i8(32), over="k", acc_dtype=tl.i32)
+                    total += partial * tl.i32(w.scales[group])
+            result += tl.f32(w.d) * tl.f32(x.ds) * tl.f32(total)
     return result
 
 
 @triton.jit(model="weft")
 def dot_stream_scale_groups(W: tl.View[ggml.Q6_K, (K,)], X: tl.View[ggml.Q8_K, (K,)],
-                            Y: tl.View[tl.f32, (1,)], *, GROUPS: tl.constexpr = 1):
-    tl.store(Y[0], stream_scale_groups(W, X, GROUPS))
+                            Y: tl.View[tl.f32, (1,)], *, GROUPS: tl.constexpr = 1,
+                            UPDATE_K: tl.constexpr = 256):
+    tl.store(Y[0], stream_scale_groups(W, X, GROUPS, UPDATE_K))
+
+
+@triton.jit(model="weft")
+def dot_half_scaled_groups(W: tl.View[ggml.Q6_K, (K,)], X: tl.View[ggml.Q8_K, (K,)],
+                           Y: tl.View[tl.f32, (1,)]):
+    """Eight scale groups per numerical update, with explicit group/K axes."""
+    group = tl.arange(0, 8, dtype=tl.u8, axis="group")
+    lane = tl.arange(0, 16, dtype=tl.u8, axis="k")
+    result = tl.f32(0)
+    with tl.level.blocks(K, extent=256) as block:
+        w, x = tl.load(W[block]), tl.load(X[block])
+        for half in tl.static_range(2):
+            coordinate = tl.u8(half * 128) + group * tl.u8(16) + lane
+            code = tl.i8(w.ql[coordinate]) | (tl.i8(w.qh[coordinate]) << tl.u8(4))
+            partial = tl.reduce_dot(code - tl.i8(32), x.q[coordinate], over="k", acc_dtype=tl.i32)
+            total = tl.sum(partial * tl.i32(w.scales[tl.u8(half * 8) + group]), 0)
+            result += (tl.f32(w.d) * tl.f32(x.ds)) * tl.f32(total)
+    tl.store(Y[0], result)

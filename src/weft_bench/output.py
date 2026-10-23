@@ -60,7 +60,7 @@ class OutputRun:
                 for record in locations:
                     for key in ("artifact", "artifacts", "worker", "replay", "diagnostics", "paper_evidence",
                                 "paper_validation_recheck", "validation", "model_paths", "package",
-                                "source_package", "replacement_package", "candidate_package"):
+                                "source_package", "replacement_package", "candidate_package", "dot_inputs", "outputs"):
                         if key in record:
                             record[key] = relocate(record[key])
             result.write_text(json.dumps(data, indent=2))
@@ -70,6 +70,17 @@ class OutputRun:
                 if key in data:
                     data[key] = relocate(data[key])
             manifest.write_text(json.dumps(data, indent=2))
+        for captured in self.stage.rglob("dot-inputs.json"):
+            data = json.loads(captured.read_text())
+            data["buffers"] = relocate(data["buffers"])
+            captured.write_text(json.dumps(data, indent=2) + "\n")
+        for validation in self.stage.rglob("validation.json"):
+            data = json.loads(validation.read_text())
+            if "dot_inputs" in data:
+                data["dot_inputs"] = relocate(data["dot_inputs"])
+                if data.get("error", "").startswith("model dot mismatch; reproduce "):
+                    data["error"] = data["error"].replace(original + "/", retained + "/")
+                validation.write_text(json.dumps(data, indent=2) + "\n")
         (self.stage / "run-state.json").write_text(json.dumps({
             "status": "failed" if error else "completed", "error": str(error) if error else None,
             "updated_at": datetime.now(timezone.utc).isoformat(),

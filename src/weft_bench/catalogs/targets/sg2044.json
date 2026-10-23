@@ -1705,13 +1705,11 @@
       "dtype": "q6_k*q8_k",
       "candidate": {
         "source": "package:kernels/ggml/vec_dot/q6_k.py",
-        "symbol": "dot_stream_scale_groups",
+        "symbol": "dot_half_scaled_groups",
         "signature": {},
-        "constexprs": {
-          "GROUPS": 2
-        },
+        "constexprs": {},
         "backend_options": {
-          "lmul_eighths": 32,
+          "lmul_eighths": 16,
           "unroll": 1,
           "pipeline_depth": 1,
           "scalar_load_prime": 0

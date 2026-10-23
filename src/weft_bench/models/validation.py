@@ -79,12 +79,26 @@ def _run(name, target, implementation, parameters, directory, token_reference=No
             raise ValueError("model dot checking needs weft_include and an unused LD_PRELOAD setting")
         interposer = executor.upload(NATIVE / "llama_dot_check.cpp", "llama_dot_check.cpp")
         check_library = executor.workspace + "/libcheck-dots.so"
+        diagnostic = settings["validation"].get("dot_check_tolerance", {"atol": 1e-4, "rtol": 2e-3})
+        if not isinstance(diagnostic, dict) or set(diagnostic) != {"atol", "rtol"} or any(
+            type(v) not in (int, float) or not math.isfinite(v) or v < 0 for v in diagnostic.values()
+        ):
+            raise ValueError("dot_check_tolerance needs finite nonnegative atol and rtol")
+        if diagnostic["atol"] > 1e-4 or diagnostic["rtol"] > 2e-3:
+            raise ValueError("diagnostic dot thresholds may only tighten the operator tolerance")
+        dot_type = settings["validation"].get("dot_check_type")
+        if dot_type is not None and (not isinstance(dot_type, str) or not dot_type):
+            raise ValueError("dot_check_type must be a nonempty GGML type name")
         executor.command([*tools["cxx"], *flags, "-std=c++17", "-shared", "-fPIC",
+                          "-DWB_DOT_ATOL=" + str(float(diagnostic["atol"])),
+                          "-DWB_DOT_RTOL=" + str(float(diagnostic["rtol"])),
                           "-I" + source + "/ggml/include", "-I" + source + "/ggml/src",
                           interposer, "-L" + library, "-Wl,-rpath," + library,
                           "-lggml-cpu", "-lggml-base", *runtime_link, "-ldl", *tools.get("ldflags", []),
                           "-o", check_library], env=build_environment, stage="model_dot_check_build")
         environment.update(LD_PRELOAD=check_library, WB_DOT_CAPTURE=executor.workspace + "/dot")
+        if dot_type is not None:
+            environment["WB_DOT_CHECK_TYPE"] = dot_type
     command = ["env", "-u", "WEFT_GGML_PACKAGE", "-u", "LD_PRELOAD", "-u", "LD_LIBRARY_PATH",
                *[arg for key in BACKEND_ENVIRONMENT for arg in ("-u", key)],
                *[str(k) + "=" + str(v) for k, v in environment.items()],
@@ -116,6 +130,8 @@ def _run(name, target, implementation, parameters, directory, token_reference=No
         if len(counts) != 1 or counts[0] <= 0:
             raise ValueError("model dot checking did not observe any replaced native rows")
         records[0]["checked_native_dot_calls"] = counts[0]
+        records[0]["dot_check_scope"] = {"type": dot_type or "all-replaced-types",
+                                          "capture_tolerance": diagnostic}
     for suffix in ("logits.bin", "tokens.bin"):
         executor.download(prefix + "." + suffix, directory / suffix)
     records[0]["replacement_snapshots"] = [json.loads(line[len("WB_MODEL_HITS "):]) for line in done.stdout.splitlines() if line.startswith("WB_MODEL_HITS ")]
@@ -289,6 +305,9 @@ def validate_model(name, target, implementation="weft", *, output, reference_out
                           error="model logits match, but replacement observation differs from its explicit expectation")
     except Exception as error:
         report.update(status="validation_failed", correctness="not_checked", error=str(error))
+        if (output / "dot-inputs.json").is_file():
+            report["dot_inputs"] = str((output / "dot-inputs.json").resolve())
+            report["dot_mismatch"] = json.loads((output / "dot.json").read_text())
     (output / "validation.json").write_text(json.dumps(report, indent=2))
     return report
 
