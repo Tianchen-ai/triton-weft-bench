@@ -35,8 +35,9 @@ def row_iq2_xs(W: tl.View[ggml.IQ2_XS, (K,)], X: tl.View[ggml.Q8_K, (K,)],
 
 @triton.jit(noinline=True)
 def row_iq2_xxs(W: tl.View[ggml.IQ2_XXS, (K,)], X: tl.View[ggml.Q8_K, (K,)],
-                grid: tl.View[ggml.I8X8, (256, 8)], signs: tl.View[ggml.I8X8, (128, 8)]):
-    return compute_iq2_xxs(W, X, grid, signs, K)
+                grid: tl.View[ggml.I8X8, (256, 8)], signs: tl.View[ggml.I8X8, (128, 8)],
+                PAIR_ACCUM: tl.constexpr):
+    return compute_iq2_xxs(W, X, grid, signs, K, PAIR_ACCUM)
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "workspace", "Y": "output"})
@@ -81,14 +82,14 @@ def iq2_xs(W: tl.View[ggml.IQ2_XS, (N, K)], X: tl.View[tl.f32, (M, K)],
 def iq2_xxs(W: tl.View[ggml.IQ2_XXS, (N, K)], X: tl.View[tl.f32, (M, K)],
              Xq: tl.View[ggml.Q8_K, (M, K)], grid: tl.View[ggml.I8X8, (256, 8)],
              signs: tl.View[ggml.I8X8, (128, 8)], Y: tl.View[tl.f32, (M, N)],
-             *, INLINE: tl.constexpr = False):
+             *, INLINE: tl.constexpr = False, PAIR_ACCUM: tl.constexpr = False):
     quant_q8_k.quantize_matrix(X, Xq)
     for row in range(M):
         for column in range(N):
             if INLINE:
-                value = compute_iq2_xxs(W[column], Xq[row], grid, signs, K)
+                value = compute_iq2_xxs(W[column], Xq[row], grid, signs, K, PAIR_ACCUM)
             else:
-                value = row_iq2_xxs(W[column], Xq[row], grid, signs)
+                value = row_iq2_xxs(W[column], Xq[row], grid, signs, PAIR_ACCUM)
             tl.store(Y[row, column], value)
 
 

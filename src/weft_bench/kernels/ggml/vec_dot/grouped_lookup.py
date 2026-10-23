@@ -99,7 +99,7 @@ def compute_iq1_m(W, X, grid, K, DEFERRED: tl.constexpr = False):
 
 
 @triton.jit
-def compute_iq2_xxs(W, X, grid, signs, K):
+def compute_iq2_xxs(W, X, grid, signs, K, PAIR_ACCUM: tl.constexpr = False):
     lane = tl.arange(0, 16, dtype=tl.u16, axis="element")
     table, sign_table = grid.values, signs.values
     result = tl.f32(0)
@@ -111,6 +111,8 @@ def compute_iq2_xxs(W, X, grid, signs, K):
             word1 = tl.u32(w.q[g * tl.u32(4) + tl.u32(2)])
             word1 |= tl.u32(w.q[g * tl.u32(4) + tl.u32(3)]) << tl.u32(16)
             partial = tl.i32(0)
+            if PAIR_ACCUM:
+                partial = tl.i16(lane) * tl.i16(0)
             for pair in tl.static_range(2):
                 p = tl.u32(pair)
                 word0 = tl.u16(w.q[g * tl.u32(4) + p])
@@ -119,7 +121,14 @@ def compute_iq2_xxs(W, X, grid, signs, K):
                 second = tl.u16(word1 >> (p * tl.u32(14) + tl.u32(7))) & tl.u16(127)
                 sign = lookup_pair(sign_table, first, second, lane)
                 activation = x.q[tl.u16(g) * tl.u16(32) + tl.u16(p) * tl.u16(16) + lane]
-                partial += tl.reduce_dot(activation, weight * sign, over=("element",), acc_dtype=tl.i32)
+                if PAIR_ACCUM:
+                    # GGML IQ2_XXS entries are at most 43. Two signed-byte
+                    # products fit i16 exactly: 2 * 128 * 43 = 11008.
+                    partial += tl.i16(activation) * tl.i16(weight * sign)
+                else:
+                    partial += tl.reduce_dot(activation, weight * sign, over=("element",), acc_dtype=tl.i32)
+            if PAIR_ACCUM:
+                partial = tl.reduce(tl.i32(partial), axis="element")
             total += tl.i32((word1 >> tl.u32(28)) * tl.u32(2) + tl.u32(1)) * partial
         result += tl.f32(w.d) * tl.f32(x.ds) * tl.f32(total)
     return result * tl.f32(0.125)
@@ -141,8 +150,8 @@ def iq1_m(W: tl.View[ggml.IQ1_M, (K,)], X: tl.View[ggml.Q8_K, (K,)],
 @triton.jit(model="weft")
 def iq2_xxs(W: tl.View[ggml.IQ2_XXS, (K,)], X: tl.View[ggml.Q8_K, (K,)],
             grid: tl.View[ggml.I8X8, (256, 8)], signs: tl.View[ggml.I8X8, (128, 8)],
-            Y: tl.View[tl.f32, (1,)]):
-    tl.store(Y[0], compute_iq2_xxs(W, X, grid, signs, K))
+            Y: tl.View[tl.f32, (1,)], *, PAIR_ACCUM: tl.constexpr = False):
+    tl.store(Y[0], compute_iq2_xxs(W, X, grid, signs, K, PAIR_ACCUM))
 
 
 @triton.jit

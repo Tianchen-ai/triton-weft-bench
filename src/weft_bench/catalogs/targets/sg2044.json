@@ -515,7 +515,9 @@
         "source": "package:kernels/ggml/vec_dot/grouped_lookup.py",
         "symbol": "iq2_xxs",
         "signature": {},
-        "constexprs": {},
+        "constexprs": {
+          "PAIR_ACCUM": true
+        },
         "backend_options": {
           "lmul_eighths": 32,
           "unroll": 2,
@@ -548,10 +550,12 @@
         "source": "package:kernels/ggml/vec_dot/grouped_lookup.py",
         "symbol": "iq2_xxs",
         "signature": {},
-        "constexprs": {},
+        "constexprs": {
+          "PAIR_ACCUM": true
+        },
         "backend_options": {
-          "lmul_eighths": 64,
-          "unroll": 1,
+          "lmul_eighths": 32,
+          "unroll": 2,
           "pipeline_depth": 1
         },
         "compile_target": {
@@ -3214,7 +3218,9 @@
         "source": "package:kernels/ggml/mul_mat/grouped_lookup.py",
         "symbol": "iq2_xxs",
         "signature": {},
-        "constexprs": {},
+        "constexprs": {
+          "PAIR_ACCUM": true
+        },
         "backend_options": {
           "lmul_eighths": 32,
           "unroll": 2,
