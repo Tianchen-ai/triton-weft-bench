@@ -7,7 +7,7 @@ import triton.language as tl
 
 @triton.jit
 def compute_tq2(W: tl.View[ggml.TQ2_0, (K,)], X: tl.View[ggml.Q8_K, (K,)],
-                LANES: tl.constexpr):
+                LANES: tl.constexpr, DEFERRED: tl.constexpr = False):
     """Consume bounded code windows and the activation's stored group sums."""
     tl.static_assert(LANES == 16 or LANES == 32 or LANES == 64 or LANES == 128)
     lane = tl.arange(0, LANES, dtype=tl.u32, axis="k")
@@ -15,9 +15,18 @@ def compute_tq2(W: tl.View[ggml.TQ2_0, (K,)], X: tl.View[ggml.Q8_K, (K,)],
     with tl.level.blocks(K, extent=256) as block:
         w, x = tl.load(W[block]), tl.load(X[block])
         integer = tl.i32(0)
+        if DEFERRED:
+            partial = tl.i16(lane) * tl.i16(0)
         for part in tl.static_range(256 // LANES):
             coordinate = lane + tl.u32(part * LANES)
-            integer += tl.reduce_dot(x.q[coordinate], tl.i8(w.q[coordinate]), over="k", acc_dtype=tl.i32)
+            if DEFERRED:
+                # Even all sixteen windows at the largest two-bit code fit
+                # i16: 16 * 128 * 3 = 6144. Widen before the final reduction.
+                partial += tl.i16(x.q[coordinate]) * tl.i16(tl.i8(w.q[coordinate]))
+            else:
+                integer += tl.reduce_dot(x.q[coordinate], tl.i8(w.q[coordinate]), over="k", acc_dtype=tl.i32)
+        if DEFERRED:
+            integer = tl.reduce(tl.i32(partial), axis="k")
         integer -= tl.reduce(tl.i32(x.bsum), axis="k")
         result += tl.f32(integer) * (tl.f32(w.d) * tl.f32(x.ds))
     return result
@@ -25,8 +34,8 @@ def compute_tq2(W: tl.View[ggml.TQ2_0, (K,)], X: tl.View[ggml.Q8_K, (K,)],
 
 @triton.jit(model="weft")
 def tq2_0(W: tl.View[ggml.TQ2_0, (K,)], X: tl.View[ggml.Q8_K, (K,)],
-          Y: tl.View[tl.f32, (1,)], *, LANES: tl.constexpr):
-    tl.store(Y[0], compute_tq2(W, X, LANES))
+          Y: tl.View[tl.f32, (1,)], *, LANES: tl.constexpr, DEFERRED: tl.constexpr = False):
+    tl.store(Y[0], compute_tq2(W, X, LANES, DEFERRED))
 
 
 @triton.jit

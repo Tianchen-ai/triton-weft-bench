@@ -1870,7 +1870,8 @@
         "symbol": "tq2_0",
         "signature": {},
         "constexprs": {
-          "LANES": 64
+          "LANES": 32,
+          "DEFERRED": true
         },
         "backend_options": {
           "lmul_eighths": 32,
@@ -1905,7 +1906,8 @@
         "symbol": "tq2_0",
         "signature": {},
         "constexprs": {
-          "LANES": 64
+          "LANES": 32,
+          "DEFERRED": true
         },
         "backend_options": {
           "lmul_eighths": 32,
