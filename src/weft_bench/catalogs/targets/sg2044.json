@@ -1627,7 +1627,7 @@
         "backend_options": {
           "lmul_eighths": 8,
           "unroll": 1,
-          "pipeline_depth": 1,
+          "pipeline_depth": 2,
           "scalar_load_prime": 0,
           "partial_combine_policy": "independent-multilevel",
           "record_axis_policy": "within-record"
@@ -3508,7 +3508,7 @@
         "backend_options": {
           "lmul_eighths": 8,
           "unroll": 1,
-          "pipeline_depth": 1,
+          "pipeline_depth": 2,
           "scalar_load_prime": 0,
           "partial_combine_policy": "independent-multilevel",
           "record_axis_policy": "within-record"
