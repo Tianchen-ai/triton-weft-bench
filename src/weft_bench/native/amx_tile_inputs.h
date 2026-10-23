@@ -4,7 +4,7 @@
 struct AMXTileInputs : ProjectionInputs {
   size_t ldc = WB_LDC;
   explicit AMXTileInputs(wb::InputSet &inputs) : ProjectionInputs(inputs, true, true) {
-    if((WB_AMX_DECODE ? (N<=0 || N%64 || M!=1) : (N<=0 || N%32 || M<1 || M>32)) || K<=0 || K%WB_AMX_BLOCK_SIZE)
+    if((WB_AMX_DECODE ? (N<=0 || N%64 || M!=1) : (N<=0 || N%32 || M<1)) || K<=0 || K%WB_AMX_BLOCK_SIZE)
       throw std::runtime_error("unsupported native AMX row-tile geometry");
     if(ldc<N || (WB_AMX_DECODE && ldc!=N)) throw std::runtime_error("invalid AMX output stride");
     output_size=M*ldc;

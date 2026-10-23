@@ -108,8 +108,8 @@ def ports(case):
         decode = case.data.get("decode", False)
         weight = case.data["format"]
         block, activation = {"q4_0": (32, "q8_0"), "q4_k": (256, "q8_k"), "q6_k": (256, "q8_k")}[weight]
-        if (decode and (s["M"] != 1 or s["N"] <= 0 or s["N"] % 64)) or (not decode and (s["N"] <= 0 or s["N"] % 32 or not 1 <= s["M"] <= 32)) or s["K"] <= 0 or s["K"] % block:
-            raise ValueError(f"AMX {weight} requires complete K{block} blocks; decode uses M1/N64 groups and prefill M1..32/N32 groups")
+        if (decode and (s["M"] != 1 or s["N"] <= 0 or s["N"] % 64)) or (not decode and (s["N"] <= 0 or s["N"] % 32 or s["M"] < 1)) or s["K"] <= 0 or s["K"] % block:
+            raise ValueError(f"AMX {weight} requires complete K{block} blocks; decode uses M1/N64 groups and prefill positive M/N32 groups")
         ldc = s.get("LDC", s["N"])
         if ldc < s["N"] or (decode and ldc != s["N"]):
             raise ValueError("AMX output row stride must cover N; decode uses its contiguous row ABI")

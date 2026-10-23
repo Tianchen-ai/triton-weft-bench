@@ -25,11 +25,11 @@ struct AMXTileReference {
     }
 #else
     ggml_tile_config_init();
-    for(int column=0;column<input.N;column+=32) {
+    for(int row=0;row<input.M;row+=32) for(int column=0;column<input.N;column+=32) {
       const char *packed=static_cast<const char *>(weights.result->src[0]->data) +
           PACKED_INDEX(column/16,0,input.K/WB_AMX_BLOCK_SIZE,get_tile_size<WB_AMX_WEIGHT_BLOCK>());
-      tinygemm_kernel_amx<WB_AMX_ACTIVATION_BLOCK,WB_AMX_WEIGHT_BLOCK,float,WB_AMX_BLOCK_SIZE>(input.M,32,input.K/WB_AMX_BLOCK_SIZE,
-          input.quantized.data(),packed,input.output(output)+column,input.ldc);
+      tinygemm_kernel_amx<WB_AMX_ACTIVATION_BLOCK,WB_AMX_WEIGHT_BLOCK,float,WB_AMX_BLOCK_SIZE>(std::min<size_t>(32,input.M-row),32,input.K/WB_AMX_BLOCK_SIZE,
+          input.quantized.data()+row*input.activation_bytes,packed,input.output(output)+row*input.ldc+column,input.ldc);
     }
 #endif
   }

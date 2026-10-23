@@ -119,7 +119,7 @@ def q6_k_decode(W: tl.View[AMXQ6_KRows[16], (N, K)], Xq: tl.View[ggml.Q8_K, (K,)
 def q4_k_prefill_tile(W: tl.View[AMXQ4_KRows[16], (N, K)], Xq: tl.View[ggml.Q8_K, (M, K)],
                       Y: tl.View[tl.f32, (M, N)], M: tl.constexpr = 32, N: tl.constexpr = 32,
                       BM: tl.constexpr = 16, BN: tl.constexpr = 32):
-    tl.static_assert(M == 32 and N == 32)
+    tl.static_assert(M > 0 and N == 32)
     tl.static_assert((BM == 16 or BM == 32) and (BN == 16 or BN == 32))
     with tl.level.cols(N, group=BN) as columns:
         with tl.level.rows(M, group=BM) as rows:
