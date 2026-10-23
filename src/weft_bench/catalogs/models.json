@@ -655,10 +655,7 @@
       "generate": 0,
       "depth": 0
     },
-    "roles": [
-      "ggml.ime2/i8_decode",
-      "ggml.ime2/i8_prefill"
-    ],
+    "roles": [],
     "measurement": {
       "repetitions": 3,
       "profile": false
@@ -700,8 +697,7 @@
       "depth": 32
     },
     "roles": [
-      "ggml.ime2/i8_decode",
-      "ggml.ime2/i8_prefill"
+      "ggml.ime2/i8_decode"
     ],
     "measurement": {
       "repetitions": 3,
