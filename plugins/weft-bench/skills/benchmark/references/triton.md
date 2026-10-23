@@ -90,8 +90,13 @@ pointer. The generated native launcher calls the SDK guard on every worker befor
 writes. The result is a separate `grid-launch` scope with grid/thread/CPU parameters;
 do not divide that time into a dot-leaf speedup or compare it automatically with
 a single-instance baseline. The author kernel must partition its work by program id.
-Current grid support requires whole-workload buffers; row/tile-loop workloads report
-unsupported instead of wrapping a second dispatch loop around a grid.
+Grid support requires a whole-workload ABI. Packed-row workloads can use an author
+grid entry with batch-shaped Views, which bind the existing complete batch buffers
+once. Leaf ABIs that still need an outer row/tile loop report unsupported instead
+of wrapping a second dispatch loop around a grid. The installed corpus includes
+`iq1_s_grid`, `iq1_m_grid`, `iq2_xs_grid` and `iq2_xxs_grid` in
+`weft_bench.kernels.ggml.vec_dot.grouped_lookup`; these select rows with
+`tl.program_id(0)` and reuse the corresponding leaf's numerical helper.
 The recorded grid worker count comes from `num_cpu_threads`, not the target's
 nominal thread setting. Keep its launch scope; saved single/grid records with
 contradictory thread metadata cannot produce a comparison ratio. External native

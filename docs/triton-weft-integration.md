@@ -41,9 +41,11 @@ use the workload's actual storage and explicit size/stride arguments; an empty
 pointer shape does not mean one element. No adapter parses C parameter names.
 
 Native grid execution invokes the product launcher once for the whole workload.
-It requires whole-workload buffers and cannot wrap an existing row/tile-loop
-workload in another grid. Runtime capability checks remain active. The configured
-CPU affinity must cover the intended worker set.
+Its typed ABI must consume the whole workload. A packed-row workload can use an
+author grid kernel with batch-shaped Views; Bench then binds its complete batch
+buffers once. A leaf ABI that still requires an outer row/tile loop is rejected
+for grid measurement. Runtime capability checks remain active. The configured CPU
+affinity must cover the intended worker set.
 
 ## Timing scopes
 
