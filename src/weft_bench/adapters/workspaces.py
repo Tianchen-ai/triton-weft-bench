@@ -49,7 +49,7 @@ def invocation_workspaces(case, workload, metadata, names):
                 if shape[0] % rows:
                     raise ValueError("interleaved workspace requires complete row cohorts")
                 if arg.get("artifact_pack") or not arg.get("storage_layout"):
-                    preparation.append(f'if (native.symbol<decltype(&{symbol})>("{symbol}")({shape[0]}, {shape[1]}) != {size}) '
+                    preparation.append(f'if (native.symbol<size_t (*)(size_t, size_t)>("{symbol}")({shape[0]}, {shape[1]}) != {size}) '
                                        'throw std::runtime_error("workspace size differs from native layout");')
         alignment = math.lcm(64, int(arg["alignment"]), width)
         preparation.append(f"std::vector<{ctype}> {variable}_storage({count}+{alignment // width});"

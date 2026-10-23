@@ -501,7 +501,7 @@
         "symbol": "q6_k_prefill_scaled",
         "signature": {},
         "constexprs": {"M": 32, "N": 32, "BM": 32, "BN": 32, "BK": 64},
-        "backend_options": {},
+        "backend_options": {"tune_cpu": "sapphirerapids"},
         "compile_target": {
           "arch": "x86_64",
           "march": "x86-64-v4+avx512vnni+avx512fp16+amx-tile+amx-int8",
@@ -594,7 +594,7 @@
         "symbol": "q6_k_prefill_scaled",
         "signature": {},
         "constexprs": {"M": 32, "N": 32, "BM": 32, "BN": 32, "BK": 64},
-        "backend_options": {},
+        "backend_options": {"tune_cpu": "sapphirerapids"},
         "compile_target": {
           "arch": "x86_64",
           "march": "x86-64-v4+avx512vnni+avx512fp16+amx-tile+amx-int8",

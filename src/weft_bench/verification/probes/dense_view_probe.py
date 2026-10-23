@@ -79,6 +79,32 @@ def run_scenario(name, root, options, close, reject):
         assert all(value is compiled[0] for value in compiled), "ABI layout change recompiled a fixed-block kernel"
         reductions, tail_atomic = [], {}
         if name == "level_2d_tails":
+            # Large strided tiles exercise bounded row helpers as well as the
+            # contiguous branch; tails must preserve every padding sentinel.
+            wide = []
+            for m, n in ((32, 32), (33, 35)):
+                result, layout = check_storage(f"wide-strided-{m}x{n}", strided_fixture(m, n),
+                    lambda x, y: kernels.tiled_2d[(1,)](x, y, ROWS=32, COLS=32, **options))
+                wide.append(result); records.append(layout)
+            assert wide[0] is wide[1], "dynamic wide tile tails recompiled the kernel"
+            x = torch.arange(33*35, dtype=torch.float32).reshape(33, 35) / 2048
+            y = torch.full_like(x, SENTINEL)
+            contiguous = kernels.tiled_2d[(1,)](x, y, ROWS=32, COLS=32, **options)
+            close(y, x*1.25-0.5)
+            assert contiguous is wide[0], "stride changed the specialization of a strided View"
+            broadcast = torch.arange(33, dtype=torch.float32).reshape(33, 1).expand(33, 35)
+            zero_stride = kernels.tiled_2d[(1,)](broadcast, y, ROWS=32, COLS=32, **options)
+            close(y, broadcast*1.25-0.5)
+            assert zero_stride is wide[0], "read-only zero stride changed the specialization"
+            bf_source = torch.arange(33*137, dtype=torch.float32).reshape(33, 137).to(torch.bfloat16)
+            bf_source.view(torch.int16)[0, 1:13:2] = torch.tensor(
+                [1, -32767, 32705, 32640, -128, -32768], dtype=torch.int16)
+            bf_output = torch.full((33, 203), SENTINEL, dtype=torch.bfloat16)
+            bf_x, bf_y = bf_source[:, 1:135:2], bf_output[:, 1:202:3]
+            bf_expected = bf_output.clone()
+            bf_expected[:, 1:202:3] = bf_x
+            kernels.bfloat_tile_copy[(1,)](bf_x, bf_y, **options)
+            assert torch.equal(bf_output.view(torch.int16), bf_expected.view(torch.int16)), "BF16 strided copy changed payload or padding"
             for label in ("negative-with-ties", "positive"):
                 x = torch.arange(1, 38, dtype=torch.float32)
                 if label == "negative-with-ties":

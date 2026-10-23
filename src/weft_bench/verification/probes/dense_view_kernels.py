@@ -13,9 +13,10 @@ def affine_fixed(X: tl.View[tl.f32, (M, N)], Y: tl.View[tl.f32, (M, N)],
 
 
 @triton.jit(model="weft", strided=("X", "Y"))
-def tiled_2d(X: tl.View[tl.f32, (M, N)], Y: tl.View[tl.f32, (M, N)]):
-    with tl.level.rows(M, group=2) as row:
-        with tl.level.cols(N, group=8) as column:
+def tiled_2d(X: tl.View[tl.f32, (M, N)], Y: tl.View[tl.f32, (M, N)],
+             ROWS: tl.constexpr = 2, COLS: tl.constexpr = 8):
+    with tl.level.rows(M, group=ROWS) as row:
+        with tl.level.cols(N, group=COLS) as column:
             tl.store(Y[row, column], tl.load(X[row, column]) * 1.25 - 0.5)
 
 
@@ -28,6 +29,13 @@ def tail_reductions(X: tl.View[tl.f32, (N,)], Y: tl.View[tl.f32, (4,)]):
         tl.store(Y[1], tl.sum(values, axis=0))
         tl.store(Y[2], tl.min(values, axis=0))
         tl.store(Y[3], index.to(tl.float32))
+
+
+@triton.jit(model="weft", strided=("X", "Y"))
+def bfloat_tile_copy(X: tl.View[tl.bf16, (M, N)], Y: tl.View[tl.bf16, (M, N)]):
+    with tl.level.rows(M, group=32) as row:
+        with tl.level.cols(N, group=64) as column:
+            tl.store(Y[row, column], tl.load(X[row, column]))
 
 
 @triton.jit(model="weft")
