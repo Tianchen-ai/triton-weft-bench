@@ -4636,7 +4636,7 @@
         "symbol": "affine_full_tiles",
         "signature": {},
         "constexprs": {
-          "B": 1024
+          "B": 256
         },
         "backend_options": {
           "lmul_eighths": 64,
