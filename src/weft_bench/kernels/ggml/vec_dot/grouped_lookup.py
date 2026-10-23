@@ -172,3 +172,37 @@ def iq2_xs(W: tl.View[ggml.IQ2_XS, (K,)], X: tl.View[ggml.Q8_K, (K,)],
            grid: tl.View[ggml.I8X8, (512, 8)], signs: tl.View[ggml.I8X8, (128, 8)],
            Y: tl.View[tl.f32, (1,)]):
     tl.store(Y[0], compute_iq2_xs(W, X, grid, signs, K))
+
+
+@triton.jit(model="weft")
+def iq1_s_grid(W: tl.View[ggml.IQ1_S, (rows, K)], X: tl.View[ggml.Q8_K, (K,)],
+              grid: tl.View[ggml.I8X8, (2048, 8)], Y: tl.View[tl.f32, (rows,)]):
+    row = tl.program_id(0)
+    if row < rows:
+        tl.store(Y[row], compute_iq1_s(W[row], X, grid, K))
+
+
+@triton.jit(model="weft")
+def iq1_m_grid(W: tl.View[ggml.IQ1_M, (rows, K)], X: tl.View[ggml.Q8_K, (K,)],
+              grid: tl.View[ggml.I8X8, (2048, 8)], Y: tl.View[tl.f32, (rows,)]):
+    row = tl.program_id(0)
+    if row < rows:
+        tl.store(Y[row], compute_iq1_m(W[row], X, grid, K))
+
+
+@triton.jit(model="weft")
+def iq2_xxs_grid(W: tl.View[ggml.IQ2_XXS, (rows, K)], X: tl.View[ggml.Q8_K, (K,)],
+                grid: tl.View[ggml.I8X8, (256, 8)], signs: tl.View[ggml.I8X8, (128, 8)],
+                Y: tl.View[tl.f32, (rows,)]):
+    row = tl.program_id(0)
+    if row < rows:
+        tl.store(Y[row], compute_iq2_xxs(W[row], X, grid, signs, K))
+
+
+@triton.jit(model="weft")
+def iq2_xs_grid(W: tl.View[ggml.IQ2_XS, (rows, K)], X: tl.View[ggml.Q8_K, (K,)],
+               grid: tl.View[ggml.I8X8, (512, 8)], signs: tl.View[ggml.I8X8, (128, 8)],
+               Y: tl.View[tl.f32, (rows,)]):
+    row = tl.program_id(0)
+    if row < rows:
+        tl.store(Y[row], compute_iq2_xs(W[row], X, grid, signs, K))

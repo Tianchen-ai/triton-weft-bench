@@ -83,6 +83,17 @@ the existing row/tile traversal; Bench does not silently convert them to a diffe
 whole-workload algorithm. Buffer construction and fixture preparation are outside
 Python call timing.
 
+For one Python call over a packed row batch, select an author grid entry whose
+weight View has shape `(rows, K)` and whose output View has shape `(rows,)`.
+The corpus provides `iq1_s_grid`, `iq1_m_grid`, `iq2_xs_grid` and `iq2_xxs_grid`
+in `weft_bench.kernels.ggml.vec_dot.grouped_lookup`. Each uses `tl.program_id(0)`
+to select its row and calls the same numerical helper as the leaf program.
+Configure `grid: [rows]`, `entry: "grid"` and an explicit `num_cpu_threads`;
+the source also guards excess grid instances. Both JIT and native grid measurement
+bind the complete batch once, without a Bench-generated row loop. Their
+`launches_per_workload` is one. This explicit variant does not change the retained
+leaf/native reference boundary or silently replace a configured author program.
+
 The target calls the normal `kernel[grid](...)`. Compiler specializations, dependency
 capture, tuning, loading and launching belong to Triton. A decorated autotuner stays
 the same Triton autotuner; Bench requires its configurations to have a compatible

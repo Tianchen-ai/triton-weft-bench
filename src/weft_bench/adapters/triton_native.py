@@ -170,8 +170,6 @@ class TritonAdapter:
             raise ValueError("Triton entry must be single or grid")
         if entry == "single" and target.settings.get("threads", 1) != 1:
             raise NotImplementedError("Triton single-instance entry requires a one-thread target; use the explicit grid entry for parallel execution")
-        if entry == "grid" and (workload.before_call or workload.after_call):
-            raise NotImplementedError("grid requires whole-workload buffers, without an outer row/tile loop")
         if entry == "grid":
             grid = options.get("grid")
             threads = options.get("num_cpu_threads")
@@ -222,6 +220,8 @@ class TritonAdapter:
             case, workload, abi, options.get("persistent_inputs", []), aliases, options.get("persistent_providers"))
         # The same binder/checks as existing kernels, but invocation uses a loaded function pointer.
         call = weft_call(name, case, workload, {**abi, "symbol": "native_entry"}, aliases, packed_bases)
+        if entry == "grid" and not call.whole_workload and (workload.before_call or workload.after_call):
+            raise NotImplementedError("grid requires whole-workload buffers, without an outer row/tile loop")
         runtime = options.get("native_runtime", target.settings.get("triton_runtime", {}))
         if not runtime.get("include") or not runtime.get("library"):
             raise NotImplementedError("configure target-side triton_runtime.include/library with open_native and check_worker")
@@ -266,7 +266,8 @@ class TritonAdapter:
         setup += scratch + packing
         if entry == "grid":
             setup += "auto native_launcher=native.launcher<decltype(&" + launcher + ")>(" + json.dumps(remote["kernel.so"]) + "," + json.dumps(launcher) + ");"
-            setup += grid_arguments(abi, workload, case.shape, aliases)
+            grid_workload = replace(workload, buffers=workload.batch_buffers) if call.whole_workload else workload
+            setup += grid_arguments(abi, grid_workload, case.shape, aliases)
             call = replace(call, invoke="native.grid(native_launcher,reinterpret_cast<weft_native_entry>(native_entry),launch_arguments,"
                            + ",".join(str(x) for x in grid) + "," + str(threads) + ");")
         includes = call.includes if entry == "grid" else tuple(h for h in call.includes if h != name + "-kernel.h")
