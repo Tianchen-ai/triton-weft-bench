@@ -105,6 +105,43 @@ def summarize_samples(text, windows):
     ]
 
 
+def resolve_sample_symbols(executor, rows):
+    """Resolve assembler labels to their containing sized ELF text symbol."""
+    for dso in {row["dso"] for row in rows if Path(row["dso"]).is_absolute()}:
+        symbols = executor.command(["nm", "-n", "-S", "-C", "--defined-only", dso], check=False)
+        selected = [row for row in rows if row["dso"] == dso]
+        if symbols.returncode:
+            for row in selected:
+                row["symbol_owner_status"] = "symbol-table-unavailable"
+            continue
+        addresses, functions = {}, []
+        for line in symbols.stdout.splitlines():
+            sized = re.fullmatch(r"([0-9a-fA-F]+)\s+([0-9a-fA-F]+)\s+[tTwW]\s+(.+)", line)
+            label = re.fullmatch(r"([0-9a-fA-F]+)\s+[tT]\s+(.+)", line)
+            if sized:
+                address, size, name = sized.groups()
+                addresses[name] = int(address, 16)
+                if int(size, 16):
+                    functions.append((int(address, 16), int(size, 16), name))
+            elif label:
+                address, name = label.groups()
+                addresses[name] = int(address, 16)
+        for row in selected:
+            address = addresses.get(row["symbol"])
+            owners = [(size, name) for start, size, name in functions
+                      if address is not None and start <= address < start + size]
+            if owners:
+                size = min(size for size, _ in owners)
+                names = {name for extent, name in owners if extent == size}
+                if len(names) == 1:
+                    row["sampled_symbol"] = row["symbol"]
+                    row["symbol"] = names.pop()
+                    row["symbol_owner_status"] = "containing-elf-text-range"
+                    continue
+            row["symbol_owner_status"] = "unresolved"
+    return rows
+
+
 def profile_hotspots(executor, perf, path, log):
     windows = [
         tuple(map(float, pair))
@@ -120,7 +157,10 @@ def profile_hotspots(executor, perf, path, log):
     )
     if result.returncode:
         return [], result.stderr
-    return summarize_samples(result.stdout, windows), None
+    rows = resolve_sample_symbols(executor, summarize_samples(result.stdout, windows))
+    for row in rows:
+        row["percent_scope"] = "sampled-user-cpu-clock-in-phase-windows"
+    return rows, None
 
 
 def benchmark_model(
