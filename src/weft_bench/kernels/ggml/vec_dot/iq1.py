@@ -14,6 +14,40 @@ def _scaled_product(activation, weight, delta, scale):
     return tl.i32(product * tl.i16(scale))
 
 
+@triton.jit
+def compute_s_windowed(W, X, grid, K, GROUPS: tl.constexpr):
+    tl.static_assert(GROUPS == 1 or GROUPS == 2 or GROUPS == 4)
+    group_lane = tl.arange(0, GROUPS, dtype=tl.u16, axis="group")
+    entry = tl.arange(0, 4, dtype=tl.u16, axis="entry")
+    payload = tl.arange(0, 8, dtype=tl.u16, axis="payload")
+    result = tl.f32(0)
+    with tl.level.blocks(K, extent=256) as block:
+        w, x = tl.load(W[block]), tl.load(X[block])
+        main, correction = tl.i32(0), tl.i32(0)
+        for part in tl.static_range(8 // GROUPS):
+            group = group_lane + tl.u16(part * GROUPS)
+            metadata = tl.u16(w.qh[group])
+            scale = tl.i32((metadata >> tl.u16(12) & tl.u16(7)) * tl.u16(2) + tl.u16(1))
+            index = tl.u16(w.q[group * tl.u16(4) + entry])
+            index |= (metadata >> (entry * tl.u16(3)) & tl.u16(7)) << tl.u16(8)
+            weight = tl.lookup(grid.values, index * tl.u16(8) + payload, bounds="in_bounds")
+            activation = x.q[group * tl.u16(32) + entry * tl.u16(8) + payload]
+            partial = tl.reduce_dot(activation, weight, over=("entry", "payload"), acc_dtype=tl.i32)
+            main += tl.reduce(scale * partial, axis="group")
+            delta = tl.i32((tl.i16(metadata) >> tl.i16(15)) | tl.i16(1))
+            sums = tl.i32(x.bsum[group * tl.u16(2)]) + tl.i32(x.bsum[group * tl.u16(2) + tl.u16(1)])
+            correction += tl.reduce(scale * delta * sums, axis="group")
+        result += (tl.f32(w.d) * tl.f32(x.ds)) * (tl.f32(main) + tl.f32(0.125) * tl.f32(correction))
+    return result
+
+
+@triton.jit(model="weft")
+def dot_s_windowed(W: tl.View[ggml.IQ1_S, (K,)], X: tl.View[ggml.Q8_K, (K,)],
+                   grid: tl.View[ggml.I8X8, (2048, 8)], Y: tl.View[tl.f32, (1,)],
+                   *, GROUPS: tl.constexpr = 2):
+    tl.store(Y[0], compute_s_windowed(W, X, grid, K, GROUPS))
+
+
 @triton.jit(noinline=True)
 def compute_m(W: tl.View[ggml.IQ1_M, (K,)], X: tl.View[ggml.Q8_K, (K,)],
               grid: tl.View[ggml.I8X8, (2048, 8)]):

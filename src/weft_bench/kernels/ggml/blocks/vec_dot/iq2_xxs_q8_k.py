@@ -18,25 +18,25 @@ def compute(
     with wl.level.blocks(K, extent=256) as kb:
         w = wl.load(W[kb])
         x = wl.load(X[kb])
-        group = wl.arange(0, 8, dtype=wl.u32, axis="group")
-        entry = wl.arange(0, 4, dtype=wl.u32, axis="entry")
+        group = wl.arange(0, 8, dtype=wl.u16, axis="group")
+        entry = wl.arange(0, 4, dtype=wl.u16, axis="entry")
         payload = wl.arange(0, 8, dtype=wl.u16, axis="payload")
-        group_word = group * wl.u32(4)
-        word0 = wl.widen(w.q[group_word + (entry >> wl.u32(1))], wl.u32)
-        grid_index = word0 >> ((entry & wl.u32(1)) * wl.u32(8)) & wl.u32(255)
-        word1 = wl.widen(w.q[group_word + wl.u32(2)], wl.u32) | wl.widen(
-            w.q[group_word + wl.u32(3)], wl.u32
+        group_word = group * wl.u16(4)
+        word0 = wl.u16(w.q[group_word + (entry >> wl.u16(1))])
+        grid_index = word0 >> ((entry & wl.u16(1)) * wl.u16(8)) & wl.u16(255)
+        word1 = wl.widen(w.q[group_word + wl.u16(2)], wl.u32) | wl.widen(
+            w.q[group_word + wl.u16(3)], wl.u32
         ) << wl.u32(16)
         sign_index = wl.narrow(
-            word1 >> entry * wl.u32(7), wl.u16, rounding="rtz", saturation=False
+            word1 >> wl.u32(entry) * wl.u32(7), wl.u16, rounding="rtz", saturation=False
         ) & wl.u16(127)
         weight = wl.lookup(
-            grid_values, grid_index * wl.u32(8) + payload, bounds="in_bounds"
+            grid_values, grid_index * wl.u16(8) + payload, bounds="in_bounds"
         )
         sign = wl.lookup(
             sign_values, sign_index * wl.u16(8) + payload, bounds="in_bounds"
         )
-        activation = x.q[group * wl.u32(32) + entry * wl.u32(8) + wl.u32(payload)]
+        activation = x.q[group * wl.u16(32) + entry * wl.u16(8) + payload]
         partial = wl.reduce_dot(activation, weight * sign, over=("entry", "payload"), acc_dtype=wl.i32)
         scale = wl.i32((word1 >> wl.u32(28)) * wl.u32(2) + wl.u32(1))
         block_sum = wl.reduce(partial * scale, axis="group")

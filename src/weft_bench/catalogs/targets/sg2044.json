@@ -304,10 +304,12 @@
       "scope": "vec-dot-leaf",
       "dtype": "iq1_s*q8_k",
       "candidate": {
-        "source": "package:kernels/ggml/vec_dot/grouped_lookup.py",
-        "symbol": "iq1_s",
+        "source": "package:kernels/ggml/vec_dot/iq1.py",
+        "symbol": "dot_s_windowed",
         "signature": {},
-        "constexprs": {},
+        "constexprs": {
+          "GROUPS": 1
+        },
         "backend_options": {
           "lmul_eighths": 64,
           "unroll": 1,
@@ -337,10 +339,12 @@
       "scope": "independent-dots-shared-activation",
       "dtype": "iq1_s*q8_k",
       "candidate": {
-        "source": "package:kernels/ggml/vec_dot/grouped_lookup.py",
-        "symbol": "iq1_s",
+        "source": "package:kernels/ggml/vec_dot/iq1.py",
+        "symbol": "dot_s_windowed",
         "signature": {},
-        "constexprs": {},
+        "constexprs": {
+          "GROUPS": 1
+        },
         "backend_options": {
           "lmul_eighths": 64,
           "unroll": 1,
@@ -514,7 +518,7 @@
         "constexprs": {},
         "backend_options": {
           "lmul_eighths": 32,
-          "unroll": 1,
+          "unroll": 2,
           "pipeline_depth": 1
         },
         "compile_target": {
@@ -1012,7 +1016,7 @@
         "constexprs": {},
         "backend_options": {
           "lmul_eighths": 16,
-          "unroll": 1,
+          "unroll": 4,
           "pipeline_depth": 1,
           "scalar_load_prime": 0,
           "partial_combine_policy": "independent-multilevel",
@@ -1446,7 +1450,7 @@
         "constexprs": {},
         "backend_options": {
           "lmul_eighths": 16,
-          "unroll": 1,
+          "unroll": 4,
           "pipeline_depth": 1,
           "scalar_load_prime": 0,
           "partial_combine_policy": "independent-multilevel",
@@ -1482,7 +1486,7 @@
         "constexprs": {},
         "backend_options": {
           "lmul_eighths": 16,
-          "unroll": 1,
+          "unroll": 2,
           "pipeline_depth": 1,
           "scalar_load_prime": 0,
           "partial_combine_policy": "independent-multilevel",
@@ -2962,7 +2966,10 @@
         "source": "package:kernels/ggml/mul_mat/grouped_lookup.py",
         "symbol": "iq1_s",
         "signature": {},
-        "constexprs": {},
+        "constexprs": {
+          "GROUPS": 1,
+          "INLINE": true
+        },
         "backend_options": {
           "lmul_eighths": 64,
           "unroll": 1,
@@ -2998,8 +3005,8 @@
         "signature": {},
         "constexprs": {},
         "backend_options": {
-          "lmul_eighths": 64,
-          "unroll": 1,
+          "lmul_eighths": 32,
+          "unroll": 2,
           "pipeline_depth": 1
         },
         "compile_target": {
@@ -3308,8 +3315,8 @@
       "scope": "projection-includes-activation-quantization",
       "dtype": "iq3_xxs*f32",
       "candidate": {
-        "source": "package:kernels/ggml/blocks/mul_mat/iq3_xxs.py",
-        "symbol": "production_mul_mat_iq3_xxs",
+        "source": "package:kernels/ggml/mul_mat/grouped_lookup.py",
+        "symbol": "iq3_xxs_tensor",
         "signature": {},
         "constexprs": {},
         "backend_options": {
@@ -3348,7 +3355,9 @@
         "source": "package:kernels/ggml/blocks/mul_mat/iq3_xxs.py",
         "symbol": "production_mul_mat_iq3_xxs",
         "signature": {},
-        "constexprs": {},
+        "constexprs": {
+          "INDEX_BITS": 16
+        },
         "backend_options": {
           "lmul_eighths": 32,
           "unroll": 1,
@@ -3544,7 +3553,11 @@
         "symbol": "production_mul_mat_mxfp4_decode",
         "signature": {},
         "constexprs": {},
-        "toolchain": {"cflags": ["-falign-loops=16"]},
+        "toolchain": {
+          "cflags": [
+            "-falign-loops=16"
+          ]
+        },
         "backend_options": {
           "lmul_eighths": 8,
           "unroll": 1,
@@ -3782,7 +3795,11 @@
         "symbol": "projection",
         "signature": {},
         "constexprs": {},
-        "toolchain": {"cflags": ["-falign-loops=16"]},
+        "toolchain": {
+          "cflags": [
+            "-falign-loops=16"
+          ]
+        },
         "backend_options": {
           "lmul_eighths": 16,
           "unroll": 1,
@@ -4084,10 +4101,15 @@
       "scope": "projection-includes-activation-quantization",
       "dtype": "q5_0*f32",
       "candidate": {
-        "source": "package:kernels/ggml/blocks/mul_mat/q5_0_decode.py",
-        "symbol": "production_mul_mat_q5_0_decode",
+        "source": "package:kernels/ggml/blocks/mul_mat/q5_0.py",
+        "symbol": "production_mul_mat_q5_0",
         "signature": {},
-        "constexprs": {},
+        "constexprs": {
+          "MC": 1,
+          "MR": 1,
+          "NC": 16,
+          "NR": 4
+        },
         "backend_options": {
           "lmul_eighths": 16,
           "unroll": 1,
@@ -4551,7 +4573,8 @@
         "symbol": "projection",
         "signature": {},
         "constexprs": {
-          "LANES": 64
+          "LANES": 32,
+          "DEFERRED": true
         },
         "backend_options": {
           "lmul_eighths": 32,

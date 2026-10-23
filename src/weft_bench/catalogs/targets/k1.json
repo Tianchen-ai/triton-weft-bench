@@ -671,7 +671,9 @@
         "source": "package:kernels/ggml/blocks/vec_dot/iq3_xxs_q8_k.py",
         "symbol": "quantized_vec_dot_iq3_xxs_q8_k",
         "signature": {},
-        "constexprs": {},
+        "constexprs": {
+          "INDEX_BITS": 16
+        },
         "backend_options": {
           "lmul_eighths": 32,
           "unroll": 2,
@@ -707,7 +709,9 @@
         "source": "package:kernels/ggml/blocks/vec_dot/iq3_xxs_q8_k.py",
         "symbol": "quantized_vec_dot_iq3_xxs_q8_k",
         "signature": {},
-        "constexprs": {},
+        "constexprs": {
+          "INDEX_BITS": 16
+        },
         "backend_options": {
           "lmul_eighths": 32,
           "unroll": 2,
@@ -743,7 +747,9 @@
         "source": "package:kernels/ggml/blocks/vec_dot/iq4_nl_q8_0.py",
         "symbol": "quantized_vec_dot_iq4_nl_q8_0",
         "signature": {},
-        "constexprs": {},
+        "constexprs": {
+          "DEFERRED": true
+        },
         "backend_options": {
           "lmul_eighths": 32,
           "unroll": 4,
@@ -779,7 +785,9 @@
         "source": "package:kernels/ggml/blocks/vec_dot/iq4_nl_q8_0.py",
         "symbol": "quantized_vec_dot_iq4_nl_q8_0",
         "signature": {},
-        "constexprs": {},
+        "constexprs": {
+          "DEFERRED": true
+        },
         "backend_options": {
           "lmul_eighths": 8,
           "unroll": 2,
@@ -3329,7 +3337,9 @@
         "source": "package:kernels/ggml/mul_mat/grouped_lookup.py",
         "symbol": "iq3_xxs_tensor",
         "signature": {},
-        "constexprs": {},
+        "constexprs": {
+          "INDEX_BITS": 16
+        },
         "backend_options": {
           "lmul_eighths": 32,
           "unroll": 2,
@@ -3366,7 +3376,9 @@
         "source": "package:kernels/ggml/mul_mat/grouped_lookup.py",
         "symbol": "iq3_xxs_tensor",
         "signature": {},
-        "constexprs": {},
+        "constexprs": {
+          "INDEX_BITS": 16
+        },
         "backend_options": {
           "lmul_eighths": 32,
           "unroll": 2,

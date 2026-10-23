@@ -462,7 +462,7 @@
         "symbol": "q8_0",
         "signature": {},
         "constexprs": {
-          "LANES": 8
+          "LANES": 4
         },
         "backend_options": {},
         "compile_target": {
@@ -2778,7 +2778,8 @@
         "symbol": "q4_0",
         "signature": {},
         "constexprs": {
-          "BM": 1
+          "BM": 1,
+          "BN": 64
         },
         "backend_options": {},
         "compile_target": {

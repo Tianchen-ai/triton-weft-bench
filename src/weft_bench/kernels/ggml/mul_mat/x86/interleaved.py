@@ -75,8 +75,8 @@ def q5_1_prefill(W: tl.View[Q5_1Rows[16], (N, K)], X: tl.View[tl.f32, (M, K)],
 @triton.jit(model="weft", alias_groups={"Xq": "workspace", "Sums": "sums", "Y": "output"})
 def q4_0(W: tl.View[Q4_0Rows[32], (N, K)], X: tl.View[tl.f32, (M, K)],
          Xq: tl.View[ggml.Q8_0, (M, K)], Sums: tl.View[BlockSum32, (M, K)],
-         Y: tl.View[tl.f32, (M, N)], BM: tl.constexpr = 1):
-    project(W, X, Xq, Y, M, N, K, 8, False, False, BM, 32, False, Sums)
+         Y: tl.View[tl.f32, (M, N)], BM: tl.constexpr = 1, BN: tl.constexpr = 32):
+    project(W, X, Xq, Y, M, N, K, 8, False, False, BM, BN, False, Sums)
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "workspace", "Y": "output"})

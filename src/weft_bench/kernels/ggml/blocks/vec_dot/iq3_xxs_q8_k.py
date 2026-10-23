@@ -11,7 +11,10 @@ def compute(
     X: wl.View[ggml.Q8_K, (K,)],
     grid: wl.View[ggml.I8X4, (256, 4)],
     signs: wl.View[ggml.I8X8, (128, 8)],
+    INDEX_BITS: wl.constexpr = 32,
 ):
+    wl.static_assert(INDEX_BITS == 16 or INDEX_BITS == 32)
+    index_dtype: wl.constexpr = wl.u16 if INDEX_BITS == 16 else wl.u32
     sumf = wl.f32(0.0)
     grid_values = grid.values
     sign_values = signs.values
@@ -34,15 +37,11 @@ def compute(
                     + half * wl.u32(8)
                     + entry_code
                 ],
-                wl.u32,
+                index_dtype,
             )
-            sign_index = metadata >> pair_entry * wl.u32(7) & wl.u32(127)
-            weight = wl.lookup(
-                grid_values, grid_index * wl.u32(4) + payload, bounds="in_bounds"
-            )
-            sign_bytes = wl.lookup(
-                sign_values, sign_index * wl.u32(8) + sign_payload, bounds="in_bounds"
-            )
+            sign_index = index_dtype(metadata >> pair_entry * wl.u32(7)) & index_dtype(127)
+            weight = wl.lookup(grid_values, grid_index * index_dtype(4) + payload, bounds="in_bounds")
+            sign_bytes = wl.lookup(sign_values, sign_index * index_dtype(8) + sign_payload, bounds="in_bounds")
             sign = wl.reshape(
                 sign_bytes,
                 shape=(2, 4, 2, 4),
@@ -75,5 +74,6 @@ def quantized_vec_dot_iq3_xxs_q8_k(
     grid: wl.View[ggml.I8X4, (256, 4)],
     signs: wl.View[ggml.I8X8, (128, 8)],
     Y: wl.View[wl.f32, (1,)],
+    *, INDEX_BITS: wl.constexpr = 32,
 ):
-    wl.store(Y[0], compute(W, X, grid, signs))
+    wl.store(Y[0], compute(W, X, grid, signs, INDEX_BITS))
