@@ -3542,6 +3542,7 @@
         "symbol": "production_mul_mat_mxfp4_decode",
         "signature": {},
         "constexprs": {},
+        "toolchain": {"cflags": ["-falign-loops=16"]},
         "backend_options": {
           "lmul_eighths": 8,
           "unroll": 1,
@@ -3779,6 +3780,7 @@
         "symbol": "projection",
         "signature": {},
         "constexprs": {},
+        "toolchain": {"cflags": ["-falign-loops=16"]},
         "backend_options": {
           "lmul_eighths": 16,
           "unroll": 1,

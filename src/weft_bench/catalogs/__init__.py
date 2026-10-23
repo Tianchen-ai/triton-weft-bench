@@ -80,7 +80,7 @@ def describe_case(case, target):
                      "scope": selected["scope"] if selected else case.scope, "dtype": case.dtype},
         "candidate": {key: binding[key] for key in (
             "factory", "python", "compilation_host", "source", "symbol", "signature", "constexprs",
-            "backend_options", "compile_target", "workspaces", "persistent_inputs", "entry", "grid",
+            "backend_options", "compile_target", "toolchain", "workspaces", "persistent_inputs", "entry", "grid",
             "num_cpu_threads", "artifact") if key in binding},
         "retained_artifact_evidence": selected["artifact_evidence"] if selected else None,
         "reference": selected["reference"] if selected else None,
