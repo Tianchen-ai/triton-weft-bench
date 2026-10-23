@@ -22,6 +22,8 @@ root = Path(os.environ.get("WEFT_BENCH_VERIFY_OUTPUT", Path(__file__).parent))
 root.mkdir(parents=True, exist_ok=True)
 request = json.loads((Path(__file__).parent / "request.json").read_text())
 options = {"num_cpu_threads": 1}
+if "backend_options" in request:
+    options["backend_options"] = request["backend_options"]
 if not request.get("default_toolchain", False):
     options["toolchain"] = request["toolchain"]
 rows = json.loads((root / "results.json").read_text())["results"] if (root / "results.json").exists() else []

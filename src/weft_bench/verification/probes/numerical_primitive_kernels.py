@@ -5,6 +5,19 @@ import triton
 import triton.language as tl
 
 
+@triton.jit(model="weft", alias_groups={"A": "input", "B": "input"})
+def ime_closed_reduction(A: tl.View[tl.i8, (M, K)], B: tl.View[tl.i8, (N, K)],
+                         C: tl.View[tl.i32, (M, N)],
+                         M: tl.constexpr, N: tl.constexpr, K: tl.constexpr,
+                         SNAPSHOT: tl.constexpr = False):
+    a = tl.load(A)
+    b = tl.load(B)
+    if SNAPSHOT:
+        tl.store(A, a * tl.i8(0))
+    c = tl.reduce_dot(a, b, over="K", acc_dtype=tl.i32, engine="matrix")
+    tl.store(C, c)
+
+
 @triton.jit(model="weft", alias_groups={"Y": "output"})
 def byte_plane_fields(X: tl.View[tl.u8, (N,)], Y: tl.View[tl.u8, (N,)],
                       WIDTH: tl.constexpr, STEP: tl.constexpr):

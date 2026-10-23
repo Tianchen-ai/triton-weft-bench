@@ -603,7 +603,45 @@ def indexed_packet_contract(root, options, compile_target):
             "bounded_induction_variable":True,"evidence":evidence}
 
 
+def ime_reduction_contract(root, options):
+    from numerical_primitive_kernels import ime_closed_reduction
+
+    records = []
+    for m, n, k, snapshot in ((1, 4, 8, False), (1, 4, 16, False),
+                              (1, 16, 32, False), (4, 4, 32, False),
+                              (1, 4, 64, False), (1, 4, 32, True)):
+        values = np.array([-128, 127, -1, 0, 1, -64, 63, 17], np.int8)
+        left_index, right_index = np.arange(m*k), np.arange(n*k)
+        left = (np.resize(values, m*k).view(np.uint8) ^
+                ((left_index//8 * 37) % 256).astype(np.uint8)).view(np.int8).reshape(m, k)
+        right = (np.resize(np.roll(values, 3), n*k).view(np.uint8) ^
+                 ((right_index//8 * 53) % 256).astype(np.uint8)).view(np.int8).reshape(n, k)
+        if snapshot:
+            left = right[:m]
+        original_left, original_right = left.copy(), right.copy()
+        expected = (original_left.astype(np.int64) @ original_right.astype(np.int64).T).astype(np.int32)
+        storage, output = guarded(m*n, np.int32)
+        name = f"ime-reduction-{m}-{n}-{k}-{'snapshot' if snapshot else 'plain'}"
+        compiled = ime_closed_reduction[(1,)](left, right, output.reshape(m, n),
+            M=m, N=n, K=k, SNAPSHOT=snapshot, **options)
+        save(root, name, left=original_left, right=original_right, actual=output,
+             expected=expected, actual_left=left, actual_right=right)
+        exact(output.reshape(m, n), expected)
+        exact(storage[[0, 1, -2, -1]], np.full(4, -12345, np.int32))
+        exact(left, np.zeros_like(left) if snapshot else original_left)
+        if snapshot:
+            original_right[:m] = 0
+        exact(right, original_right)
+        evidence = native_evidence(compiled, root, name, ["contract"])
+        assert "ime_fragment_mma" in compiled.asm["riscvir"]
+        records.append({"M": m, "N": n, "K": k, "aliasing_write": snapshot, "evidence": evidence})
+    return {"integer_exact": True, "output_guards_unchanged": True,
+            "execution_mode": "jit", "cases": records}
+
+
 def run_scenario(name, root, options, close, compile_target=None):
+    if name == "ime_reduction":
+        return ime_reduction_contract(root, options)
     if name == "indexed_packets":
         return indexed_packet_contract(root, options, compile_target)
     if name == "byte_planes":
