@@ -42,9 +42,13 @@ def _run(name, target, implementation, parameters, directory, token_reference=No
     helper = executor.upload(NATIVE / "llama_validation.cpp", "llama_validation.cpp")
     tools, flags = flags_for(target)
     counters = None
+    runtime_link = []
+    build_environment = {**settings.get("env", {}), **config.get("env", {})}
     if config.get("package") and config.get("weft_include"):
-        flags += ["-DWB_WEFT_CHECK", "-I" + config["weft_include"],
-                  "-I" + target.settings["triton_runtime"]["include"]]
+        runtime = target.settings["triton_runtime"]
+        flags = ["-DWB_WEFT_CHECK", "-I" + config["weft_include"],
+                 "-I" + runtime["include"], *flags]
+        runtime_link = [runtime["library"], "-Wl,-rpath," + str(Path(runtime["library"]).parent)]
         header = str(Path(config["weft_include"]) / "weft/ggml.h")
         counters = counter_capabilities(executor.command(["cat", header], stage="prepare").stdout)
         if not counters["per_type"] or not counters["ime1"]:
@@ -56,8 +60,9 @@ def _run(name, target, implementation, parameters, directory, token_reference=No
     executable = executor.workspace + "/validate-model"
     command = [*tools["cxx"], *flags, "-std=c++17", "-I" + source + "/include",
                "-I" + source + "/ggml/include", helper, "-L" + library, "-Wl,-rpath," + library,
-               "-lllama", "-lggml", "-lggml-cpu", "-lggml-base", *tools.get("ldflags", []), "-o", executable]
-    done = executor.command(command, stage="model_validation_build", check=False)
+               "-lllama", "-lggml", "-lggml-cpu", "-lggml-base", *runtime_link,
+               *tools.get("ldflags", []), "-o", executable]
+    done = executor.command(command, env=build_environment, stage="model_validation_build", check=False)
     (directory / "build.log").write_text(done.stdout + done.stderr)
     (directory / "commands.json").write_text(json.dumps(executor.commands, indent=2))
     if done.returncode:
@@ -77,8 +82,8 @@ def _run(name, target, implementation, parameters, directory, token_reference=No
         executor.command([*tools["cxx"], *flags, "-std=c++17", "-shared", "-fPIC",
                           "-I" + source + "/ggml/include", "-I" + source + "/ggml/src",
                           interposer, "-L" + library, "-Wl,-rpath," + library,
-                          "-lggml-cpu", "-lggml-base", "-ldl", *tools.get("ldflags", []),
-                          "-o", check_library], stage="model_dot_check_build")
+                          "-lggml-cpu", "-lggml-base", *runtime_link, "-ldl", *tools.get("ldflags", []),
+                          "-o", check_library], env=build_environment, stage="model_dot_check_build")
         environment.update(LD_PRELOAD=check_library, WB_DOT_CAPTURE=executor.workspace + "/dot")
     command = ["env", "-u", "WEFT_GGML_PACKAGE", "-u", "LD_PRELOAD", "-u", "LD_LIBRARY_PATH",
                *[arg for key in BACKEND_ENVIRONMENT for arg in ("-u", key)],
