@@ -38,3 +38,26 @@ def quantized_vec_dot_q4_k_q8_k(
     W: wl.View[ggml.Q4_K, (K,)], X: wl.View[ggml.Q8_K, (K,)], Y: wl.View[wl.f32, (1,)]
 ):
     wl.store(Y[0], compute(W, X))
+
+
+@triton.jit(model="weft")
+def quantized_rows_q4_k_q8_k(
+    W: wl.View[ggml.Q4_K, (rows, K)], X: wl.View[ggml.Q8_K, (K,)],
+    Y: wl.View[wl.f32, (rows,)], BLOCK_ROWS: wl.constexpr = 4
+):
+    with wl.level.rows(rows, group=BLOCK_ROWS) as rb:
+        result = wl.state(wl.f32, [BLOCK_ROWS], init=0)
+        with wl.level.blocks(K, extent=256) as kb:
+            w, x = wl.load(W[rb, kb]), wl.load(X[kb])
+            group = wl.arange(0, 8, dtype=wl.u8, axis="group")
+            lane = wl.arange(0, 32, dtype=wl.u8, axis="k")
+            coordinate = group * wl.u8(32) + lane
+            partial = wl.reduce_dot(w.q[:, coordinate], x.q[coordinate], over="k", acc_dtype=wl.i32)
+            total = wl.reduce(partial * wl.i32(w.sc[:, group]), axis="group")
+            minimum_group = wl.arange(0, 8, dtype=wl.u32, axis="minimum_group")
+            minimum = wl.reduce(wl.i32(w.m[:, minimum_group]) * (
+                wl.i32(x.bsum[minimum_group * wl.u32(2)]) +
+                wl.i32(x.bsum[minimum_group * wl.u32(2) + wl.u32(1)])), axis="minimum_group")
+            result -= (wl.f32(x.ds) * wl.f32(w.dmin)) * wl.f32(minimum)
+            result += (wl.f32(x.ds) * wl.f32(w.d)) * wl.f32(total)
+        wl.store(Y[rb], result)
