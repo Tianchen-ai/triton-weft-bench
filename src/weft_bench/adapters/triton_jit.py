@@ -75,6 +75,11 @@ class TritonJitAdapter:
                 raise ValueError("JIT grid requires one to three positive dimensions")
             if type(threads) is not int or threads < 1:
                 raise ValueError("JIT num_cpu_threads must be positive")
+            guards = options.get("guard_input_ends", [])
+            if not isinstance(guards, list) or any(not isinstance(name, str) for name in guards) or len(set(guards)) != len(guards):
+                raise ValueError("guard_input_ends requires distinct input argument names")
+            if guards and not measurement.check_only:
+                raise ValueError("guard_input_ends is a correctness-only check, not a timing mode")
             request = {
                 **source_request,
                 "symbol": options["symbol"], "fixture": fixture, "signature": options.get("signature", {}),
@@ -88,6 +93,7 @@ class TritonJitAdapter:
                 "check_python_aot": options.get("check_python_aot", False),
                 "check_torch_compile": options.get("check_torch_compile", False),
                 "profile_runtime": options.get("profile_runtime", False),
+                "guard_input_ends": guards,
                 "architecture": target_architecture(target.settings["target"]),
                 "compile_target": compiler_target(options["compile_target"]) if "compile_target" in options else None,
             }

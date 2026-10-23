@@ -76,6 +76,7 @@ def run(request):
     failures = []
     result = {}
     retained = []
+    protected_storage = []
     specs = request["invocation"]
     grid = tuple(request["grid"])
     options = {**request["backend_options"], "toolchain": request["toolchain"],
@@ -111,11 +112,14 @@ def run(request):
                     raise ValueError(error.value.decode())
 
             bound_calls = []
+            captured_addresses = []
 
             @launch_type
             def capture(addresses):
                 try:
                     bound_calls.append(arguments(addresses))
+                    if request.get("guard_input_ends"):
+                        captured_addresses.append([int(addresses[i] or 0) for i in range(len(specs))])
                     return 0
                 except Exception as exception:
                     failures.append(exception)
@@ -127,6 +131,47 @@ def run(request):
                 raise failures.pop() if failures else ValueError(error.value.decode())
             if not bound_calls:
                 raise ValueError("the workload produced no Triton invocations")
+            guards = request.get("guard_input_ends", [])
+            if guards:
+                import mmap
+                if not request["measurement"]["check_only"] or len(bound_calls) != 1:
+                    raise NotImplementedError("input end guards require one complete-workload correctness invocation")
+                known = {spec["name"]: i for i, spec in enumerate(specs)}
+                libc = ctypes.CDLL(None, use_errno=True)
+                libc.mprotect.argtypes = [ctypes.c_void_p, ctypes.c_size_t, ctypes.c_int]
+                libc.mprotect.restype = ctypes.c_int
+                result["input_end_guards"] = []
+                for name in guards:
+                    if name not in known:
+                        raise ValueError("unknown guarded input " + name)
+                    index = known[name]
+                    spec = specs[index]
+                    if spec["kind"] == "scalar" or spec["access"] != "read" or spec["bytes"] <= 0:
+                        raise ValueError("guarded input must be a nonempty read-only buffer: " + name)
+                    source, size = captured_addresses[0][index], spec["bytes"]
+                    for other, peer in enumerate(specs):
+                        if other == index or peer["kind"] == "scalar":
+                            continue
+                        address = captured_addresses[0][other]
+                        if source < address + peer["bytes"] and address < source + size:
+                            raise NotImplementedError("input guards cannot independently copy overlapping arguments")
+                    page = mmap.PAGESIZE
+                    span = ((size + page - 1) // page) * page
+                    memory = mmap.mmap(-1, span + page, prot=mmap.PROT_READ | mmap.PROT_WRITE)
+                    base = ctypes.addressof(ctypes.c_char.from_buffer(memory))
+                    address = base + span - size
+                    if address % spec.get("alignment", 1):
+                        raise NotImplementedError("exact page-end placement cannot preserve the input alignment")
+                    ctypes.memmove(address, source, size)
+                    if libc.mprotect(base + span, page, 0) or libc.mprotect(base, span, mmap.PROT_READ):
+                        raise OSError(ctypes.get_errno(), "cannot protect the input boundary")
+                    storage = (ctypes.c_ubyte * size).from_address(address)
+                    protected_storage.extend((memory, storage))
+                    bound_calls[0][name] = tl.View(storage, encoding=spec["encoding"],
+                        shape=tuple(spec["shape"]), strides=spec.get("strides"))
+                    result["input_end_guards"].append({"argument": name, "bytes": size,
+                        "page_bytes": page, "readonly": True, "end": "PROT_NONE"})
+                print("WB_INPUT_GUARDS " + json.dumps(result["input_end_guards"]), flush=True)
 
             def call_arguments(bound):
                 signature = getattr(kernel, "jit_fn", kernel).signature

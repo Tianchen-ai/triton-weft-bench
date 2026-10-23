@@ -213,13 +213,12 @@ def cohort_contract(root, options):
         result = np.full((4, 8), -12345, np.int32)
         kernels.cohort_slice[(1,)](tl.View(packed_one, encoding=kernels.NaturalRows[4], shape=(8, 8)), result, first, **options)
         np.testing.assert_array_equal(result, expected_one[first:first+4])
-    for first in (0, 1, 2, 3, 4, 7):
-        result = np.full((2, 8), -12345, np.int32)
+    # subview requires offset + extent <= base extent; it does not clamp.
+    for first, rows in [(first, 2) for first in (0, 1, 2, 3, 4, 6)] + [(7, 1)]:
+        result = np.full((rows, 8), -12345, np.int32)
         kernels.cohort_slice[(1,)](tl.View(packed_one, encoding=kernels.NaturalRows[4], shape=(8, 8)),
-                                   result, first, ROWS=2, **options)
-        active = min(2, 8-first)
-        np.testing.assert_array_equal(result[:active], expected_one[first:first+active])
-        np.testing.assert_array_equal(result[active:], np.full((2-active,8),-12345,np.int32))
+                                   result, first, ROWS=rows, **options)
+        np.testing.assert_array_equal(result, expected_one[first:first+rows])
     np.savez(root / "packed-cohort.npz", source=raw, expected_packed=packed, actual_packed=actual,
              expected=expected, actual=output)
     return {"independent_byte_layout": True, "exported_builder_exact": True,

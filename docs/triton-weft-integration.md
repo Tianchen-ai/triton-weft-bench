@@ -137,6 +137,16 @@ available Python runtime segments separately. If the installed runtime uses a C+
 launcher that cannot expose those segments, they are `unavailable`; unobserved
 internal work is not reported as zero.
 
+For a buffer-boundary investigation, `guard_input_ends: ["W", "X"]` places
+the named read-only input buffers immediately before inaccessible memory pages.
+Use `--check-only` and an entry that consumes the complete workload in one call.
+The adapter copies the existing workload bytes, preserving Encoding, shape and
+strides; it does not generate new inputs or change the numerical tolerance.
+Overlapping arguments and incompatible alignment are rejected. Input data pages
+are read-only, and the applied bounds are printed before launch so a process crash
+retains evidence of the check. Guarded runs provide correctness evidence only,
+never a performance ratio.
+
 ## llama.cpp packages
 
 Set `llama.package_backend` to `triton` and configure `llama.triton` with the
