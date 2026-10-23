@@ -3,7 +3,7 @@ from __future__ import annotations
 import triton.integrations.ggml_formats as ggml
 import triton
 import triton.language as tl
-from weft_bench.kernels.ggml.vec_dot.x86.fields import select
+from .fields import select
 
 
 @triton.jit

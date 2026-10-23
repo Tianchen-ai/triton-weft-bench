@@ -3,7 +3,7 @@ from __future__ import annotations
 import triton.integrations.ggml_formats as ggml
 import triton
 import triton.language as wl
-from weft_bench.kernels.ggml.blocks.mul_mat.iq2_xxs_staged import _compute
+from .iq2_xxs_staged import _compute
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "workspace", "Y": "output"})

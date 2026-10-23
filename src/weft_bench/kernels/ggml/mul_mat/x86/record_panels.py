@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import triton.integrations.ggml_formats as ggml
-import weft_bench.kernels.ggml.blocks.quantize.q8_k as quant_q8_k
+from ...blocks.quantize import q8_k as quant_q8_k
 import triton
 import triton.language as tl
-from weft_bench.kernels.ggml.mul_mat.x86.scaled_records import (
+from .scaled_records import (
     decode_q2, minimum_q2, decode_q3, decode_q6, decode_iq1_s, decode_iq1_m,
     decode_iq2_xs, decode_iq2_xxs, decode_iq4_xs, decode_iq1,
     iq2_components,

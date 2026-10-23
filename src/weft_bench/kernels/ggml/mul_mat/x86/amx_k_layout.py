@@ -3,7 +3,7 @@ from __future__ import annotations
 import triton.integrations.ggml_formats as ggml
 import triton
 import triton.language as tl
-from weft_bench.kernels.ggml.quantize.q8_k_first import q8_k_quantize_first_absolute
+from ...quantize.q8_k_first import q8_k_quantize_first_absolute
 
 
 @triton.encoding

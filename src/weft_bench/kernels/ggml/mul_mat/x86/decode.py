@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 import triton.integrations.ggml_formats as ggml
-import weft_bench.kernels.ggml.blocks.quantize.q8_k as quant_q8_k
+from ...blocks.quantize import q8_k as quant_q8_k
 import triton
 import triton.language as tl
-from weft_bench.kernels.ggml.vec_dot.x86.q4_k_q8_k import compute as dot_q4_k
-from weft_bench.kernels.ggml.vec_dot.x86.q6_k_q8_k import compute as dot_q6_k
-from weft_bench.kernels.ggml.vec_dot.x86.grouped_k import compute_q2, compute_q3, compute_q5
-from weft_bench.kernels.ggml.vec_dot.x86.scaled_records import compute as dot_scaled_record
-from weft_bench.kernels.ggml.vec_dot.x86.scaled_records import compute_iq1_s
-from weft_bench.kernels.ggml.vec_dot.x86.scaled_records import compute_grouped as dot_grouped_record
-from weft_bench.kernels.ggml.mul_mat.x86.scaled_records import decode_iq1_m
-from weft_bench.kernels.ggml.vec_dot.x86.ternary import compute as dot_ternary
+from ...vec_dot.x86.q4_k_q8_k import compute as dot_q4_k
+from ...vec_dot.x86.q6_k_q8_k import compute as dot_q6_k
+from ...vec_dot.x86.grouped_k import compute_q2, compute_q3, compute_q5
+from ...vec_dot.x86.scaled_records import compute as dot_scaled_record
+from ...vec_dot.x86.scaled_records import compute_iq1_s
+from ...vec_dot.x86.scaled_records import compute_grouped as dot_grouped_record
+from .scaled_records import decode_iq1_m
+from ...vec_dot.x86.ternary import compute as dot_ternary
 
 
 @triton.jit

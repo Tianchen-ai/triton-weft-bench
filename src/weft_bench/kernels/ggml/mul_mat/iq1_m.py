@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import triton.integrations.ggml_formats as ggml
-import weft_bench.kernels.ggml.blocks.quantize.q8_k as quant_q8_k
+from ..blocks.quantize import q8_k as quant_q8_k
 import triton
 import triton.language as tl
 
-from weft_bench.kernels.ggml.vec_dot.iq1 import compute_m, compute_m_windowed
+from ..vec_dot.iq1 import compute_m, compute_m_windowed
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "workspace", "Y": "output"})

@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import triton.integrations.ggml_formats as ggml
-import weft_bench.kernels.ggml.blocks.quantize.q8_k as quant_q8_k
+from ...blocks.quantize import q8_k as quant_q8_k
 import triton
 import triton.language as tl
-from weft_bench.kernels.ggml.vec_dot.x86.signs import even_parity_signs
-from weft_bench.kernels.ggml.dequantize.radix import ternary_record
-from weft_bench.kernels.ggml.mul_mat.x86.codebook import project_indexed_tiles
+from ...vec_dot.x86.signs import even_parity_signs
+from ...dequantize.radix import ternary_record
+from .codebook import project_indexed_tiles
 
 
 @triton.jit

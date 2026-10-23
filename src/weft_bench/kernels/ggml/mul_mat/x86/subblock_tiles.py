@@ -3,7 +3,7 @@ from __future__ import annotations
 import triton.integrations.ggml_formats as ggml
 import triton
 import triton.language as tl
-from weft_bench.kernels.ggml.quantize.x86.blocks32 import quantize
+from ...quantize.x86.blocks32 import quantize
 
 
 @triton.jit

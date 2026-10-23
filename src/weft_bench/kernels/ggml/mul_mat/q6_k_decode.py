@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import triton.integrations.ggml_formats as ggml
-import weft_bench.kernels.ggml.blocks.quantize.q8_k as quant_q8_k
+from ..blocks.quantize import q8_k as quant_q8_k
 import triton
 import triton.language as tl
 
-from weft_bench.kernels.ggml.vec_dot.q6_k import block_scaled, stream_scale_groups
-from weft_bench.kernels.ggml.blocks.vec_dot.q6_k_q8_k import compute as compute_scale_groups
+from ..vec_dot.q6_k import block_scaled, stream_scale_groups
+from ..blocks.vec_dot.q6_k_q8_k import compute as compute_scale_groups
 
 
 @triton.jit(noinline=True)

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import triton.integrations.ggml_formats as ggml
-import weft_bench.kernels.ggml.blocks.quantize.q8_k as quant_q8_k
-import weft_bench.kernels.ggml.blocks.vec_dot.iq1_m_q8_k_lane16 as vd_iq1_m
+from ..quantize import q8_k as quant_q8_k
+from ..vec_dot import iq1_m_q8_k_lane16 as vd_iq1_m
 import triton
 import triton.language as wl
 

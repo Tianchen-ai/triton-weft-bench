@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import triton.integrations.ggml_formats as ggml
-import weft_bench.kernels.ggml.blocks.quantize.q8_k as quant_q8_k
+from ..blocks.quantize import q8_k as quant_q8_k
 import triton
 import triton.language as tl
 
-from weft_bench.kernels.ggml.vec_dot.grouped_lookup import (
+from ..vec_dot.grouped_lookup import (
     compute_iq1_m, compute_iq1_s, compute_iq2_xs, compute_iq2_xxs,
 )
-from weft_bench.kernels.ggml.blocks.vec_dot.iq2_xxs_q8_k import compute as compute_iq2_xxs_tensor
-from weft_bench.kernels.ggml.blocks.vec_dot.iq3_xxs_q8_k import compute as compute_iq3_xxs_tensor
+from ..blocks.vec_dot.iq2_xxs_q8_k import compute as compute_iq2_xxs_tensor
+from ..blocks.vec_dot.iq3_xxs_q8_k import compute as compute_iq3_xxs_tensor
 
 
 @triton.jit(noinline=True)

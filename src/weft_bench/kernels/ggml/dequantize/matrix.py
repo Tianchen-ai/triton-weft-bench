@@ -3,9 +3,9 @@ from __future__ import annotations
 import triton.integrations.ggml_formats as ggml
 import triton
 import triton.language as tl
-from weft_bench.kernels.ggml.dequantize.tiles import decode_codebook_records, decode_records
-from weft_bench.kernels.ggml.dequantize import tiles
-from weft_bench.kernels.ggml.dequantize.radix import ternary_record
+from .tiles import decode_codebook_records, decode_records
+from . import tiles
+from .radix import ternary_record
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})

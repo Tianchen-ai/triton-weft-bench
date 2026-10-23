@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import triton.integrations.ggml_formats as ggml
-import weft_bench.kernels.functions.quantization as quantization
+from ...functions import quantization as quantization
 import triton
 import triton.language as tl
 

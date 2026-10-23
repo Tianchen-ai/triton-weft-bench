@@ -3,7 +3,7 @@ from __future__ import annotations
 import triton.integrations.ggml_formats as ggml
 import triton
 import triton.language as tl
-from weft_bench.kernels.ggml.vec_dot.x86.q4_k_q8_k import compute as compute_affine
+from .q4_k_q8_k import compute as compute_affine
 
 G16 = tl.constexpr(16)
 G8 = tl.constexpr(8)

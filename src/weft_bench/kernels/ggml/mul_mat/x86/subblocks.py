@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import triton.integrations.ggml_formats as ggml
-import weft_bench.kernels.ggml.blocks.quantize.q8_0 as quant_q8_0
-import weft_bench.kernels.ggml.blocks.quantize.q8_k as quant_q8_k
+from ...blocks.quantize import q8_0 as quant_q8_0
+from ...blocks.quantize import q8_k as quant_q8_k
 import triton
 import triton.language as tl
-from weft_bench.kernels.ggml.vec_dot.x86.subblocks import compute_q1_0, compute_nvfp4
-from weft_bench.kernels.ggml.mul_mat.x86.codebook import project as project_table
-from weft_bench.kernels.ggml.vec_dot.x86.ternary import compute as compute_ternary
+from ...vec_dot.x86.subblocks import compute_q1_0, compute_nvfp4
+from .codebook import project as project_table
+from ...vec_dot.x86.ternary import compute as compute_ternary
 
 
 @triton.jit

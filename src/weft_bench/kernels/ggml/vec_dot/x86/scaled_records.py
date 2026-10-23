@@ -3,7 +3,7 @@ from __future__ import annotations
 import triton.integrations.ggml_formats as ggml
 import triton
 import triton.language as tl
-from weft_bench.kernels.ggml.mul_mat.x86.scaled_records import (
+from ...mul_mat.x86.scaled_records import (
     decode_iq1_m, decode_iq1, iq2_components,
 )
 

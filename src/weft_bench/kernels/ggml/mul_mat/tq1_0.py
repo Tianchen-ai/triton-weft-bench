@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import triton.integrations.ggml_formats as ggml
-import weft_bench.kernels.ggml.blocks.quantize.q8_k as quant_q8_k
-from weft_bench.kernels.ggml.blocks.vec_dot.tq1_0_q8_k import compute
-from weft_bench.kernels.ggml.vec_dot.ternary import compute_tq1
+from ..blocks.quantize import q8_k as quant_q8_k
+from ..blocks.vec_dot.tq1_0_q8_k import compute
+from ..vec_dot.ternary import compute_tq1
 import triton
 import triton.language as tl
 
