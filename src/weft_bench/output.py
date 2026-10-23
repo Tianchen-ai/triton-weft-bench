@@ -51,10 +51,15 @@ class OutputRun:
             for row in data["results"]:
                 details = row["details"]
                 details["output_locations"] = {"measured": original, "retained": retained}
-                for key in ("artifacts", "replay", "diagnostics", "paper_evidence", "paper_validation_recheck",
-                            "validation", "model_paths"):
-                    if key in details:
-                        details[key] = relocate(details[key])
+                locations = [details]
+                jit = details.get("jit")
+                if jit:
+                    locations.extend([jit, jit.get("runtime", {}), jit.get("disk_cache", {})])
+                for record in locations:
+                    for key in ("artifact", "artifacts", "worker", "replay", "diagnostics", "paper_evidence",
+                                "paper_validation_recheck", "validation", "model_paths"):
+                        if key in record:
+                            record[key] = relocate(record[key])
             result.write_text(json.dumps(data, indent=2))
         (self.stage / "run-state.json").write_text(json.dumps({
             "status": "failed" if error else "completed", "error": str(error) if error else None,

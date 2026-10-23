@@ -135,8 +135,13 @@ class ReleaseStructureTests(unittest.TestCase):
             (path / "old").write_text("obsolete")
             run = OutputRun(path)
             original = str(run.stage / "artifact")
+            (run.stage / "artifact").mkdir()
             (run.stage / "results.json").write_text(json.dumps({"results": [{"details": {
-                "artifacts": {"weft": original}, "command": ["run", original]}}]}))
+                "artifacts": {"weft": original}, "worker": original,
+                "jit": {"diagnostics": original, "command": ["jit", original],
+                        "runtime": {"artifact": original},
+                        "disk_cache": {"artifact": original}},
+                "command": ["run", original]}}]}))
             with self.assertRaisesRegex(ValueError, "another run"):
                 OutputRun(path)
             run.finish(KeyboardInterrupt())
@@ -144,6 +149,13 @@ class ReleaseStructureTests(unittest.TestCase):
             self.assertEqual(json.loads((path / "run-state.json").read_text())["status"], "failed")
             detail = json.loads((path / "results.json").read_text())["results"][0]["details"]
             self.assertEqual(detail["artifacts"]["weft"], str(path / "artifact"))
+            self.assertEqual(detail["worker"], str(path / "artifact"))
+            self.assertEqual(detail["jit"]["diagnostics"], str(path / "artifact"))
+            for stage in ("runtime", "disk_cache"):
+                artifact = Path(detail["jit"][stage]["artifact"])
+                self.assertEqual(artifact, path / "artifact")
+                self.assertTrue(artifact.is_dir())
+            self.assertEqual(detail["jit"]["command"], ["jit", original])
             self.assertEqual(detail["command"], ["run", original])
             retry = OutputRun(path)
             retry.finish()
