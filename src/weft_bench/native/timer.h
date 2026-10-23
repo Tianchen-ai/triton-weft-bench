@@ -62,13 +62,22 @@ template<class Run, class Reset>
 void measure(Run run, Reset reset, const char *correctness = "within-tolerance", bool stateful = false, const char *implementation = "",
              const void *output = nullptr, std::size_t outputBytes = 0) {
   const int warmup = static_cast<int>(option("WB_WARMUP", 3));
+  const double warmup_budget = option("WB_WARMUP_MS", 200);
   const int samples = static_cast<int>(option("WB_SAMPLES", 5));
   const double budget = option("WB_BATCH_MS", 10);
   const char *mode = std::getenv("WB_CACHE");
   const bool cold = mode && std::strcmp(mode, "cold") == 0;
-  if (warmup < 0 || samples < 1 || budget <= 0) throw std::runtime_error("invalid timing settings");
+  if (warmup < 0 || warmup_budget < 0 || samples < 1 || budget <= 0) throw std::runtime_error("invalid timing settings");
   std::vector<std::uint8_t> eviction(cold ? static_cast<std::size_t>(option("WB_EVICTION_BYTES", 67108864)) : 0, 1);
-  for (int i = 0; i < warmup; ++i) { reset(); run(); barrier(); }
+  // Count-only warmup lets short CPU kernels enter the samples before the
+  // frequency governor has responded. Compile/import work must not decide
+  // whether an otherwise identical native workload runs at idle frequency.
+  const auto warmup_start = Clock::now();
+  std::size_t warmup_iterations = 0;
+  if (warmup > 0)
+    do { reset(); run(); barrier(); ++warmup_iterations; }
+    while (warmup_iterations < static_cast<std::size_t>(warmup) || milliseconds(warmup_start) < warmup_budget);
+  const double warmup_ms = milliseconds(warmup_start);
   Clock::time_point start;
   std::size_t iterations = 1;
   double calibration_ms = 0;
@@ -137,7 +146,7 @@ void measure(Run run, Reset reset, const char *correctness = "within-tolerance",
   if (frequency_before > 0) std::printf("%ld", frequency_before); else std::printf("null");
   std::printf(",\"after\":");
   if (frequency_after > 0) std::printf("%ld", frequency_after); else std::printf("null");
-  std::printf("},\"cpu_time_scope\":\"calling-thread-only\",\"iterations\":%zu,\"calibration_ms\":%.12g,\"correctness\":\"%s\",\"cache\":\"%s\"", iterations, calibration_ms, correctness, cold ? "cold" : "reuse");
+  std::printf("},\"cpu_time_scope\":\"calling-thread-only\",\"iterations\":%zu,\"calibration_ms\":%.12g,\"warmup_iterations\":%zu,\"warmup_ms\":%.12g,\"correctness\":\"%s\",\"cache\":\"%s\"", iterations, calibration_ms, warmup_iterations, warmup_ms, correctness, cold ? "cold" : "reuse");
   describe_output_storage(output, outputBytes);
   std::printf("}\n");
 }

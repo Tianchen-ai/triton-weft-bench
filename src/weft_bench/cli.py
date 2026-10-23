@@ -169,6 +169,8 @@ def parser():
                 "--shape", help="explicit dimensions, e.g. rows=1,K=4096"
             )
             command.add_argument("--warmup", type=int, default=3)
+            command.add_argument("--warmup-ms", type=float, default=200.0,
+                                 help="minimum native warmup duration; --warmup 0 disables warmup")
             command.add_argument("--samples", type=int, default=5)
             command.add_argument("--batch-ms", type=float, default=10)
             command.add_argument("--cache", choices=("reuse", "cold"), default="reuse")
@@ -643,6 +645,7 @@ def main(argv=None):
                 args.cache,
                 args.eviction_bytes,
                 check_only=args.check_only,
+                warmup_ms=args.warmup_ms,
             )
             suites = configured_suites(target.settings)
             if args.suite and args.suite not in suites:

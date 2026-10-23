@@ -42,6 +42,7 @@ class Measurement:
     cache: str = "reuse"
     eviction_bytes: int = 64 * 1024 * 1024
     check_only: bool = False
+    warmup_ms: float = 200.0
 
     def __post_init__(self):
         if self.warmup < 0 or self.samples < 1 or self.batch_ms <= 0:
@@ -50,10 +51,13 @@ class Measurement:
             raise ValueError(
                 "cache must be reuse/cold; eviction_bytes must be positive"
             )
+        if not 0 <= self.warmup_ms < float("inf"):
+            raise ValueError("warmup_ms must be finite and nonnegative")
 
     def env(self):
         return {
             "WB_WARMUP": str(self.warmup),
+            "WB_WARMUP_MS": str(self.warmup_ms),
             "WB_SAMPLES": str(self.samples),
             "WB_BATCH_MS": str(self.batch_ms),
             "WB_CACHE": self.cache,

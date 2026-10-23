@@ -59,7 +59,7 @@ Floating buffers use native little-endian float32; quantized outputs retain thei
 GGML block encoding. Allocation, loading, validation and output export are untimed.
 Requested output files are retained even when numerical checking fails.
 
-Defaults: three warmups and five sample groups, approximately 10 ms per group for
+Defaults: at least three native warmups spanning 200 ms, then five sample groups, approximately 10 ms per group for
 short calls. `--cache cold` evicts before each call; `--cache reuse` reuses prepared
 inputs. Required work such as projection activation quantization remains timed.
 GEMM/prefill projection use a bounded scalar output sample plus finiteness checking;

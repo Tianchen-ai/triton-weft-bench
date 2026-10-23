@@ -2,6 +2,7 @@
 import importlib
 import importlib.machinery
 import importlib.util
+from importlib.metadata import PackageNotFoundError, distribution
 import os
 from pathlib import Path
 import sys
@@ -33,7 +34,13 @@ def deploy_source(executor, source):
     """Resolve installed corpus modules or transfer a complete custom package."""
     source = Path(source).expanduser().resolve(strict=True)
     package = Path(__file__).resolve().parents[1]
-    if source.is_relative_to(package / "kernels"):
+    try:
+        installed = distribution("triton-weft-bench")
+        wheel_package = (Path(installed.locate_file("weft_bench")).resolve() == package and
+                         any(str(path).endswith(".dist-info/RECORD") for path in installed.files or ()))
+    except PackageNotFoundError:
+        wheel_package = False
+    if wheel_package and source.is_relative_to(package / "kernels"):
         return {"source": str(source),
                 "source_module": "weft_bench." + ".".join(source.relative_to(package).with_suffix("").parts)}
     root = source.parent
