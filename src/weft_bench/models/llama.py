@@ -88,7 +88,7 @@ def replacement_counts(text):
     }
 
 
-def summarize_samples(text, windows):
+def summarize_samples(text, windows, limit=3):
     weights = defaultdict(int)
     for line in text.splitlines():
         match = re.match(
@@ -101,7 +101,7 @@ def summarize_samples(text, windows):
     total = sum(weights.values())
     return [
         {"symbol": key[0], "dso": key[1], "percent": value * 100 / total}
-        for key, value in sorted(weights.items(), key=lambda item: -item[1])[:3]
+        for key, value in sorted(weights.items(), key=lambda item: -item[1])[:limit]
     ]
 
 
@@ -157,10 +157,16 @@ def profile_hotspots(executor, perf, path, log):
     )
     if result.returncode:
         return [], result.stderr
-    rows = resolve_sample_symbols(executor, summarize_samples(result.stdout, windows))
+    rows = resolve_sample_symbols(executor, summarize_samples(result.stdout, windows, limit=None))
+    functions = {}
     for row in rows:
         row["percent_scope"] = "sampled-user-cpu-clock-in-phase-windows"
-    return rows, None
+        key = (row["symbol"], row["dso"])
+        if key not in functions:
+            functions[key] = {**row, "percent": 0.0, "sampled_symbols": []}
+        functions[key]["percent"] += row["percent"]
+        functions[key]["sampled_symbols"].append(row.get("sampled_symbol", row["symbol"]))
+    return sorted(functions.values(), key=lambda row: -row["percent"])[:3], None
 
 
 def benchmark_model(
