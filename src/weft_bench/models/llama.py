@@ -142,6 +142,10 @@ def benchmark_model(
         raise ValueError(f"model {name!r} is not in target.llama.models")
     if repetitions < 1:
         raise ValueError("repetitions must be positive")
+    if validate and validation_reference:
+        from .validation import read_matching_reference
+
+        read_matching_reference(name, target, validation_reference)
     rows = []
     inspected_builds = {}
     if build:

@@ -166,6 +166,23 @@ def _reference_contract(name, target):
     return contract, parameters
 
 
+def read_matching_reference(name, target, directory):
+    """Check a retained reference before starting any target execution."""
+    record = Path(directory) / "reference.json"
+    if not record.exists():
+        return None
+    saved = json.loads(record.read_text())
+    current, _ = _reference_contract(name, target)
+    if not same_reference_contract(saved["contract"], current):
+        differences = {key: {"reference": saved["contract"].get(key), "requested": current.get(key)}
+                       for key in saved["contract"].keys() | current.keys()
+                       if saved["contract"].get(key) != current.get(key)}
+        raise ValueError("model numerical reference input/execution differs: " +
+                         json.dumps(differences, sort_keys=True) +
+                         "; select the matching validation protocol or reference")
+    return saved
+
+
 def capture_model_reference(name, target, *, output):
     """Capture or reuse normal logits, checking their structure without self-comparison."""
     directory = Path(output).expanduser().resolve()
@@ -175,11 +192,9 @@ def capture_model_reference(name, target, *, output):
               "scope": "full-vocabulary last-prefill and teacher-forced decode logits; untimed reference capture"}
     try:
         record = directory / "reference.json"
-        reused = record.exists()
+        saved = read_matching_reference(name, target, directory)
+        reused = saved is not None
         if reused:
-            saved = json.loads(record.read_text())
-            if not same_reference_contract(saved["contract"], contract):
-                raise ValueError("model numerical reference input/execution differs; choose a corresponding reference directory")
             details = saved["details"]
         else:
             details = _run(name, target, "normal", parameters, directory)

@@ -249,6 +249,16 @@ class WorkflowTests(unittest.TestCase):
             attach_validation([row], second, "normal")
             self.assertEqual((row.median_ms, row.samples_ms), (12.5, [12.5]))
             self.assertEqual(row.correctness, "reference-logits-captured")
+            from weft_bench.models.llama import benchmark_model
+
+            target.settings["llama"]["validation"] = {"prompt_tokens": 32}
+            with patch("weft_bench.models.llama.Executor") as executor:
+                with self.assertRaisesRegex(ValueError, '"prompt_tokens": 32'):
+                    benchmark_model("model", ["normal"], target, output=Path(directory) / "run",
+                                    validate=True, validation_reference=directory, build=True)
+                executor.assert_not_called()
+            self.assertEqual(run.call_count, 1)
+            target.settings["llama"].pop("validation")
             (Path(directory) / "logits.bin").write_bytes(struct.pack("<II6f", 3, 2, float("nan"), 2, 3, 4, 5, 6))
             invalid = capture_model_reference("model", target, output=directory)
             self.assertEqual(invalid["status"], "validation_failed")
