@@ -118,7 +118,7 @@ def pipeline_carrier_contract(root, options):
 
 
 def multi_axis_mac(root, options, close):
-    from numerical_primitive_kernels import grouped_mac, grouped_mac_float, aligned_integer_pairs, byte_dot_tail, byte_dot_narrow, equal_extent_axes
+    from numerical_primitive_kernels import grouped_mac, grouped_mac_float, aligned_integer_pairs, byte_dot_narrow, equal_extent_axes
 
     cases = (
         (0, 2, 16, True, np.int16,
@@ -219,23 +219,7 @@ def multi_axis_mac(root, options, close):
         save(root, name, source=source, expected=expected, actual=output)
         records.append({"mode": name, "shape": [rows, 4],
                         "evidence": native_evidence(compiled, root, name, ["level"])})
-    for length in (0, 1, 3, 17, 65, 95, 96):
-        left = np.resize(np.array([-128, 127, -1, 0, 19, -67], np.int8), length)
-        right = np.resize(np.array([-128, -128, 127, 17, -99], np.int8), length)
-        storage, output = guarded(24, np.int32)
-        total_storage, total = guarded(1, np.int32)
-        expected = np.full(24, -12345, np.int32)
-        for start in range(0, length, 4):
-            expected[start//4] = np.sum(left[start:start+4].astype(np.int64)*right[start:start+4])
-        compiled = byte_dot_tail[(1,)](left, right, output, total, **options)
-        expected_total = int(np.dot(left.astype(np.int64), right.astype(np.int64))) if length else -12345
-        exact(output, expected); exact(total, np.array([expected_total], np.int32))
-        assert np.all(storage[[0, 1, -2, -1]] == -12345)
-        assert np.all(total_storage[[0, 1, -2, -1]] == -12345)
-        name = f"byte-dot-tail-{length}"
-        save(root, name, left=left, right=right, actual=output, expected=expected, total=total)
-        records.append({"mode": name, "shape": [length], "group": 4,
-                        "evidence": native_evidence(compiled, root, name, ["mac_groups"])})
+    records.extend(byte_mac_tails(root, options))
     for mode in range(7):
         left = np.resize(np.array([255, 255, 128, 127, 0, -1, -128, 15], np.int32), 31)
         right = np.resize(np.array([-128, -128, -128, -128, 127, 127, 127, 127], np.int32), 31)
@@ -278,6 +262,32 @@ def multi_axis_mac(root, options, close):
             records.append({"mode": name, "group": 4, "source_accumulator_bits": 16,
                             "execution_mode": "explicit-target-native-AOT", "evidence": evidence})
     return {"shared_batch_and_distinct_free_axes": True, "integer_cases_exact": True, "subcases": records}
+
+
+def byte_mac_tails(root, options):
+    from numerical_primitive_kernels import byte_dot_tail
+
+    records = []
+    for length in (0, 1, 3, 17, 65, 95, 96):
+        left = np.resize(np.array([-128, 127, -1, 0, 19, -67], np.int8), length)
+        right = np.resize(np.array([-128, -128, 127, 17, -99], np.int8), length)
+        storage, output = guarded(24, np.int32)
+        total_storage, total = guarded(1, np.int32)
+        expected = np.full(24, -12345, np.int32)
+        for start in range(0, length, 4):
+            expected[start//4] = np.sum(left[start:start+4].astype(np.int64)*right[start:start+4])
+        compiled = byte_dot_tail[(1,)](left, right, output, total, **options)
+        expected_total = int(np.dot(left.astype(np.int64), right.astype(np.int64))) if length else -12345
+        name = f"byte-dot-tail-{length}"
+        save(root, name, left=left, right=right, actual=output, expected=expected, total=total,
+             expected_total=np.array([expected_total], np.int32), output_storage=storage,
+             total_storage=total_storage)
+        evidence = native_evidence(compiled, root, name, ["mac_groups"])
+        exact(output, expected); exact(total, np.array([expected_total], np.int32))
+        assert np.all(storage[[0, 1, -2, -1]] == -12345)
+        assert np.all(total_storage[[0, 1, -2, -1]] == -12345)
+        records.append({"mode": name, "shape": [length], "group": 4, "evidence": evidence})
+    return records
 
 
 def multi_axis_pairs(root, options):
@@ -814,6 +824,8 @@ def run_scenario(name, root, options, close, compile_target=None):
         return mixed_integer_mac_contract(root, options)
     if name == "grouped_mac":
         return multi_axis_mac(root, options, close)
+    if name == "grouped_byte_tail":
+        return {"subcases": byte_mac_tails(root, options), "integer_cases_exact": True}
     operations = {"sum_pairs": multi_axis_pairs,
                   "grouped_tail": partial_groups,
                   "scalar_validity": scalar_validity_contract}
