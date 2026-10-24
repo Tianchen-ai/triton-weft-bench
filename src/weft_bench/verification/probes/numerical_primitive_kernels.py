@@ -5,6 +5,19 @@ import triton
 import triton.language as tl
 
 
+@triton.jit(model="weft", alias_groups={"Y": "output"})
+def pipelined_scaled_groups(A: tl.View[tl.i8, (B, G, K)],
+                            X: tl.View[tl.i8, (B, G, K)],
+                            S: tl.View[tl.i8, (B, G)], Y: tl.View[tl.i32, (1,)],
+                            G: tl.constexpr, K: tl.constexpr, INITIAL: tl.constexpr):
+    total = tl.i32(INITIAL)
+    with tl.level.rows(B, group=1) as row:
+        partial = tl.reduce_dot(tl.load(A[row]), tl.load(X[row]), over="K", acc_dtype=tl.i32)
+        scaled = partial * tl.i32(tl.load(S[row]))
+        total += tl.sum(tl.sum(scaled, 1), 0)
+    tl.store(Y[0], total)
+
+
 @triton.jit(model="weft", alias_groups={"A": "input", "B": "input"})
 def ime_closed_reduction(A: tl.View[tl.i8, (M, K)], B: tl.View[tl.i8, (N, K)],
                          C: tl.View[tl.i32, (M, N)],

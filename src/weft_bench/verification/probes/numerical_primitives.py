@@ -83,6 +83,40 @@ def mixed_integer_mac_contract(root, options):
     return {"cases": records, "integer_exact": True, "guards_and_inputs_preserved": True}
 
 
+def pipeline_carrier_contract(root, options):
+    from numerical_primitive_kernels import pipelined_scaled_groups
+
+    records = []
+    for groups in (4, 8, 16):
+        for blocks in (0, 1, 3):
+            for initial in (0, 2147483647):
+                shape = (blocks, groups, 16)
+                count = int(np.prod(shape))
+                left = np.resize([-128, 127, -1, 0, 1, 17, -33], count).astype(np.int8).reshape(shape)
+                right = np.resize([127, -128, 1, -1, 0, 29, 7], count).astype(np.int8).reshape(shape)
+                scales = np.resize([-128, 127, 1, 0, -1], blocks*groups).astype(np.int8).reshape(blocks, groups)
+                expected = initial
+                for b in range(blocks):
+                    expected += sum(sum(int(a)*int(x) for a, x in zip(left[b,g],right[b,g]))*int(scales[b,g])
+                                    for g in range(groups))
+                    expected = wrap_integer(expected, 32)
+                original = [x.copy() for x in (left, right, scales)]
+                storage, output = guarded(1, np.int32)
+                name = f"pipeline-carry-{blocks}-{groups}-{initial}"
+                settings = {**options, "backend_options": {**options.get("backend_options", {}), "pipeline_depth": 2}}
+                compiled = pipelined_scaled_groups[(1,)](left, right, scales, output,
+                    G=groups, K=16, INITIAL=initial, **settings)
+                exact(output, np.array([expected], np.int32))
+                for actual, prior in zip((left, right, scales), original): exact(actual, prior)
+                assert np.all(storage[[0, 1, -2, -1]] == -12345)
+                evidence = native_evidence(compiled, root, name, ["contract"])
+                save(root, name, left=left, right=right, scales=scales, actual=output,
+                     expected=np.array([expected], np.int32))
+                records.append({"blocks": blocks, "groups": groups, "initial": initial,
+                                "integer_exact": True, "evidence": evidence})
+    return {"cases": records, "integer_exact": True, "guards_and_inputs_preserved": True}
+
+
 def multi_axis_mac(root, options, close):
     from numerical_primitive_kernels import grouped_mac, grouped_mac_float, aligned_integer_pairs, byte_dot_tail, equal_extent_axes
 

@@ -159,6 +159,9 @@ def nibble_contraction_contract(root, options, native_i4=False, narrow_handoff=F
 
 
 def run_scenario(name, root, options):
+    if name == "pipeline_carriers":
+        from numerical_primitives import pipeline_carrier_contract
+        return pipeline_carrier_contract(root, options)
     if name == "mixed_integer_mac":
         from numerical_primitives import mixed_integer_mac_contract
         return mixed_integer_mac_contract(root, options)
