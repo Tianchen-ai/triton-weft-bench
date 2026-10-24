@@ -597,6 +597,30 @@ def equal_extent_helper(X: tl.View[tl.i32, (ROWS, PARTIALS)]):
 
 
 @triton.jit(model="weft")
+def byte_dot_narrow(A: tl.View[tl.i32, (N,)], B: tl.View[tl.i32, (N,)],
+                    Out: tl.View[tl.i32, (GROUPS,)], MODE: tl.constexpr):
+    with tl.level.blocks(N, extent=32) as block:
+        a, b = tl.load(A[block]), tl.load(B[block])
+        if MODE == 0:
+            result = tl.mac_groups(tl.u8(a), tl.i8(b), n=4, into=tl.i16)
+        elif MODE == 1:
+            result = tl.mac_groups(tl.u4(a), tl.i8(b), n=4, into=tl.i16)
+        elif MODE == 2:
+            result = tl.mac_groups(tl.i8(a), tl.i8(b), n=4, into=tl.i16)
+        elif MODE == 3:
+            result = tl.mac_groups(tl.u8(a), tl.i8(b), n=4, into=tl.u16)
+        elif MODE == 5:
+            result = tl.mac_groups(tl.i16(tl.u4(a)), tl.i16(tl.i8(b)), n=4, into=tl.i16)
+        elif MODE == 6:
+            result = tl.mac_groups(tl.u8(a), tl.u8(b) & tl.u8(127), n=4, into=tl.i16)
+        else:
+            result = tl.mac_groups(tl.u4(a), tl.u4(b), n=4, into=tl.u16)
+        wide = tl.i32(result)
+        for index in tl.static_range(8):
+            tl.store(Out[index], wide[index])
+
+
+@triton.jit(model="weft")
 def equal_extent_axes(X: tl.View[tl.i32, (M, K)], Y: tl.View[tl.i32, (M,)]):
     with tl.level.rows(M, group=4) as rows:
         tl.store(Y[rows], equal_extent_helper(X[rows]))

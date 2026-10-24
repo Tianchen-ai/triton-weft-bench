@@ -118,7 +118,7 @@ def pipeline_carrier_contract(root, options):
 
 
 def multi_axis_mac(root, options, close):
-    from numerical_primitive_kernels import grouped_mac, grouped_mac_float, aligned_integer_pairs, byte_dot_tail, equal_extent_axes
+    from numerical_primitive_kernels import grouped_mac, grouped_mac_float, aligned_integer_pairs, byte_dot_tail, byte_dot_narrow, equal_extent_axes
 
     cases = (
         (0, 2, 16, True, np.int16,
@@ -236,6 +236,47 @@ def multi_axis_mac(root, options, close):
         save(root, name, left=left, right=right, actual=output, expected=expected, total=total)
         records.append({"mode": name, "shape": [length], "group": 4,
                         "evidence": native_evidence(compiled, root, name, ["mac_groups"])})
+    for mode in range(7):
+        left = np.resize(np.array([255, 255, 128, 127, 0, -1, -128, 15], np.int32), 31)
+        right = np.resize(np.array([-128, -128, -128, -128, 127, 127, 127, 127], np.int32), 31)
+        original_left, original_right = left.copy(), right.copy()
+        def operand(value, side):
+            if mode == 4 or (mode in (1, 5) and side == 0):
+                return int(value) & 15
+            if mode == 6 and side == 1:
+                return int(value) & 127
+            if side == 0 and mode != 2:
+                return int(value) & 255
+            return wrap_integer(value, 8)
+        expected = np.array([wrap_integer(sum(operand(left[k], 0) * operand(right[k], 1)
+                                             for k in range(start, min(start + 4, 31))), 16, mode not in (3, 4))
+                             for start in range(0, 31, 4)], dtype=np.int32)
+        storage, output = guarded(8, np.int32)
+        compiled = byte_dot_narrow[(1,)](left, right, output, MODE=mode, **options)
+        name = f"byte-dot-narrow-{mode}"
+        save(root, name, left=left, right=right, expected=expected, actual=output, output_storage=storage)
+        exact(output, expected); exact(left, original_left); exact(right, original_right)
+        exact(storage[[0, 1, -2, -1]], np.full(4, -12345, np.int32))
+        evidence = native_evidence(compiled, root, name, ["mac_groups"])
+        records.append({"mode": name, "group": 4, "source_accumulator_bits": 16,
+                        "signed": mode not in (3, 4), "widen_after_boundary": True,
+                        "inactive_last_member": True, "evidence": evidence})
+        if evidence["kernel_abi"]["arch"] == "x86_64":
+            from triton import compile
+            from triton.compiler import ASTSource
+            from triton.backends.compiler import CPUTarget
+            target = CPUTarget(backend="weft", arch="x86_64", march="x86-64-v3", abi="sysv", vlen_bits=0)
+            avx2 = compile(ASTSource(byte_dot_narrow, {}, {"MODE": mode}), target=target, options=options)
+            storage.fill(-12345)
+            avx2[(1,)](left, right, output)
+            exact(output, expected)
+            exact(storage[[0, 1, -2, -1]], np.full(4, -12345, np.int32))
+            name = f"byte-dot-narrow-avx2-{mode}"
+            save(root, name, left=left, right=right, expected=expected, actual=output, output_storage=storage)
+            evidence = native_evidence(avx2, root, name, ["mac_groups"])
+            assert "vpdpbusd" not in avx2.asm["llir"], "AVX2 target emitted VNNI"
+            records.append({"mode": name, "group": 4, "source_accumulator_bits": 16,
+                            "execution_mode": "explicit-target-native-AOT", "evidence": evidence})
     return {"shared_batch_and_distinct_free_axes": True, "integer_cases_exact": True, "subcases": records}
 
 
