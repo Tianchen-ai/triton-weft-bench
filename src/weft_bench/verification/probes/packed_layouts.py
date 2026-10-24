@@ -52,7 +52,7 @@ def fixture(name, rows=3, records=2):
     return raw, changed, output, observed.reshape(rows, records*elements)
 
 
-def nibble_contraction_contract(root, options, native_i4=False):
+def nibble_contraction_contract(root, options, native_i4=False, narrow_handoff=False):
     import triton.language as tl
     import packed_layout_kernels as kernels
     from helper_native import capture
@@ -77,8 +77,11 @@ def nibble_contraction_contract(root, options, native_i4=False):
         return backing, payload, signed, unsigned, bias
 
     records = []
-    for mr, m, n, k in ((1, 4, 32, 32), (4, 4, 32, 96),
-                         (8, 16, 64, 96), (8, 12, 32, 64)):
+    nr = 16 if narrow_handoff else 32
+    shapes = ((1, 4, 32, 32), (4, 4, 32, 96), (8, 16, 64, 96), (8, 12, 32, 64))
+    if narrow_handoff:
+        shapes += ((16, 16, 32, 32), (16, 20, 64, 64))
+    for mr, m, n, k in shapes:
         xb, x, xs, xu, bias_x = storage(m, k, 4, 7)
         wb, w, ws, wu, bias_w = storage(n, k, 32, 11)
         original_x, original_w = xb.copy(), wb.copy()
@@ -97,7 +100,7 @@ def nibble_contraction_contract(root, options, native_i4=False):
             compiled = kernels.nibble_contraction[(1,)](
                 tl.View(x, encoding=kernels.NibbleRows[4], shape=(m, k)),
                 tl.View(w, encoding=kernels.NibbleRows[32], shape=(n, k)),
-                y, MR=mr, UNSIGNED=unsigned, BIAS=biased, NATIVE_I4=native_i4, MIXED=mixed, **options)
+                y, MR=mr, NR=nr, UNSIGNED=unsigned, BIAS=biased, NATIVE_I4=native_i4, MIXED=mixed, **options)
             np.savez(root/(name+'.npz'), left=left, right=right, actual=y, expected=expected)
             np.testing.assert_array_equal(y, expected)
             np.testing.assert_array_equal(xb, original_x)
@@ -107,7 +110,8 @@ def nibble_contraction_contract(root, options, native_i4=False):
             leaf = "spacemit-ime2-i4-" if native_i4 else "ime.fragment-nibbles-unsigned" if unsigned else "ime.fragment-nibbles-signed"
             assert leaf in compiled.asm["riscvir"]
             if biased:
-                assert "rvv.vmacc.row.vx" in compiled.asm["riscvir"]
+                assert any(leaf in compiled.asm["riscvir"] for leaf in
+                           ("rvv.vmacc.row.vx", "rvv.vmacc.vv"))
             records.append({"MR": mr, "M": m, "N": n, "K": k, "unsigned": unsigned, "modular_mac": biased, "native_i4": native_i4, "mixed": mixed,
                             "evidence": capture(compiled, root, name)})
         if native_i4:
@@ -137,7 +141,7 @@ def nibble_contraction_contract(root, options, native_i4=False):
                 compiled = kernels.byte_nibble_contraction[(1,)](
                     tl.View(x, encoding=kernels.FloatScaleRows[4], shape=(m, k)),
                     tl.View(w, encoding=kernels.NibbleRows[32], shape=(n, k)),
-                    y, MR=mr, SHIFT=shift, UNSIGNED=unsigned, COEFFICIENT=coefficient, **options)
+                    y, MR=mr, NR=nr, SHIFT=shift, UNSIGNED=unsigned, COEFFICIENT=coefficient, **options)
                 np.savez(root/(name+'.npz'), left=left, right=wu, actual=y, expected=expected)
                 np.testing.assert_array_equal(y, expected)
                 np.testing.assert_array_equal(xb, original_x)
@@ -169,6 +173,8 @@ def run_scenario(name, root, options):
         return nibble_contraction_contract(root, options)
     if name == "native_nibble_contraction":
         return nibble_contraction_contract(root, options, native_i4=True)
+    if name == "nibble_handoff":
+        return nibble_contraction_contract(root, options, native_i4=True, narrow_handoff=True)
 
     choices = {"natural": (kernels.NaturalLE, kernels.natural_fields),
                "layered_joined": (kernels.LayeredJoined, kernels.layered_joined_fields),

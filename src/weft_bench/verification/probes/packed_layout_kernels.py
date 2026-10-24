@@ -25,10 +25,11 @@ def nibble_contraction(X: tl.View[NibbleRows[4], (M, K)],
                        W: tl.View[NibbleRows[32], (N, K)],
                        Y: tl.View[tl.i32, (M, N)], MR: tl.constexpr,
                        UNSIGNED: tl.constexpr, BIAS: tl.constexpr = False,
-                       NATIVE_I4: tl.constexpr = False, MIXED: tl.constexpr = False):
+                       NATIVE_I4: tl.constexpr = False, MIXED: tl.constexpr = False,
+                       NR: tl.constexpr = 32):
     with tl.level.rows(M, group=MR) as rows:
-        with tl.level.cols(N, group=32) as columns:
-            result = tl.state(tl.i32, [MR, 32], init=0)
+        with tl.level.cols(N, group=NR) as columns:
+            result = tl.state(tl.i32, [MR, NR], init=0)
             with tl.level.blocks(K, extent=32) as block:
                 x = tl.load(X[rows, block])
                 w = tl.load(W[columns, block])
@@ -63,10 +64,10 @@ def byte_nibble_contraction(X: tl.View[FloatScaleRows[4], (M, K)],
                             W: tl.View[NibbleRows[32], (N, K)],
                             Y: tl.View[tl.i32, (M, N)], MR: tl.constexpr,
                             SHIFT: tl.constexpr, UNSIGNED: tl.constexpr,
-                            COEFFICIENT: tl.constexpr = 0):
+                            COEFFICIENT: tl.constexpr = 0, NR: tl.constexpr = 32):
     with tl.level.rows(M, group=MR) as rows:
-        with tl.level.cols(N, group=32) as columns:
-            result = tl.state(tl.i32, [MR, 32], init=0)
+        with tl.level.cols(N, group=NR) as columns:
+            result = tl.state(tl.i32, [MR, NR], init=0)
             with tl.level.blocks(K, extent=32) as block:
                 x = tl.load(X[rows, block])
                 w = tl.load(W[columns, block])
