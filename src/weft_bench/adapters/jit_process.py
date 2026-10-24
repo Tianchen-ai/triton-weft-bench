@@ -190,8 +190,10 @@ def run(request):
                     compiled.append(kernel[grid](*args, **keywords, **options))
                 return compiled
 
-            def timed():
+            def timed(*, cold_data=False):
                 action(0)
+                if cold_data:
+                    action(3)
                 start = time.perf_counter_ns()
                 compiled = invoke()
                 return (time.perf_counter_ns() - start) / 1e6, compiled
@@ -221,14 +223,20 @@ def run(request):
                 first[0].export(request["artifact"])
             phase = "measure"
             measurement = request["measurement"]
+            cold_data = measurement["cache"] == "cold"
             samples = []
-            count = max(1, min(10000, math.ceil(measurement["batch_ms"] / hit_ms)))
+            count = 1 if cold_data else max(1, min(10000, math.ceil(measurement["batch_ms"] / hit_ms)))
             if not measurement["check_only"]:
-                for _ in range(measurement["warmup"]):
-                    timed()
+                warmup_start = time.perf_counter_ns()
+                warmup_count = 0
+                if measurement["warmup"] > 0:
+                    while (warmup_count < measurement["warmup"] or
+                           (time.perf_counter_ns() - warmup_start) / 1e6 < measurement["warmup_ms"]):
+                        timed()
+                        warmup_count += 1
                 for _ in range(measurement["samples"]):
-                    if request["reset_each_call"]:
-                        samples.append(sum(timed()[0] for _ in range(count)) / count)
+                    if request["reset_each_call"] or cold_data:
+                        samples.append(sum(timed(cold_data=cold_data)[0] for _ in range(count)) / count)
                     else:
                         start = time.perf_counter_ns()
                         for _ in range(count):
@@ -281,6 +289,8 @@ def run(request):
                 framework["torch_compile_fullgraph_correct"] = True
             if request.get("profile_runtime"):
                 from .runtime_profile import profile_runtime
+                if cold_data:
+                    raise NotImplementedError("runtime component profiling uses prepared-data reuse")
                 if request["reset_each_call"] or len(bound_calls) != 1:
                     raise NotImplementedError("runtime component profiling requires a stateless single launch")
                 framework["runtime_profile"] = profile_runtime(
@@ -288,6 +298,8 @@ def run(request):
             if request["save_outputs"]:
                 action(2)
             result.update(status="ok", samples_ms=samples, iterations=count,
+                          data_cache=measurement["cache"],
+                          eviction_bytes=measurement["eviction_bytes"] if cold_data else 0,
                           cold_compile_and_launch_ms=cold_ms, first_cache_hit_launch_ms=hit_ms,
                           cold_child_cpu_ms=cold_children, cache_hit_child_cpu_ms=hit_children,
                           same_compiled_kernel=True, launches_per_workload=len(bound_calls),

@@ -85,6 +85,15 @@ the existing row/tile traversal; Bench does not silently convert them to a diffe
 whole-workload algorithm. Buffer construction and fixture preparation are outside
 Python call timing.
 
+`--cache cold` selects cold **data**, independently of the compilation cache.
+The native fixture restores mutable state and traverses the configured eviction
+buffer before each timed Python invocation, using the same eviction routine as
+the native comparison. Cold-data samples contain one complete workload call;
+eviction and state restoration are excluded. The returned `data_cache` and
+`eviction_bytes` describe this boundary. First compilation, in-process kernel
+reuse and fresh-process disk-cache reuse are still checked separately. Reuse
+mode retains batched hot calls; both modes honor the warmup time budget.
+
 For one Python call over a packed row batch, select an author grid entry whose
 weight View has shape `(rows, K)` and whose output View has shape `(rows,)`.
 The corpus provides `iq1_s_grid`, `iq1_m_grid`, `iq2_xs_grid` and `iq2_xxs_grid`

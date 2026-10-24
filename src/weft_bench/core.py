@@ -110,14 +110,16 @@ def worker_source(
     return "\n".join(lines) + "\n"
 
 
-def fixture_source(workload, call, metadata, input_source, *, save_outputs=False):
+def fixture_source(workload, call, metadata, input_source, *, save_outputs=False, eviction_bytes=0):
     """Borrow the native workload, including traversal, aliases and its oracle.
 
     The session callback keeps ordinary C++ automatic storage alive on the same
     execution thread. Each invocation calls the language runtime with addresses
     from the existing binder; this bridge never compiles or runs a kernel itself.
     """
-    includes = {workload.header, "worker.h", *workload.includes, *call.includes}
+    if type(eviction_bytes) is not int or eviction_bytes < 0:
+        raise ValueError("fixture eviction_bytes must be a nonnegative integer")
+    includes = {workload.header, "worker.h", "timer.h", *workload.includes, *call.includes}
     parameters, values = [], []
     for index, argument in enumerate(metadata["arguments"]):
         variable = "argument_" + str(index)
@@ -139,7 +141,7 @@ using Launch = int (*)(void **);
 using Session = int (*)(void *);
 struct Fixture {{
   std::function<void(Launch)> invoke;
-  std::function<void()> reset, check, save;
+  std::function<void()> reset, check, save, evict;
 }};
 extern "C" int wb_fixture_invoke(void *handle,Launch launch,char *error,size_t capacity) {{
   try {{ static_cast<Fixture*>(handle)->invoke(launch); return 0; }}
@@ -151,6 +153,7 @@ extern "C" int wb_fixture_action(void *handle,int action,char *error,size_t capa
     if(action==0)fixture.reset();
     else if(action==1)fixture.check();
     else if(action==2)fixture.save();
+    else if(action==3)fixture.evict();
     else throw std::runtime_error("unknown fixture action");
     return 0;
   }} catch(const std::exception &e) {{std::snprintf(error,capacity,"%s",e.what());return 1;}}
@@ -162,6 +165,7 @@ extern "C" int wb_fixture_session(Session session,char *error,size_t capacity) {
     std::vector<{workload.output_type}> output({workload.output_size});
     {call.prepare}
     Fixture fixture;
+    std::vector<std::uint8_t> eviction({eviction_bytes}, 1);
     fixture.invoke=[&](Launch launch) {{
       auto jit_entry=[&]({', '.join(parameters)}) {{
         void *arguments[]={{ {', '.join(values)} }};
@@ -172,6 +176,7 @@ extern "C" int wb_fixture_session(Session session,char *error,size_t capacity) {
     fixture.reset=[&] {{ {workload.reset}{call.reset} }};
     fixture.check=[&] {{ {call.collect}{workload.collect}{workload.check}; }};
     fixture.save=[&] {{ {export} }};
+    fixture.evict=[&] {{ wb::evict(eviction); }};
     return session(&fixture);
   }} catch(const std::exception &e) {{std::snprintf(error,capacity,"%s",e.what());return 1;}}
 }}

@@ -47,8 +47,6 @@ class TritonJitAdapter:
         try:
             if options.get("artifact") or options.get("path"):
                 raise ValueError("JIT requires DSL source; select the native adapter to validate an exported artifact")
-            if measurement.cache != "reuse":
-                raise NotImplementedError("JIT calls currently use prepared-data reuse; compiled-cache cold start is measured separately")
             declared = ports(case)
             workload = configured_workload(case, target.settings)
             files = selected.materialize(directory / "inputs", declared)
@@ -114,7 +112,9 @@ class TritonJitAdapter:
             workload, call, metadata, invocation, preparation = prepare(case, workload, interface[0]["interface"], options)
             request.update(invocation=invocation, reset_each_call=bool(workload.reset or call.reset))
             row.details["preparation"] = preparation
-            cpp = executor.write("fixture.cpp", fixture_source(workload, call, metadata, native_inputs(selected, files), save_outputs=save_outputs))
+            cpp = executor.write("fixture.cpp", fixture_source(
+                workload, call, metadata, native_inputs(selected, files), save_outputs=save_outputs,
+                eviction_bytes=measurement.eviction_bytes if measurement.cache == "cold" else 0))
             needs_ggml = case.family in ("vec_dot", "quantize", "dequantize", "projection", "ime", "amx_tile")
             includes, libraries = ggml_flags(target) if needs_ggml else ([], [])
             executor.command([*tools["cxx"], *flags, "-std=c++17", "-shared", "-fPIC", *workload.defines,
