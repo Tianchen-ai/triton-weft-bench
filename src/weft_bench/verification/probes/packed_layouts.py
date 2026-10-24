@@ -220,7 +220,8 @@ def run_scenario(name, root, options):
                       "layered_joined": kernels.layered_reshape,
                       "orders": kernels.ordered_reshape}[name]
     reshape_evidence = []
-    for records, swap in ((0, False), (1, False), (3, False), (4, False), (4, True)):
+    for records, swap in ((0, False), (1, False), (3, False), (4, False),
+                          (1, True), (2, True), (3, True), (4, True)):
         original, _, _, expected = fixture(name, rows=1, records=records)
         result_storage = np.full(original.size + 2*guard, 0x3c, np.uint8)
         result = result_storage[guard:-guard].reshape(original.shape)
@@ -233,8 +234,14 @@ def run_scenario(name, root, options):
                                         tl.View(result, encoding=encoding, shape=(records, 8)),
                                         values, SWAP=swap, **options)
         order = [0, 2, 1, 3] if swap else list(range(records))
-        np.testing.assert_array_equal(result[0], original[0, order])
-        np.testing.assert_array_equal(values, expected.reshape(records, 8)[order])
+        expected_result = np.full_like(result, 0x3c)
+        expected_values = np.full_like(values, -12345)
+        for destination, source_record in enumerate(order[:records]):
+            if source_record < records:
+                expected_result[0, destination] = original[0, source_record]
+                expected_values[destination] = expected.reshape(records, 8)[source_record]
+        np.testing.assert_array_equal(result, expected_result)
+        np.testing.assert_array_equal(values, expected_values)
         np.testing.assert_array_equal(source, original)
         for storage, width, sentinel in ((source_storage, guard, 0xa5),
                                          (result_storage, guard, 0x3c), (values_storage, 32, -12345)):
@@ -242,6 +249,53 @@ def run_scenario(name, root, options):
             np.testing.assert_array_equal(storage[-width:], np.full(width, sentinel, storage.dtype))
         reshape_evidence.append({"records": records, "swap": swap,
                                  "evidence": capture(current, root, f"reshape-{name}-{records}-{swap}")})
+    alias_kernel = {"natural": kernels.natural_alias_reshape,
+                    "layered_joined": kernels.layered_alias_reshape,
+                    "orders": kernels.ordered_alias_reshape}[name]
+    original, _, _, expected = fixture(name, rows=1, records=4)
+    aliased = np.full(original.size + 2*guard, 0xa5, np.uint8)
+    payload = aliased[guard:-guard].reshape(original.shape)
+    payload[:] = original
+    numeric = np.full(32 + 64, -12345, np.int32)
+    values = numeric[32:-32].reshape(4, 8)
+    current = alias_kernel[(1,)](tl.View(payload, encoding=encoding, shape=(32,)),
+                                 tl.View(payload, encoding=encoding, shape=(4, 8)), values, **options)
+    np.testing.assert_array_equal(payload[0], original[0, [0, 2, 1, 3]])
+    np.testing.assert_array_equal(values, expected.reshape(4, 8)[[0, 2, 1, 3]])
+    for storage, width, sentinel in ((aliased, guard, 0xa5), (numeric, 32, -12345)):
+        np.testing.assert_array_equal(storage[:width], np.full(width, sentinel, storage.dtype))
+        np.testing.assert_array_equal(storage[-width:], np.full(width, sentinel, storage.dtype))
+    reshape_evidence.append({"records": 4, "swap": True, "input_output_alias": True,
+                             "evidence": capture(current, root, f"reshape-{name}-alias")})
+    nested_kernel = {"natural": kernels.natural_nested_reshape,
+                     "layered_joined": kernels.layered_nested_reshape,
+                     "orders": kernels.ordered_nested_reshape}[name]
+    original, _, _, expected = fixture(name, rows=10, records=2)
+    source_storage = np.full(original.size + 2*guard, 0xa5, np.uint8)
+    destination_storage = np.full(original.size + 2*guard, 0x3c, np.uint8)
+    source = source_storage[guard:-guard].reshape(original.shape)
+    destination = destination_storage[guard:-guard].reshape(original.shape)
+    source[:] = original
+    numeric = np.full(160 + 64, -12345, np.int32)
+    values = numeric[32:-32].reshape(10, 16)
+    current = nested_kernel[(1,)](tl.View(source, encoding=encoding, shape=(10, 16)),
+                                  tl.View(destination, encoding=encoding, shape=(10, 16)), values, **options)
+    expected_result = np.full_like(destination, 0x3c)
+    expected_values = np.full_like(values, -12345)
+    for destination_row in range(10):
+        source_row = destination_row // 4 * 4 + [0, 2, 1, 3][destination_row % 4]
+        if source_row < 10:
+            expected_result[destination_row] = original[source_row]
+            expected_values[destination_row] = expected[source_row]
+    np.testing.assert_array_equal(destination, expected_result)
+    np.testing.assert_array_equal(values, expected_values)
+    np.testing.assert_array_equal(source, original)
+    for storage, width, sentinel in ((source_storage, guard, 0xa5), (destination_storage, guard, 0x3c),
+                                     (numeric, 32, -12345)):
+        np.testing.assert_array_equal(storage[:width], np.full(width, sentinel, storage.dtype))
+        np.testing.assert_array_equal(storage[-width:], np.full(width, sentinel, storage.dtype))
+    reshape_evidence.append({"shape": [10, 16], "nested_row_groups": [8, 4], "swap": True,
+                             "evidence": capture(current, root, f"reshape-{name}-nested")})
     return {"layout": name, "shape": [3, 16], "row_group": 4, "logical_record_elements": 8,
             "record_bytes": raw.shape[-1], "field_reads_and_writes": True,
             "whole_record_stage_snapshot": True, "partial_row_guard": True,

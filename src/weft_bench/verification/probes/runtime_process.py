@@ -84,7 +84,10 @@ def packed_layouts():
 
     check_jit_target(request.get("architecture"), request.get("compile_target"),
                      vars(driver.for_model("weft").get_current_target()))
-    return run_scenario(request["packed_scenario"], root, options)
+    try:
+        return run_scenario(request["packed_scenario"], root, options)
+    except AssertionError as error:
+        raise ValueError("numerical mismatch: " + str(error)) from error
 
 
 def dynamic_rounding():

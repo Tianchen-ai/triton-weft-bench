@@ -244,6 +244,60 @@ def ordered_reshape(X: tl.View[BigOrder, (L,)], Y: tl.View[BigOrder, (R, K)],
     reshape_records(X, Y, Observed, True, False, SWAP)
 
 
+@triton.jit(model="weft", alias_groups={"Observed": "observed"})
+def natural_alias_reshape(X: tl.View[NaturalLE, (L,)], Y: tl.View[NaturalLE, (R, K)],
+                          Observed: tl.View[tl.i32, (R, K)]):
+    reshape_records(X, Y, Observed, False, False, True)
+
+
+@triton.jit(model="weft", alias_groups={"Observed": "observed"})
+def layered_alias_reshape(X: tl.View[LayeredJoined, (L,)], Y: tl.View[LayeredJoined, (R, K)],
+                          Observed: tl.View[tl.i32, (R, K)]):
+    reshape_records(X, Y, Observed, False, True, True)
+
+
+@triton.jit(model="weft", alias_groups={"Observed": "observed"})
+def ordered_alias_reshape(X: tl.View[BigOrder, (L,)], Y: tl.View[BigOrder, (R, K)],
+                          Observed: tl.View[tl.i32, (R, K)]):
+    reshape_records(X, Y, Observed, True, False, True)
+
+
+@triton.jit
+def nested_reshape_records(X, Y, Observed, M, K, ORDERED: tl.constexpr, JOINED: tl.constexpr):
+    with tl.level.rows(M, group=8) as outer:
+        with tl.level.rows(outer, group=4) as rows:
+            with tl.level.blocks(K, extent=8) as block:
+                saved = tl.reshape(tl.load(X[outer, block][rows, :]), (2, 2, 8),
+                                   axes=("u", "v", "K"), order=("M", "K"))
+                saved = tl.reshape(saved, (4, 8), axes=("M", "K"), order=("v", "u", "K"))
+                tl.store(Y[outer, block][rows, :], saved)
+                if ORDERED:
+                    observed = tl.i32(saved.tag) + tl.i32(saved.flags)
+                else:
+                    observed = tl.i32(saved.tag) + tl.i32(saved.q) + tl.i32(saved.s) * 16
+                    if JOINED:
+                        observed += tl.i32(saved.m) * 1024
+                tl.store(Observed[outer, block][rows, :], observed)
+
+
+@triton.jit(model="weft", alias_groups={"X": "input", "Y": "output", "Observed": "observed"})
+def natural_nested_reshape(X: tl.View[NaturalLE, (M, K)], Y: tl.View[NaturalLE, (M, K)],
+                           Observed: tl.View[tl.i32, (M, K)]):
+    nested_reshape_records(X, Y, Observed, M, K, False, False)
+
+
+@triton.jit(model="weft", alias_groups={"X": "input", "Y": "output", "Observed": "observed"})
+def layered_nested_reshape(X: tl.View[LayeredJoined, (M, K)], Y: tl.View[LayeredJoined, (M, K)],
+                           Observed: tl.View[tl.i32, (M, K)]):
+    nested_reshape_records(X, Y, Observed, M, K, False, True)
+
+
+@triton.jit(model="weft", alias_groups={"X": "input", "Y": "output", "Observed": "observed"})
+def ordered_nested_reshape(X: tl.View[BigOrder, (M, K)], Y: tl.View[BigOrder, (M, K)],
+                           Observed: tl.View[tl.i32, (M, K)]):
+    nested_reshape_records(X, Y, Observed, M, K, True, False)
+
+
 @triton.derive
 def NaturalRows(X: tl.View[NaturalLE, (M, K)], *, rows: tl.static[int]) -> tl.View[NaturalRows[rows], (M, K)]:
     return tl.interleave(X, rows=rows, field_chunks={"tag": 2, "q": 1, "s": 2})
