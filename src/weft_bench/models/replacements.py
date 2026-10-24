@@ -1,6 +1,6 @@
 """Parameter-selected llama.cpp bindings, delegated to Weft's package authority."""
 
-from dataclasses import asdict
+from dataclasses import asdict, replace
 import json
 from pathlib import Path
 import subprocess
@@ -23,6 +23,9 @@ def role_case(role):
         return get(entry.lower() + "_quantize")
     if group == "ggml.ime2" and entry in ("i8_decode", "i8_prefill"):
         return get("ime2_" + entry)
+    if group == "ggml.ime2" and entry == "i8_prefill_rows8":
+        case = get("ime2_i8_prefill")
+        return replace(case, shape={**case.shape, "M": 8})
     if group == "ggml.amx" and entry in ("q4_0_decode", "q4_0_prefill"):
         return get("q4_0_projection_" + entry.removeprefix("q4_0_"))
     if group == "ggml.amx" and entry in ("q4_K_decode", "q4_K_prefill", "q6_K_decode", "q6_K_prefill"):

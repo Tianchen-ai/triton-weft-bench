@@ -549,7 +549,7 @@ def main(argv=None):
                 )
                 print("ggml.from_float/{q8_0,q8_K}")
                 print("ggml.ime1/{q4_centered_prefill,q4_affine_prefill,q4_centered_decode,q4_affine_decode}")
-                print("ggml.ime2/{i8_prefill,i8_decode}")
+                print("ggml.ime2/{i8_prefill,i8_prefill_rows8,i8_decode}")
                 print("ggml.amx/{q4_0_decode,q4_0_prefill,q4_K_decode,q4_K_prefill,q6_K_decode,q6_K_prefill}")
                 return 0
             for case in catalog().values():
