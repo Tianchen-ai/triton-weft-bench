@@ -314,6 +314,70 @@ def byte_mac_tails(root, options, control=False):
     return records
 
 
+def grouped_consumers_contract(root, options):
+    from numerical_primitive_kernels import grouped_consumers
+    records = []
+    for control in (0, 1, 2):
+        for reduction in ("add", "max", "min"):
+            for length in (1, 17, 32):
+                left = np.resize([-128, 127, -1, 17, -55], 3*length).astype(np.int32).reshape(3, length)
+                right = np.resize([-128, -128, 93, -17, 9, 0, 1], 3*length).astype(np.int32).reshape(3, length)
+                storage, flat = guarded(32, np.int32)
+                output = flat.reshape(4, 8)
+                total_storage, totals = guarded(4, np.int32)
+                expected = np.full((4, 8), -12345, np.int32)
+                expected_total = np.full(4, -12345, np.int32)
+                for row in range(3):
+                    active = []
+                    for start in range(0, length, 4):
+                        value = wrap_integer(sum(int(left[row, k])*int(right[row, k])
+                                                 for k in range(start, min(start+4, length))), 16)
+                        expected[row, start//4] = value
+                        active.append(value)
+                    expected_total[row] = (wrap_integer(sum(active), 16) if reduction == "add"
+                                           else max(active) if reduction == "max" else min(active))
+                name = f"grouped-consumers-{control}-{reduction}-{length}"
+                compiled = grouped_consumers[(1,)](left, right, output, totals,
+                    CONTROL=control, REDUCTION=reduction, **options)
+                save(root, name, left=left, right=right, actual=output, expected=expected,
+                     actual_total=totals, expected_total=expected_total, output_storage=storage, total_storage=total_storage)
+                evidence = native_evidence(compiled, root, name, ["mac_groups", "reduce"])
+                exact(output, expected); exact(totals, expected_total)
+                exact(storage[[0, 1, -2, -1]], np.full(4, -12345, np.int32))
+                exact(total_storage[[0, 1, -2, -1]], np.full(4, -12345, np.int32))
+                records.append({"control": control, "reduction": reduction, "N": length, "evidence": evidence})
+    return {"subcases": records, "integer_cases_exact": True, "inactive_rows_and_groups_preserved": True}
+
+
+def reduction_identity_contract(root, options):
+    from numerical_primitive_kernels import extrema_identity
+    records = []
+    patterns = ([np.nan], [np.nan, -7., 2., np.nan, -3.], [-0., 0.], [-np.inf, np.nan, np.inf])
+    for kind in ("max", "min"):
+        for length, block in ((1, 1), (17, 32), (257, 0)):
+            for pattern_id, pattern in enumerate(patterns):
+                x = np.resize(np.array(pattern, np.float32), length)
+                finite = x[~np.isnan(x)]
+                if not finite.size:
+                    answer = np.nan
+                else:
+                    answer = np.max(finite) if kind == "max" else np.min(finite)
+                    if answer == 0:
+                        signs = np.signbit(finite[finite == 0])
+                        answer = -0. if (np.all(signs) if kind == "max" else np.any(signs)) else 0.
+                storage, output = guarded(1, np.float32)
+                expected = np.array([answer], np.float32)
+                name = f"reduction-identity-{kind}-{length}-{pattern_id}"
+                compiled = extrema_identity[(1,)](x, output, KIND=kind, BLOCK=block, **options)
+                evidence = native_evidence(compiled, root, name, ["reduce"])
+                save(root, name, source=x, actual=output, expected=expected, storage=storage)
+                exact(output, expected)
+                if answer == 0: exact(np.signbit(output), np.signbit(expected))
+                exact(storage[[0, 1, -2, -1]], np.full(4, -12345, np.float32))
+                records.append({"kind": kind, "length": length, "block": block, "pattern": pattern_id, "evidence": evidence})
+    return {"subcases": records, "nan_and_signed_zero_checked": True}
+
+
 def multi_axis_pairs(root, options):
     from numerical_primitive_kernels import fold_pairs
 
@@ -860,6 +924,10 @@ def run_scenario(name, root, options, close, compile_target=None):
         return {"subcases": byte_mac_tails(root, options, control=True), "integer_cases_exact": True}
     if name == "grouped_narrow_tail":
         return narrow_mac_tails(root, options)
+    if name == "grouped_consumers":
+        return grouped_consumers_contract(root, options)
+    if name == "reduction_identity":
+        return reduction_identity_contract(root, options)
     operations = {"sum_pairs": multi_axis_pairs,
                   "grouped_tail": partial_groups,
                   "scalar_validity": scalar_validity_contract}

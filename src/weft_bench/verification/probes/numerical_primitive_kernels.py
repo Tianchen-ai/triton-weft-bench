@@ -707,10 +707,58 @@ def byte_dot_narrow(A: tl.View[tl.i32, (N,)], B: tl.View[tl.i32, (N,)],
             tl.store(Out[index], wide[index])
 
 
+@triton.jit(noinline=True)
+def grouped_while_handoff(value, alternate, steps):
+    carried = alternate
+    iteration = 0
+    while iteration < steps:
+        if iteration + 1 == steps:
+            carried = value
+        iteration += 1
+    return carried
+
+
+@triton.jit(noinline=True)
+def grouped_level_handoff(value, alternate, steps):
+    carried = alternate
+    with tl.level.blocks(steps, extent=1) as iteration:
+        carried = value
+    return carried
+
+
+@triton.jit(model="weft")
+def grouped_consumers(A: tl.View[tl.i32, (M, N)], B: tl.View[tl.i32, (M, N)],
+                      Out: tl.View[tl.i32, (ROWS, GROUPS)], Totals: tl.View[tl.i32, (ROWS,)],
+                      CONTROL: tl.constexpr, REDUCTION: tl.constexpr):
+    with tl.level.rows(M, group=4) as rows:
+        with tl.level.blocks(N, extent=32) as block:
+            values = tl.mac_groups(tl.i8(tl.load(A[rows, block])), tl.i8(tl.load(B[rows, block])), n=4, into=tl.i16)
+            if CONTROL == 1:
+                values = grouped_while_handoff(values, values + tl.i16(1), tl.extent(A, 1) % 3 + 1)
+            elif CONTROL == 2:
+                values = grouped_level_handoff(values, values + tl.i16(1), tl.extent(A, 1) % 3 + 1)
+            # Renamed output axes expose complete storage capacity, including an
+            # inactive fourth row and partial groups in the last active row.
+            stored = tl.reshape(tl.i32(values), shape=(4, 8), axes=("ROWS", "GROUPS"), order=("M", "N"))
+            tl.store(tl.subview(Out, offsets=(0, 0), extents=(4, 8)), stored)
+            reduced = tl.reduce(values, op=REDUCTION, axis="N")
+            renamed = tl.reshape(tl.i32(reduced), shape=(4,), axes=("ROWS",), order=("M",))
+            tl.store(tl.subview(Totals, offsets=(0,), extents=(4,)), renamed)
+
+
 @triton.jit(model="weft")
 def equal_extent_axes(X: tl.View[tl.i32, (M, K)], Y: tl.View[tl.i32, (M,)]):
     with tl.level.rows(M, group=4) as rows:
         tl.store(Y[rows], equal_extent_helper(X[rows]))
+
+
+@triton.jit(model="weft")
+def extrema_identity(X: tl.View[tl.f32, (N,)], Out, KIND: tl.constexpr, BLOCK: tl.constexpr):
+    if BLOCK == 0:
+        tl.store(Out, tl.reduce(tl.load(X), op=KIND, axis="N"))
+    else:
+        with tl.level.blocks(N, extent=BLOCK) as block:
+            tl.store(Out, tl.reduce(tl.load(X[block]), op=KIND, axis="N"))
 
 
 @triton.jit(model="weft")
