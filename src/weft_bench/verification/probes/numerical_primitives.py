@@ -901,8 +901,6 @@ def contraction_schedule_contract(root, options, compile_target):
     from triton.compiler import ASTSource
     from triton.backends.compiler import CPUTarget
     from numerical_primitive_kernels import scheduled_contraction_window
-    if compile_target is None:
-        raise ValueError("contraction_schedules requires an explicit SIMD target")
     records = []
     selected_axes = set()
     for m, n, k, mutate in ((16, 16, 512, False), (8, 32, 1024, False),
@@ -914,10 +912,13 @@ def contraction_schedule_contract(root, options, compile_target):
             b = a.reshape(k, n)
         expected = a.astype(np.float64) @ b.astype(np.float64)
         bindings = {"M": m, "N": n, "K": k, "REDUCTION_LAST": reduction_last, "MUTATE": mutate}
-        compiled = compile(ASTSource(scheduled_contraction_window, {}, bindings),
-                           target=CPUTarget(backend="weft", **compile_target), options=options)
         storage, output = guarded(m*n, np.float32)
-        compiled[(1,)](a, b, output.reshape(m, n))
+        if compile_target is None:
+            compiled = scheduled_contraction_window[(1,)](a, b, output.reshape(m, n), **bindings, **options)
+        else:
+            compiled = compile(ASTSource(scheduled_contraction_window, {}, bindings),
+                               target=CPUTarget(backend="weft", **compile_target), options=options)
+            compiled[(1,)](a, b, output.reshape(m, n))
         label = f"contraction-schedule-{m}-{n}-{k}-{reduction_last}-{mutate}"
         save(root, label, actual=output.reshape(m, n), expected=expected)
         np.testing.assert_allclose(output.reshape(m, n), expected, rtol=3e-5, atol=3e-6)
@@ -935,7 +936,8 @@ def contraction_schedule_contract(root, options, compile_target):
         records.append({"shape": [m, n, k], "reduction_last": reduction_last,
                         "snapshot_after_source_write": mutate, "inputs_alias": mutate, "evidence": evidence})
     assert selected_axes == {"output", "reduction"}, "both physical organizations must execute in this coverage set"
-    return {"cases": records, "selected_axes": sorted(selected_axes), "execution_mode": "aot"}
+    return {"cases": records, "selected_axes": sorted(selected_axes),
+            "execution_mode": "jit" if compile_target is None else "aot"}
 
 
 def matrix_standard_pointer_contract(root, options, compile_target):
