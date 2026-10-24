@@ -224,17 +224,7 @@ def multi_axis_mac(root, options, close):
         left = np.resize(np.array([255, 255, 128, 127, 0, -1, -128, 15], np.int32), 31)
         right = np.resize(np.array([-128, -128, -128, -128, 127, 127, 127, 127], np.int32), 31)
         original_left, original_right = left.copy(), right.copy()
-        def operand(value, side):
-            if mode == 4 or (mode in (1, 5) and side == 0):
-                return int(value) & 15
-            if mode == 6 and side == 1:
-                return int(value) & 127
-            if side == 0 and mode != 2:
-                return int(value) & 255
-            return wrap_integer(value, 8)
-        expected = np.array([wrap_integer(sum(operand(left[k], 0) * operand(right[k], 1)
-                                             for k in range(start, min(start + 4, 31))), 16, mode not in (3, 4))
-                             for start in range(0, 31, 4)], dtype=np.int32)
+        expected = narrow_mac_expected(left, right, mode)
         storage, output = guarded(8, np.int32)
         compiled = byte_dot_narrow[(1,)](left, right, output, MODE=mode, **options)
         name = f"byte-dot-narrow-{mode}"
@@ -245,7 +235,7 @@ def multi_axis_mac(root, options, close):
         records.append({"mode": name, "group": 4, "source_accumulator_bits": 16,
                         "signed": mode not in (3, 4), "widen_after_boundary": True,
                         "inactive_last_member": True, "evidence": evidence})
-        if evidence["kernel_abi"]["arch"] == "x86_64":
+        if compiled.metadata.target.arch == "x86_64":
             from triton import compile
             from triton.compiler import ASTSource
             from triton.backends.compiler import CPUTarget
@@ -264,7 +254,41 @@ def multi_axis_mac(root, options, close):
     return {"shared_batch_and_distinct_free_axes": True, "integer_cases_exact": True, "subcases": records}
 
 
-def byte_mac_tails(root, options):
+def narrow_mac_expected(left, right, mode):
+    def operand(value, side):
+        if mode == 4 or (mode in (1, 5) and side == 0):
+            return int(value) & 15
+        if mode == 6 and side == 1:
+            return int(value) & 127
+        if side == 0 and mode != 2:
+            return int(value) & 255
+        return wrap_integer(value, 8)
+    expected = np.full(8, -12345, np.int32)
+    for start in range(0, len(left), 4):
+        expected[start // 4] = wrap_integer(sum(operand(left[k], 0) * operand(right[k], 1)
+                                               for k in range(start, min(start + 4, len(left)))),
+                                           16, mode not in (3, 4))
+    return expected
+
+
+def narrow_mac_tails(root, options):
+    from numerical_primitive_kernels import byte_dot_narrow
+    records = []
+    for mode in range(7):
+        left, right = np.array([255], np.int32), np.array([-128], np.int32)
+        storage, output = guarded(8, np.int32)
+        expected = narrow_mac_expected(left, right, mode)
+        compiled = byte_dot_narrow[(1,)](left, right, output, MODE=mode, **options)
+        name = f"narrow-mac-tail-{mode}"
+        save(root, name, left=left, right=right, actual=output, expected=expected, output_storage=storage)
+        evidence = native_evidence(compiled, root, name, ["mac_groups"])
+        exact(output, expected)
+        exact(storage[[0, 1, -2, -1]], np.full(4, -12345, np.int32))
+        records.append({"mode": mode, "N": 1, "group": 4, "active_groups": 1, "evidence": evidence})
+    return {"subcases": records, "integer_cases_exact": True}
+
+
+def byte_mac_tails(root, options, control=False):
     from numerical_primitive_kernels import byte_dot_tail
 
     records = []
@@ -276,9 +300,9 @@ def byte_mac_tails(root, options):
         expected = np.full(24, -12345, np.int32)
         for start in range(0, length, 4):
             expected[start//4] = np.sum(left[start:start+4].astype(np.int64)*right[start:start+4])
-        compiled = byte_dot_tail[(1,)](left, right, output, total, **options)
+        compiled = byte_dot_tail[(1,)](left, right, output, total, CONTROL=control, **options)
         expected_total = int(np.dot(left.astype(np.int64), right.astype(np.int64))) if length else -12345
-        name = f"byte-dot-tail-{length}"
+        name = f"byte-dot-tail-{'control-' if control else ''}{length}"
         save(root, name, left=left, right=right, actual=output, expected=expected, total=total,
              expected_total=np.array([expected_total], np.int32), output_storage=storage,
              total_storage=total_storage)
@@ -801,6 +825,10 @@ def run_scenario(name, root, options, close, compile_target=None):
         return streaming_store_contract(root, options, compile_target)
     if name == "bfloat_contractions":
         return bfloat_contraction_contract(root, options, compile_target)
+    if name == "matrix_operand_layout":
+        return matrix_operand_layout_contract(root, options, compile_target)
+    if name == "matrix_standard_pointer":
+        return matrix_standard_pointer_contract(root, options, compile_target)
     if name == "byte_contractions":
         return byte_contraction_contract(root, options, compile_target)
     if name == "amx_snapshots":
@@ -826,6 +854,10 @@ def run_scenario(name, root, options, close, compile_target=None):
         return multi_axis_mac(root, options, close)
     if name == "grouped_byte_tail":
         return {"subcases": byte_mac_tails(root, options), "integer_cases_exact": True}
+    if name == "grouped_byte_tail_control":
+        return {"subcases": byte_mac_tails(root, options, control=True), "integer_cases_exact": True}
+    if name == "grouped_narrow_tail":
+        return narrow_mac_tails(root, options)
     operations = {"sum_pairs": multi_axis_pairs,
                   "grouped_tail": partial_groups,
                   "scalar_validity": scalar_validity_contract}
@@ -860,6 +892,106 @@ def byte_plane_contract(root, options, compile_target):
                 records.append({"width": width, "group": step, "N": n, "input_bytes": 256})
             native_evidence(compiled, root, f"byte-plane-{width}-{step}", ["cast"])
     return {"subcases": records, "integer_exact": True, "tails_and_empty": True}
+
+
+def matrix_standard_pointer_contract(root, options, compile_target):
+    from triton import compile
+    from triton.compiler import ASTSource
+    from triton.backends.compiler import CPUTarget
+    from numerical_primitive_kernels import matrix_standard_pointer
+    if compile_target is None:
+        raise ValueError("matrix_standard_pointer requires the explicit AMX AOT target")
+    records = []
+    for engine in ("auto", "matrix", "vector"):
+        bindings = {"BM": 32, "BN": 32, "BK": 512, "ENGINE": engine}
+        signature = {"A": "*i8", "B": "*i8", "Y": "*i32", "M": "i32", "N": "i32", "K": "i32"}
+        compiled = compile(ASTSource(matrix_standard_pointer, signature, bindings),
+                           target=CPUTarget(backend="weft", **compile_target), options=options)
+        used = compiled.metadata.single_instance_abi["used_extensions"]
+        assert ("amx-int8" in used) == (engine != "vector"), "author engine was not preserved"
+        evidence = native_evidence(compiled, root, "matrix-standard-" + engine, ["outer_contract"])
+        if engine != "vector":
+            assert "weft.x86.array_contraction" not in compiled.asm["x86ir"], "partial input introduced SIMD arithmetic"
+        for m, n, k in ((32, 32, 512), (31, 17, 511), (1, 1, 1), (32, 32, 0)):
+            a = (np.arange(m*k, dtype=np.int64) * 37 % 256).astype(np.int8).reshape(m, k)
+            b = (np.arange(k*n, dtype=np.int64) * 71 % 256).astype(np.int8).reshape(k, n)
+            expected = (a.astype(np.int64) @ b.astype(np.int64)).astype(np.int32)
+            storage, output = guarded(m*n, np.int32)
+            compiled[(1,)](a, b, output, m, n, k)
+            save(root, f"matrix-standard-{engine}-{m}-{n}-{k}", actual=output.reshape(m, n), expected=expected)
+            exact(output.reshape(m, n), expected)
+            exact(storage[[0, 1, -2, -1]], np.full(4, -12345, np.int32))
+            records.append({"engine": engine, "shape": [m, n, k], "evidence": evidence})
+    return {"cases": records, "integer_exact": True, "execution_mode": "aot"}
+
+
+def matrix_operand_layout_contract(root, options, compile_target):
+    import torch
+    from triton import compile
+    from triton.compiler import ASTSource
+    from triton.backends.compiler import CPUTarget
+    from numerical_primitive_kernels import matrix_axis_signed, matrix_axis_unsigned, matrix_axis_word, matrix_axis_bfloat
+    if compile_target is None:
+        raise ValueError("matrix_operand_layout requires the explicit AMX AOT target")
+    records = []
+    for kernel, dtype in ((matrix_axis_signed, np.int8),
+                          (matrix_axis_unsigned, np.uint8),
+                          (matrix_axis_word, np.int8),
+                          (matrix_axis_bfloat, None)):
+      tiles = ((32, 48, 512), (272, 8, 16)) if dtype is not None else ((32, 48, 512),)
+      if kernel is matrix_axis_word:
+          tiles = ((272, 8, 16),)
+      for bm, bn, bk in tiles:
+       for left_last, right_last in ((False, False), (True, False), (False, True), (True, True)):
+        bindings = {"BM": bm, "BN": bn, "BK": bk, "LEFT_LAST": left_last, "RIGHT_LAST": right_last}
+        if dtype is not None:
+            bindings["ENGINE"] = "matrix"
+        compiled = compile(ASTSource(kernel, {}, bindings),
+                           target=CPUTarget(backend="weft", **compile_target), options=options)
+        label = f"matrix-axes-{kernel.__name__}-{bm}-{bn}-{bk}-{left_last}-{right_last}"
+        evidence = native_evidence(compiled, root, label, ["contract"])
+        extension = "amx-int8" if dtype is not None else "amx-bf16"
+        assert extension in compiled.metadata.single_instance_abi["used_extensions"], "matrix layout silently selected SIMD"
+        if dtype is not None:
+            assert "weft.x86.array_contraction" not in compiled.asm["x86ir"], "partial input introduced SIMD arithmetic"
+        for m, n, k in ((bm, bn, bk), (bm + 1, bn + 1, bk + 3), (1, 1, 1), (0, bn, bk), (bm, bn, 0)):
+            if dtype is not None:
+                a = (np.arange(k*m, dtype=np.int64) * 37 % 256).astype(dtype).reshape(k, m)
+                if kernel is matrix_axis_word:
+                    b = ((np.arange(k*n, dtype=np.int64) * 7919 + 32768) % 65536).astype(np.int16).reshape(k, n)
+                else:
+                    b = (np.arange(k*n, dtype=np.int64) * 71 % 256).astype(np.int8).reshape(k, n)
+                expected = (a.astype(np.int64).T @ b.astype(np.int64)).astype(np.int32)
+                output_type = np.int32
+            else:
+                a = ((torch.arange(k*m, dtype=torch.float32) % 13 - 6) / 8).reshape(k, m).bfloat16()
+                b = ((torch.arange(k*n, dtype=torch.float32) % 11 - 5) / 8).reshape(k, n).bfloat16()
+                expected = a.float().numpy().astype(np.float64).T @ b.float().numpy().astype(np.float64)
+                output_type = np.float32
+            storage, output = guarded(m*n, output_type)
+            compiled[(1,)](a, b, output.reshape(m, n))
+            save(root, label + f"-{m}-{n}-{k}", actual=output.reshape(m, n), expected=expected)
+            if dtype is not None:
+                exact(output.reshape(m, n), expected)
+            else:
+                np.testing.assert_allclose(output.reshape(m, n), expected, rtol=3e-5, atol=3e-6)
+            exact(storage[[0, 1, -2, -1]], np.full(4, -12345, output_type))
+            records.append({"kernel": kernel.__name__, "tile": [bm, bn, bk], "shape": [m, n, k],
+                            "left_reduction_first": not left_last, "right_reduction_first": not right_last,
+                            "evidence": evidence})
+        if dtype is None:
+            # A physical permutation must not defeat the numerical guard.
+            a = torch.full((bk, bm), 63 << 7, dtype=torch.int16).view(torch.bfloat16)
+            b = torch.full((bk, bn), 63 << 7, dtype=torch.int16).view(torch.bfloat16)
+            storage, output = guarded(bm*bn, np.float32)
+            compiled[(1,)](a, b, output.reshape(bm, bn))
+            expected = (a.float().numpy().astype(np.float64).T @ b.float().numpy().astype(np.float64)).astype(np.float32)
+            save(root, label + "-subnormal", actual=output.reshape(bm, bn), expected=expected)
+            exact(output.reshape(bm, bn), expected)
+            exact(storage[[0, 1, -2, -1]], np.full(4, -12345, np.float32))
+            records.append({"kernel": kernel.__name__, "kind": "subnormal-product", "evidence": evidence})
+    return {"cases": records, "tails_and_empty": True, "execution_mode": "aot",
+            "oracle": "independent integer or float64 matrix product"}
 
 
 def bfloat_contraction_contract(root, options, compile_target):

@@ -104,6 +104,67 @@ def bfloat_contraction(A: tl.View[tl.bf16, (M, K)], B: tl.View[tl.bf16, (N, K)],
             tl.store(Y[rows, columns], total)
 
 
+@triton.jit
+def matrix_axis_body(A, B, Y, M, N, K, ACC: tl.constexpr,
+                     BM: tl.constexpr, BN: tl.constexpr, BK: tl.constexpr,
+                     LEFT_LAST: tl.constexpr, RIGHT_LAST: tl.constexpr, ENGINE: tl.constexpr):
+    with tl.level.rows(M, group=BM) as rows:
+        with tl.level.cols(N, group=BN) as columns:
+            total = tl.state(ACC, [BM, BN], init=0)
+            with tl.level.blocks(K, extent=BK) as block:
+                a, b = tl.load(A[block, rows]), tl.load(B[block, columns])
+                if LEFT_LAST:
+                    a = tl.reshape(a, shape=(BM, BK), axes=("m", "k"), order=("m", "k"))
+                if RIGHT_LAST:
+                    b = tl.reshape(b, shape=(BN, BK), axes=("n", "k"), order=("n", "k"))
+                total += tl.reduce_dot(a, b, over="K", acc_dtype=ACC, engine=ENGINE)
+            tl.store(Y[rows, columns], total)
+
+
+@triton.jit(model="weft")
+def matrix_standard_pointer(A, B, Y, M, N, K, BM: tl.constexpr, BN: tl.constexpr,
+                            BK: tl.constexpr, ENGINE: tl.constexpr):
+    rows, columns, terms = tl.arange(0, BM), tl.arange(0, BN), tl.arange(0, BK)
+    left = tl.load(A + rows[:, None] * K + terms[None, :],
+                   (rows[:, None] < M) & (terms[None, :] < K), other=0)
+    right = tl.load(B + terms[:, None] * N + columns[None, :],
+                    (terms[:, None] < K) & (columns[None, :] < N), other=0)
+    result = tl.dot(left, right, engine=ENGINE)
+    tl.store(Y + rows[:, None] * N + columns[None, :], result,
+             (rows[:, None] < M) & (columns[None, :] < N))
+
+
+@triton.jit(model="weft")
+def matrix_axis_signed(A: tl.View[tl.i8, (K, M)], B: tl.View[tl.i8, (K, N)],
+                       Y: tl.View[tl.i32, (M, N)], BM: tl.constexpr, BN: tl.constexpr,
+                       BK: tl.constexpr, LEFT_LAST: tl.constexpr, RIGHT_LAST: tl.constexpr,
+                       ENGINE: tl.constexpr = "auto"):
+    matrix_axis_body(A, B, Y, M, N, K, tl.i32, BM, BN, BK, LEFT_LAST, RIGHT_LAST, ENGINE)
+
+
+@triton.jit(model="weft")
+def matrix_axis_unsigned(A: tl.View[tl.u8, (K, M)], B: tl.View[tl.i8, (K, N)],
+                         Y: tl.View[tl.i32, (M, N)], BM: tl.constexpr, BN: tl.constexpr,
+                         BK: tl.constexpr, LEFT_LAST: tl.constexpr, RIGHT_LAST: tl.constexpr,
+                         ENGINE: tl.constexpr = "auto"):
+    matrix_axis_body(A, B, Y, M, N, K, tl.i32, BM, BN, BK, LEFT_LAST, RIGHT_LAST, ENGINE)
+
+
+@triton.jit(model="weft")
+def matrix_axis_word(A: tl.View[tl.i8, (K, M)], B: tl.View[tl.i16, (K, N)],
+                     Y: tl.View[tl.i32, (M, N)], BM: tl.constexpr, BN: tl.constexpr,
+                     BK: tl.constexpr, LEFT_LAST: tl.constexpr, RIGHT_LAST: tl.constexpr,
+                     ENGINE: tl.constexpr = "auto"):
+    matrix_axis_body(A, B, Y, M, N, K, tl.i32, BM, BN, BK, LEFT_LAST, RIGHT_LAST, ENGINE)
+
+
+@triton.jit(model="weft")
+def matrix_axis_bfloat(A: tl.View[tl.bf16, (K, M)], B: tl.View[tl.bf16, (K, N)],
+                       Y: tl.View[tl.f32, (M, N)], BM: tl.constexpr, BN: tl.constexpr,
+                       BK: tl.constexpr, LEFT_LAST: tl.constexpr, RIGHT_LAST: tl.constexpr):
+    matrix_axis_body(A, B, Y, M, N, K, tl.f32, BM, BN, BK, LEFT_LAST, RIGHT_LAST, "auto")
+
+
 @triton.jit(model="weft", strided=("X", "W", "Y"))
 def array_contraction(X: tl.View[tl.f32, (M, K)], W: tl.View[tl.f32, (N, K)],
                       Y: tl.View[tl.f32, (M, N)]):
@@ -554,13 +615,26 @@ def grouped_mac(A: tl.View[tl.i32, (BATCH, M, K)], B: tl.View[tl.i32, (BATCH, H,
                                     tl.store(Out + ((b*3+m)*2+h)*width+g, result[b, m, h, g])
 
 
+@triton.jit(noinline=True)
+def grouped_scalar_handoff(value, alternate, steps):
+    carried = alternate
+    for iteration in range(steps):
+        if iteration + 1 == steps:
+            carried = value
+    return carried
+
+
 @triton.jit(model="weft")
-def byte_dot_tail(A: tl.View[tl.i8, (N,)], B: tl.View[tl.i8, (N,)], Out, Total):
+def byte_dot_tail(A: tl.View[tl.i8, (N,)], B: tl.View[tl.i8, (N,)], Out, Total,
+                  CONTROL: tl.constexpr = False):
     with tl.level.blocks(N, extent=96) as block:
         a, b = tl.load(A[block]), tl.load(B[block])
         result = tl.mac_groups(a, b, n=4, into=tl.i32)
         for i in tl.static_range(24):
-            tl.store(Out + i, result[i])
+            value = result[i]
+            if CONTROL:
+                value = grouped_scalar_handoff(value, result[(i + 1) % 24], tl.extent(A, 0) % 3 + 1)
+            tl.store(Out + i, value)
         tl.store(Total, tl.reduce_dot(a, b, over="N", acc_dtype=tl.i32))
 
 

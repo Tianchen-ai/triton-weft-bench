@@ -69,7 +69,7 @@ def numerical_primitives():
     from triton.runtime.driver import driver
 
     if request.get("execution_mode") == "aot":
-        if request["numerical_scenario"] not in {"array_packets", "array_contractions", "lookup", "indexed_packets", "extrema_and_half", "byte_sum", "byte_planes", "byte_contractions", "bfloat_contractions", "amx_snapshots", "word_byte_contractions", "amx_mixed_storage", "streaming_stores", "cpu_tuning"}:
+        if request["numerical_scenario"] not in {"array_packets", "array_contractions", "lookup", "indexed_packets", "extrema_and_half", "byte_sum", "byte_planes", "byte_contractions", "bfloat_contractions", "amx_snapshots", "word_byte_contractions", "amx_mixed_storage", "matrix_operand_layout", "matrix_standard_pointer", "streaming_stores", "cpu_tuning"}:
             raise NotImplementedError("explicit target AOT is not implemented for this numerical scenario")
         return run_scenario(request["numerical_scenario"], root, options, close, request["compile_target"])
     check_jit_target(request.get("architecture"), request.get("compile_target"),
