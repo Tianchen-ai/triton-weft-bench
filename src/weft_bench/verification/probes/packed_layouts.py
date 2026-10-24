@@ -61,33 +61,39 @@ def nibble_contraction_contract(root, options):
         position = np.arange(rows*k).reshape(rows, k)
         unsigned = ((position*multiplier + position//7 + 3) % 16).astype(np.int8)
         signed = (((position*(multiplier+2) + position//5 + 1) % 16)-8).astype(np.int8)
+        choices = np.array([-2147483648, 2147483647, -1, 0, 1, 65537, -65539], np.int32)
+        bias = np.resize(choices, rows*(k//32)).reshape(rows, k//32)
         raw = bytearray()
         for first in range(0, rows, cohort):
             for block in range(0, k, 32):
                 for values in (signed, unsigned):
                     for row in range(first, first+cohort):
                         raw.extend(dense_bits(values[row, block:block+32], 4))
+                for row in range(first, first+cohort):
+                    raw.extend(int(bias[row, block//32]).to_bytes(4, "little", signed=True))
         backing = np.full(len(raw)+258, 0xa5, np.uint8)
         payload = backing[129:-129]
         payload[:] = np.frombuffer(raw, np.uint8)
-        return backing, payload, signed, unsigned
+        return backing, payload, signed, unsigned, bias
 
     records = []
     for mr, m, n, k in ((1, 4, 32, 32), (4, 4, 32, 96),
                          (8, 16, 64, 96), (8, 12, 32, 64)):
-        xb, x, xs, xu = storage(m, k, 4, 7)
-        wb, w, ws, wu = storage(n, k, 32, 11)
+        xb, x, xs, xu, bias_x = storage(m, k, 4, 7)
+        wb, w, ws, wu, bias_w = storage(n, k, 32, 11)
         original_x, original_w = xb.copy(), wb.copy()
-        for unsigned in (False, True):
+        for unsigned, biased in ((False, False), (True, False), (True, True)):
             output = np.full(m*n+64, -12345, np.int32)
             y = output[32:-32].reshape(m, n)
             left, right = (xu, wu) if unsigned else (xs, ws)
             expected = left.astype(np.int64) @ right.astype(np.int64).T
-            name = f"nibble-{mr}-{m}-{n}-{k}-{'unsigned' if unsigned else 'signed'}"
+            if biased:
+                expected = (expected + bias_x.astype(np.int64) @ bias_w.astype(np.int64).T).astype(np.int32)
+            name = f"nibble-{mr}-{m}-{n}-{k}-{'unsigned' if unsigned else 'signed'}" + ('-mac' if biased else '')
             compiled = kernels.nibble_contraction[(1,)](
                 tl.View(x, encoding=kernels.NibbleRows[4], shape=(m, k)),
                 tl.View(w, encoding=kernels.NibbleRows[32], shape=(n, k)),
-                y, MR=mr, UNSIGNED=unsigned, **options)
+                y, MR=mr, UNSIGNED=unsigned, BIAS=biased, **options)
             np.savez(root/(name+'.npz'), left=left, right=right, actual=y, expected=expected)
             np.testing.assert_array_equal(y, expected)
             np.testing.assert_array_equal(xb, original_x)
@@ -96,7 +102,9 @@ def nibble_contraction_contract(root, options):
             np.testing.assert_array_equal(output[-32:], np.full(32, -12345, np.int32))
             leaf = "ime.fragment-nibbles-unsigned" if unsigned else "ime.fragment-nibbles-signed"
             assert leaf in compiled.asm["riscvir"]
-            records.append({"MR": mr, "M": m, "N": n, "K": k, "unsigned": unsigned,
+            if biased:
+                assert "rvv.vmacc.row.vx" in compiled.asm["riscvir"]
+            records.append({"MR": mr, "M": m, "N": n, "K": k, "unsigned": unsigned, "modular_mac": biased,
                             "evidence": capture(compiled, root, name)})
     return {"integer_exact": True, "guards_and_inputs_preserved": True, "cases": records}
 
