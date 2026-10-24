@@ -669,7 +669,7 @@ def indexed_packet_contract(root, options, compile_target):
 
 
 def ime_reduction_contract(root, options):
-    from numerical_primitive_kernels import ime_closed_reduction
+    from numerical_primitive_kernels import ime_closed_reduction, ime_issue_reduction, ime_independent_reductions
 
     records = []
     for m, n, k, snapshot in ((1, 4, 8, False), (1, 4, 16, False),
@@ -700,6 +700,39 @@ def ime_reduction_contract(root, options):
         evidence = native_evidence(compiled, root, name, ["contract"])
         assert "ime_fragment_mma" in compiled.asm["riscvir"]
         records.append({"M": m, "N": n, "K": k, "aliasing_write": snapshot, "evidence": evidence})
+    for m, n, k in ((1, 16, 32), (4, 4, 32), (4, 16, 32), (1, 4, 64)):
+        bits = np.resize(np.array([-128, 127, -1, 0, 1, -64, 63, 17], np.int8), m*k).view(np.uint8)
+        left = (bits ^ ((np.arange(m*k)//8*37)%256).astype(np.uint8)).view(np.int8).reshape(m,k)
+        right = ((np.arange(n*k)*53+31) % 256).astype(np.uint8).view(np.int8).reshape(n, k)
+        original_left, original_right = left.copy(), right.copy()
+        product = left.astype(np.int64) @ right.astype(np.int64).T
+        for initial, shared in ((0, False), (2147483647, False), (0, True)):
+            storage, output = guarded(m*n, np.int32)
+            expected = (product*(4 if shared else 1)+initial).astype(np.int32)
+            label = f"ime-issues-{m}-{n}-{k}-{initial}-{int(shared)}"
+            compiled = ime_issue_reduction[(1,)](left, right, output.reshape(m,n),
+                M=m, N=n, K=k, INITIAL=initial, SHARED=shared, **options)
+            exact(output.reshape(m,n), expected)
+            exact(left, original_left)
+            exact(right, original_right)
+            exact(storage[[0,1,-2,-1]], np.full(4,-12345,np.int32))
+            save(root,label,left=left,right=right,actual=output,expected=expected)
+            records.append({"M":m,"N":n,"K":k,"initial":initial,"shared_product":shared,
+                            "evidence":native_evidence(compiled,root,label,["contract"])})
+    for n in (4, 16):
+        left = np.array([[-128,127,-1,0,1,-64,63,17]],np.int8)
+        right = ((np.arange(n*8)*53+31)%256).astype(np.uint8).view(np.int8).reshape(n,8)
+        shifted = (left.astype(np.int16)+1).astype(np.int8)
+        expected = np.stack([left.astype(np.int64) @ right.astype(np.int64).T,
+                             shifted.astype(np.int64) @ right.astype(np.int64).T]).astype(np.int32)
+        storage, output = guarded(2*n,np.int32)
+        label = f"ime-independent-{n}"
+        compiled = ime_independent_reductions[(1,)](left,right,output.reshape(2,1,n),M=1,N=n,K=8,**options)
+        exact(output.reshape(2,1,n),expected)
+        exact(storage[[0,1,-2,-1]],np.full(4,-12345,np.int32))
+        save(root,label,left=left,right=right,actual=output,expected=expected)
+        records.append({"independent_contractions":2,"N":n,
+                        "evidence":native_evidence(compiled,root,label,["contract"])})
     return {"integer_exact": True, "output_guards_unchanged": True,
             "execution_mode": "jit", "cases": records}
 

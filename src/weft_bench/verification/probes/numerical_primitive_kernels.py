@@ -31,6 +31,33 @@ def ime_closed_reduction(A: tl.View[tl.i8, (M, K)], B: tl.View[tl.i8, (N, K)],
     tl.store(C, c)
 
 
+@triton.jit(model="weft")
+def ime_issue_reduction(A: tl.View[tl.i8, (M, K)], B: tl.View[tl.i8, (N, K)],
+                        C: tl.View[tl.i32, (M, N)],
+                        M: tl.constexpr, N: tl.constexpr, K: tl.constexpr,
+                        INITIAL: tl.constexpr = 0, SHARED: tl.constexpr = False):
+    partial = tl.state(tl.i32, [M, N], init=INITIAL)
+    extra = tl.state(tl.i32, [M, N], init=0)
+    with tl.level.blocks(K, extent=8) as block:
+        a, b = tl.load(A[:, block]), tl.load(B[:, block])
+        product = tl.reduce_dot(a, b, over="K", acc_dtype=tl.i32, engine="matrix")
+        partial += product
+        if SHARED:
+            extra += product * tl.i32(3)
+    tl.store(C, partial + extra)
+
+
+@triton.jit(model="weft")
+def ime_independent_reductions(A: tl.View[tl.i8, (M, K)], B: tl.View[tl.i8, (N, K)],
+                              C: tl.View[tl.i32, (2, M, N)],
+                              M: tl.constexpr, N: tl.constexpr, K: tl.constexpr):
+    a, b = tl.load(A), tl.load(B)
+    first = tl.reduce_dot(a, b, over="K", acc_dtype=tl.i32, engine="matrix")
+    second = tl.reduce_dot(a + tl.i8(1), b, over="K", acc_dtype=tl.i32, engine="matrix")
+    tl.store(C[0], first)
+    tl.store(C[1], second)
+
+
 @triton.jit(model="weft", alias_groups={"Y": "output"})
 def byte_plane_fields(X: tl.View[tl.u8, (N,)], Y: tl.View[tl.u8, (N,)],
                       WIDTH: tl.constexpr, STEP: tl.constexpr):
