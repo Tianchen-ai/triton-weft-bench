@@ -6,6 +6,33 @@ import triton.language as tl
 
 
 @triton.encoding
+class FloatScale:
+    layout = (tl.bitorder.lsb_first, tl.byteorder.little)
+    alignment = 2
+    elements = 32
+    d: tl.f32
+    q: tl.i8[32]
+
+
+@triton.derive
+def FloatScaleRows(X: tl.View[FloatScale, (M, K)], *, rows: tl.static[int]) -> tl.View[FloatScaleRows[rows], (M, K)]:
+    return tl.interleave(X, rows=rows, field_chunks={"d": 4, "q": 32})
+
+
+@triton.jit(model="weft", alias_groups={"Y": "output"})
+def cohort_float_scale(X: tl.View[FloatScaleRows[4], (M, K)],
+                       Z: tl.View[tl.f32, (N, K)], Y: tl.View[tl.f32, (N, K)],
+                       First: tl.constexpr, ROWS: tl.constexpr = 4,
+                       RECORDS: tl.constexpr = 1):
+    for record in tl.static_range(RECORDS):
+        part = tl.subview(X, offsets=(First, record * 32), extents=(ROWS, 32))
+        scale = tl.reshape(tl.load(part.d), (ROWS,), axes=("N",), order=("M",))
+        source = tl.subview(Z, offsets=(0, record * 32), extents=(ROWS, 32))
+        destination = tl.subview(Y, offsets=(0, record * 32), extents=(ROWS, 32))
+        tl.store(destination, tl.load(source) * scale)
+
+
+@triton.encoding
 class ByteFields:
     layout = (tl.bitorder.lsb_first, tl.byteorder.little)
     alignment = 1

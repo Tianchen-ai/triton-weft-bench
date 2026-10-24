@@ -12,10 +12,13 @@ import traceback
 import weakref
 
 import numpy as np
-import torch
 import triton
 import triton.language as tl
 from kernels import affine, coordinates
+
+torch = None
+if any(name != "packed_layouts" for name in sys.argv[1:]):
+    import torch
 
 faulthandler.enable()
 root = Path(os.environ.get("WEFT_BENCH_VERIFY_OUTPUT", Path(__file__).parent))
@@ -927,7 +930,7 @@ operations={"dynamic_rounding":dynamic_rounding,"packed_layouts":packed_layouts,
 
 
 def save():
-    (root/'results.json').write_text(json.dumps({"target":request['target'],"triton":triton.__file__,"torch":torch.__version__,"results":rows},indent=2))
+    (root/'results.json').write_text(json.dumps({"target":request['target'],"triton":triton.__file__,"torch":torch.__version__ if torch is not None else None,"results":rows},indent=2))
 
 
 for name in sys.argv[1:]:

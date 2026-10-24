@@ -62,7 +62,7 @@ def candidate_configuration(case, base, candidate):
 
 def weft_call(name, case, workload, metadata, aliases=None, packed_inputs=None):
     dimensions = {**case.shape}
-    if case.family in ("ime", "ime2"):
+    if case.family == "ime":
         dimensions["M"] = case.data.get("tile_rows", 4)
     whole_workload = case.family in ("vec_dot", "dequantize") and any(
         (aliases or {}).get(a["name"], a["name"]) == "W" and a["kind"] == "view" and len(a["shape"]) == 2
@@ -139,7 +139,7 @@ def validate_binding(case, metadata, aliases, dimensions, packed_inputs=None, *,
         rows = dimensions["M"]
         port_access.update(W=port_access["W_codes"], Xq=port_access["X_codes"])
         expected = {"W": ((dimensions["N"], k), "IME2Weight8Rows[32]"),
-                    "Xq": ((rows, k), f"IME2Activation8Rows[{rows}]"),
+                    "Xq": ((rows, k), f"IME2Activation8Rows[{case.data['tile_rows']}]"),
                     "Y": ((rows, dimensions["N"]), "dense.f32")}
     dims = {**metadata.get("bindings", {}), **dimensions}
     for arg in metadata["arguments"]:
@@ -208,7 +208,7 @@ def _ggml_call(name, case):
     family = case.family
     if family == "ime2":
         return NativeCall(name, "",
-            'if(spacemit_kernels::ime2::gemm_kernel_i8i8(32,data.activation.data()+m*(data.K/32)*38,data.weights.data(),nullptr,output.data()+m*data.N,WB_TILE_ROWS,data.N,data.K/32,data.N)!=WB_TILE_ROWS)throw std::runtime_error("IME2 row tile unhandled");',
+            'for(size_t m=0;m<data.M;m+=WB_TILE_ROWS) for(size_t n=0;n<data.N;n+=32) { if(spacemit_kernels::ime2::gemm_kernel_i8i8(32,data.activation.data()+m*(data.K/32)*38,data.weights.data()+n*(data.K/32)*34,nullptr,output.data()+m*data.N+n,WB_TILE_ROWS,32,data.K/32,data.N)!=WB_TILE_ROWS)throw std::runtime_error("IME2 row tile unhandled"); }',
             includes=("ime_kernels.h",))
     if family == "amx_tile":
         weight, activation, block = {"q4_0": ("Q4_0", "Q8_0", 32), "q4_k": ("Q4_K", "Q8_K", 256),

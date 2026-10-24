@@ -42,7 +42,7 @@ def prepare(case, workload, interface, options):
         workload = replace(workload, defines=(*workload.defines, "-DWB_GGML_MODEL_WEIGHTS=1"))
     call = replace(call, prepare=call.prepare + scratch + packing, includes=includes)
     dimensions = {**metadata["bindings"], **case.shape}
-    if case.family in ("ime", "ime2"):
+    if case.family == "ime":
         dimensions["M"] = case.data.get("tile_rows", 4)
     declared = {p.name: p for p in ports(case)}
     invocation = []

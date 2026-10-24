@@ -61,6 +61,8 @@ def run_scenario(name, root, options):
         return cohort_contract(root, options)
     if name == "cohort_byte_writes":
         return cohort_byte_write_contract(root, options)
+    if name == "cohort_float_scales":
+        return cohort_float_scale_contract(root, options)
 
     choices = {"natural": (kernels.NaturalLE, kernels.natural_fields),
                "layered_joined": (kernels.LayeredJoined, kernels.layered_joined_fields),
@@ -173,6 +175,42 @@ def cohort_byte_write_contract(root, options):
             "cross_cohort_and_partial_rows":True,
             "evidence":[capture(compiled[8],root,"cohort-byte-write"),
                         capture(compiled[2],root,"cohort-half-byte-write"),capture(current,root,"cohort-byte-slice")]}
+
+
+def cohort_float_scale_contract(root, options):
+    import triton.language as tl
+    import packed_layout_kernels as kernels
+    from helper_native import capture
+
+    scales = np.array([0.25, -2.0, 1.5, -0.125, 8.0, 0.0, -4.0, 0.5], np.float32)
+    evidence = []
+    for records in (1, 2):
+        k = records * 32
+        # The two-byte offset is deliberately insufficient for an F32 load.
+        storage = np.full(8 * records * 36 + 4, 0xa5, np.uint8)
+        packed = storage[2:-2].reshape(2, records, 144)
+        for cohort in range(2):
+            for block in range(records):
+                for row in range(4):
+                    value = np.array([scales[cohort*4+row] * (block+1)], np.float32)
+                    packed[cohort, block, 4*row:4*row+4] = value.view(np.uint8)
+        original = storage.copy()
+        view = tl.View(packed, encoding=kernels.FloatScaleRows[4], shape=(8, k))
+        for first, rows in ((0, 8), (0, 4), (1, 4), (4, 4), (3, 2), (6, 2), (7, 1)):
+            source = ((np.arange(rows*k).reshape(rows, k) % 29 - 14) / 8).astype(np.float32)
+            guarded = np.full(rows*k+8, -12345, np.float32)
+            output = guarded[4:-4].reshape(rows, k)
+            compiled = kernels.cohort_float_scale[(1,)](
+                view, source, output, First=first, ROWS=rows, RECORDS=records, **options)
+            evidence.append(capture(compiled, root, f"float-scales-{records}-{first}-{rows}"))
+            expected = source * scales[first:first+rows, None] * np.repeat(np.arange(1, records+1), 32)[None, :]
+            np.savez(root / "float-scales-current.npz", source=source, actual=output,
+                     expected=expected, first=first, rows=rows, records=records)
+            np.testing.assert_array_equal(output, expected.astype(np.float32))
+            np.testing.assert_array_equal(storage, original)
+            np.testing.assert_array_equal(guarded[[0, 1, -2, -1]], np.full(4, -12345, np.float32))
+    return {"two_byte_alignment": True, "read_only_input_preserved": True,
+            "partial_and_cross_cohort_rows": True, "evidence": evidence}
 
 
 def cohort_contract(root, options):

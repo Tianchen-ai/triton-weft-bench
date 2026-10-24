@@ -162,11 +162,10 @@ def native_workload(case):
         ports(case)
         return NativeWorkload(
             "ime2_inputs.h", "IME2Inputs data(inputs);",
-            {"W": "data.weights.data()", "Xq": "data.activation.data()+m*(data.K/32)*38",
-             "Y": "output.data()+m*data.N"},
+            {"W": "data.weights.data()", "Xq": "data.activation.data()",
+             "Y": "output.data()"},
             defines=tuple(f"-DWB_{k}={v}" for k, v in case.shape.items()) +
-                    (f"-DWB_TILE_ROWS={case.data['tile_rows']}",),
-            before_call="for(size_t m=0;m<data.M;m+=WB_TILE_ROWS) {", after_call="}")
+                    (f"-DWB_TILE_ROWS={case.data['tile_rows']}",))
     if case.family == "amx_tile":
         ports(case)
         weight, activation, block = {"q4_0": ("q4_0", "q8_0", 32), "q4_k": ("q4_K", "q8_K", 256),
