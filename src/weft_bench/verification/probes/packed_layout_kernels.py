@@ -6,6 +6,38 @@ import triton.language as tl
 
 
 @triton.encoding
+class NibblePair:
+    layout = (tl.bitorder.lsb_first, tl.byteorder.little)
+    alignment = 1
+    elements = 32
+    s: tl.i4[32]
+    u: tl.u4[32]
+
+
+@triton.derive
+def NibbleRows(X: tl.View[NibblePair, (M, K)], *, rows: tl.static[int]) -> tl.View[NibbleRows[rows], (M, K)]:
+    return tl.interleave(X, rows=rows, field_chunks={"s": 16, "u": 16})
+
+
+@triton.jit(model="weft", alias_groups={"Y": "output"})
+def nibble_contraction(X: tl.View[NibbleRows[4], (M, K)],
+                       W: tl.View[NibbleRows[32], (N, K)],
+                       Y: tl.View[tl.i32, (M, N)], MR: tl.constexpr,
+                       UNSIGNED: tl.constexpr):
+    with tl.level.rows(M, group=MR) as rows:
+        with tl.level.cols(N, group=32) as columns:
+            result = tl.state(tl.i32, [MR, 32], init=0)
+            with tl.level.blocks(K, extent=32) as block:
+                x = tl.load(X[rows, block])
+                w = tl.load(W[columns, block])
+                if UNSIGNED:
+                    result += tl.dot(tl.i8(x.u), tl.i8(w.u), over="k", acc_dtype=tl.i32)
+                else:
+                    result += tl.dot(tl.i8(x.s), tl.i8(w.s), over="k", acc_dtype=tl.i32)
+            tl.store(Y[rows, columns], result)
+
+
+@triton.encoding
 class FloatScale:
     layout = (tl.bitorder.lsb_first, tl.byteorder.little)
     alignment = 2

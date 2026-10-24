@@ -52,6 +52,55 @@ def fixture(name, rows=3, records=2):
     return raw, changed, output, observed.reshape(rows, records*elements)
 
 
+def nibble_contraction_contract(root, options):
+    import triton.language as tl
+    import packed_layout_kernels as kernels
+    from helper_native import capture
+
+    def storage(rows, k, cohort, multiplier):
+        position = np.arange(rows*k).reshape(rows, k)
+        unsigned = ((position*multiplier + position//7 + 3) % 16).astype(np.int8)
+        signed = (((position*(multiplier+2) + position//5 + 1) % 16)-8).astype(np.int8)
+        raw = bytearray()
+        for first in range(0, rows, cohort):
+            for block in range(0, k, 32):
+                for values in (signed, unsigned):
+                    for row in range(first, first+cohort):
+                        raw.extend(dense_bits(values[row, block:block+32], 4))
+        backing = np.full(len(raw)+258, 0xa5, np.uint8)
+        payload = backing[129:-129]
+        payload[:] = np.frombuffer(raw, np.uint8)
+        return backing, payload, signed, unsigned
+
+    records = []
+    for mr, m, n, k in ((1, 4, 32, 32), (4, 4, 32, 96),
+                         (8, 16, 64, 96), (8, 12, 32, 64)):
+        xb, x, xs, xu = storage(m, k, 4, 7)
+        wb, w, ws, wu = storage(n, k, 32, 11)
+        original_x, original_w = xb.copy(), wb.copy()
+        for unsigned in (False, True):
+            output = np.full(m*n+64, -12345, np.int32)
+            y = output[32:-32].reshape(m, n)
+            left, right = (xu, wu) if unsigned else (xs, ws)
+            expected = left.astype(np.int64) @ right.astype(np.int64).T
+            name = f"nibble-{mr}-{m}-{n}-{k}-{'unsigned' if unsigned else 'signed'}"
+            compiled = kernels.nibble_contraction[(1,)](
+                tl.View(x, encoding=kernels.NibbleRows[4], shape=(m, k)),
+                tl.View(w, encoding=kernels.NibbleRows[32], shape=(n, k)),
+                y, MR=mr, UNSIGNED=unsigned, **options)
+            np.savez(root/(name+'.npz'), left=left, right=right, actual=y, expected=expected)
+            np.testing.assert_array_equal(y, expected)
+            np.testing.assert_array_equal(xb, original_x)
+            np.testing.assert_array_equal(wb, original_w)
+            np.testing.assert_array_equal(output[:32], np.full(32, -12345, np.int32))
+            np.testing.assert_array_equal(output[-32:], np.full(32, -12345, np.int32))
+            leaf = "ime.fragment-nibbles-unsigned" if unsigned else "ime.fragment-nibbles-signed"
+            assert leaf in compiled.asm["riscvir"]
+            records.append({"MR": mr, "M": m, "N": n, "K": k, "unsigned": unsigned,
+                            "evidence": capture(compiled, root, name)})
+    return {"integer_exact": True, "guards_and_inputs_preserved": True, "cases": records}
+
+
 def run_scenario(name, root, options):
     import triton.language as tl
     import packed_layout_kernels as kernels
@@ -63,6 +112,8 @@ def run_scenario(name, root, options):
         return cohort_byte_write_contract(root, options)
     if name == "cohort_float_scales":
         return cohort_float_scale_contract(root, options)
+    if name == "nibble_contraction":
+        return nibble_contraction_contract(root, options)
 
     choices = {"natural": (kernels.NaturalLE, kernels.natural_fields),
                "layered_joined": (kernels.LayeredJoined, kernels.layered_joined_fields),

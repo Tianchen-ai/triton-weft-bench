@@ -23,6 +23,21 @@ class IME2Activation8:
     q: tl.i8[32]
 
 
+@triton.encoding
+class IME2Weight4Affine:
+    layout = (tl.bitorder.lsb_first, tl.byteorder.little)
+    alignment = 1
+    elements = 32
+    d: tl.f16
+    zp: tl.u8
+    q: tl.u4[32]
+
+
+@triton.derive
+def IME2Weight4AffineRows(W: tl.View[IME2Weight4Affine, (N, K)], *, rows: tl.static[int]) -> tl.View[IME2Weight4AffineRows[rows], (N, K)]:
+    return tl.interleave(W, rows=rows, field_chunks={"d": 2, "zp": 1, "q": 16})
+
+
 @triton.derive
 def IME2Weight8Rows(W: tl.View[IME2Weight8, (N, K)], *, rows: tl.static[int]) -> tl.View[IME2Weight8Rows[rows], (N, K)]:
     return tl.interleave(W, rows=rows, field_chunks={"d": 2, "q": 32})
@@ -90,3 +105,36 @@ def i8_decode_closed(W: tl.View[IME2Weight8Rows[32], (N, K)],
                      Xq: tl.View[IME2Activation8Rows[1], (M, K)],
                      Y: tl.View[tl.f32, (M, N)], *, NR: tl.constexpr = 32):
     packed_i8(W, Xq, Y, 1, NR, True)
+
+
+@triton.jit
+def packed_i4_affine(W, Xq, Y, MR: tl.constexpr):
+    with tl.level.rows(M, group=MR) as rows:
+        with tl.level.cols(N, group=32) as columns:
+            result = tl.state(tl.f32, [MR, 32], init=0)
+            with tl.level.blocks(K, extent=32) as block:
+                w = tl.load(W[columns, block])
+                x = tl.load(Xq[rows, block])
+                integer = tl.dot(x.q, tl.i8(w.q), over="k", acc_dtype=tl.i32)
+                integer += tl.i32(x.neg_sum) * tl.i32(w.zp)
+                if MR == 1:
+                    scale = tl.reshape(tl.f32(w.d) * x.d, (MR, 32),
+                                       axes=("m", "n"), order=("m", "n"))
+                    result += tl.f32(integer) * scale
+                else:
+                    result += (tl.f32(integer) * tl.f32(w.d)) * x.d
+            tl.store(Y[rows, columns], result)
+
+
+@triton.jit(model="weft", strided=("Y",), alias_groups={"Y": "output"})
+def i4_affine_prefill(W: tl.View[IME2Weight4AffineRows[32], (N, K)],
+                     Xq: tl.View[IME2Activation8Rows[4], (M, K)],
+                     Y: tl.View[tl.f32, (M, N)], *, MR: tl.constexpr = 8):
+    packed_i4_affine(W, Xq, Y, MR)
+
+
+@triton.jit(model="weft", strided=("Y",), alias_groups={"Y": "output"})
+def i4_affine_decode(W: tl.View[IME2Weight4AffineRows[32], (N, K)],
+                    Xq: tl.View[IME2Activation8Rows[1], (M, K)],
+                    Y: tl.View[tl.f32, (M, N)]):
+    packed_i4_affine(W, Xq, Y, 1)

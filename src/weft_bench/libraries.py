@@ -138,7 +138,8 @@ def validate_binding(case, metadata, aliases, dimensions, packed_inputs=None, *,
     if case.family == "ime2":
         rows = dimensions["M"]
         port_access.update(W=port_access["W_codes"], Xq=port_access["X_codes"])
-        expected = {"W": ((dimensions["N"], k), "IME2Weight8Rows[32]"),
+        weight = "IME2Weight4AffineRows[32]" if case.data.get("affine") else "IME2Weight8Rows[32]"
+        expected = {"W": ((dimensions["N"], k), weight),
                     "Xq": ((rows, k), f"IME2Activation8Rows[{case.data['tile_rows']}]"),
                     "Y": ((rows, dimensions["N"]), "dense.f32")}
     dims = {**metadata.get("bindings", {}), **dimensions}
@@ -207,8 +208,14 @@ def ggml_call(name, case):
 def _ggml_call(name, case):
     family = case.family
     if family == "ime2":
+        if case.data.get("affine") and case.data["tile_rows"] == 1:
+            raise NotImplementedError(
+                "the vendor IME2 I4 M1 branch uses HP/f16 accumulation; "
+                "it is not a matched reference for this exact-i32 affine workload")
+        kernel = "gemm_kernel_i8i4" if case.data.get("affine") else "gemm_kernel_i8i8"
+        zero = "data.weights.data()" if case.data.get("affine") else "nullptr"
         return NativeCall(name, "",
-            'for(size_t m=0;m<data.M;m+=WB_TILE_ROWS) for(size_t n=0;n<data.N;n+=32) { if(spacemit_kernels::ime2::gemm_kernel_i8i8(32,data.activation.data()+m*(data.K/32)*38,data.weights.data()+n*(data.K/32)*34,nullptr,output.data()+m*data.N+n,WB_TILE_ROWS,32,data.K/32,data.N)!=WB_TILE_ROWS)throw std::runtime_error("IME2 row tile unhandled"); }',
+            f'for(size_t m=0;m<data.M;m+=WB_TILE_ROWS) for(size_t n=0;n<data.N;n+=32) {{ if(spacemit_kernels::ime2::{kernel}(32,data.activation.data()+m*(data.K/32)*38,data.weights.data()+n*(data.K/32)*data.weight_bytes,{zero},output.data()+m*data.N+n,WB_TILE_ROWS,32,data.K/32,data.N)!=WB_TILE_ROWS)throw std::runtime_error("IME2 row tile unhandled"); }}',
             includes=("ime_kernels.h",))
     if family == "amx_tile":
         weight, activation, block = {"q4_0": ("Q4_0", "Q8_0", 32), "q4_k": ("Q4_K", "Q8_K", 256),

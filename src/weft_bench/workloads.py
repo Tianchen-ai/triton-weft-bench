@@ -165,7 +165,7 @@ def native_workload(case):
             {"W": "data.weights.data()", "Xq": "data.activation.data()",
              "Y": "output.data()"},
             defines=tuple(f"-DWB_{k}={v}" for k, v in case.shape.items()) +
-                    (f"-DWB_TILE_ROWS={case.data['tile_rows']}",))
+                    (f"-DWB_TILE_ROWS={case.data['tile_rows']}", f"-DWB_AFFINE={int(case.data.get('affine', False))}"))
     if case.family == "amx_tile":
         ports(case)
         weight, activation, block = {"q4_0": ("q4_0", "q8_0", 32), "q4_k": ("q4_K", "q8_K", 256),

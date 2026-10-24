@@ -9,6 +9,7 @@ struct IME2Inputs {
   size_t M=WB_M,N=WB_N,K=WB_K,output_size=M*N;
   std::vector<uint8_t> weights,activation;
   std::vector<float> expected;
+  static constexpr size_t weight_bytes = WB_AFFINE ? 19 : 34;
   explicit IME2Inputs(wb::InputSet &inputs) {
     if(M%WB_TILE_ROWS || N%32 || K%32) throw std::runtime_error("incomplete IME2 packed tile");
     std::vector<int8_t> w(N*K),x(M*K);
@@ -16,13 +17,20 @@ struct IME2Inputs {
       inputs.seed=inputs.seed*1664525U+1013904223U;
       v=int8_t(int(inputs.seed>>24)-128);
     }
+    if constexpr (WB_AFFINE) for (auto &v : w) v = uint8_t(v) & 15;
     inputs.load("W_codes",w); inputs.load("X_codes",x); inputs.finish();
-    weights.resize(N*(K/32)*34); activation.resize(M*(K/32)*38); expected.resize(M*N);
+    if constexpr (WB_AFFINE) for (auto v : w)
+      if (v < 0 || v > 15) throw std::runtime_error("affine IME2 W_codes must be in [0,15]");
+    weights.resize(N*(K/32)*weight_bytes); activation.resize(M*(K/32)*38); expected.resize(M*N);
     for(size_t n=0;n<N;++n) for(size_t b=0;b<K/32;++b) {
-      auto *record=weights.data()+((n/32)*(K/32)+b)*32*34;
+      auto *record=weights.data()+((n/32)*(K/32)+b)*32*weight_bytes;
       const _Float16 scale=(_Float16)weight_scale(n,b);
       std::memcpy(record+(n%32)*2,&scale,2);
-      std::memcpy(record+64+(n%32)*32,w.data()+n*K+b*32,32);
+      if constexpr (WB_AFFINE) {
+        record[64+n%32] = zero_point(n,b);
+        for(size_t k=0;k<16;++k)
+          record[96+(n%32)*16+k] = uint8_t(w[n*K+b*32+2*k]) | (uint8_t(w[n*K+b*32+2*k+1]) << 4);
+      } else std::memcpy(record+64+(n%32)*32,w.data()+n*K+b*32,32);
     }
     for(size_t m=0;m<M;++m) for(size_t b=0;b<K/32;++b) {
       auto *record=activation.data()+((m/WB_TILE_ROWS)*(K/32)+b)*WB_TILE_ROWS*38;
@@ -36,7 +44,7 @@ struct IME2Inputs {
       double sum=0;
       for(size_t b=0;b<K/32;++b) {
         int32_t dot=0;
-        for(size_t k=0;k<32;++k) dot+=int32_t(x[m*K+b*32+k])*int32_t(w[n*K+b*32+k]);
+        for(size_t k=0;k<32;++k) dot+=int32_t(x[m*K+b*32+k])*(int32_t(w[n*K+b*32+k])-(WB_AFFINE ? zero_point(n,b) : 0));
         sum+=double(dot)*activation_scale(m,b)*weight_scale(n,b);
       }
       expected[m*N+n]=float(sum);
@@ -44,6 +52,7 @@ struct IME2Inputs {
   }
   static float weight_scale(size_t n,size_t b) { return float(1+(n+3*b)%7)/128; }
   static float activation_scale(size_t m,size_t b) { return float(1+(m+5*b)%11)/256; }
+  static uint8_t zero_point(size_t n,size_t b) { return uint8_t((n+3*b)%17); }
   void check(const std::vector<float> &y) const {
     if(y.size()!=expected.size()) throw std::runtime_error("IME2 output extent differs");
     for(size_t i=0;i<y.size();++i) wb::close(y[i],expected[i],i);
