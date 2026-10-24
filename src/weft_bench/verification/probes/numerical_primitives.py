@@ -52,6 +52,37 @@ def native_evidence(compiled, root, name, operations):
     return evidence
 
 
+def mixed_integer_mac_contract(root, options):
+    from numerical_primitive_kernels import mixed_integer_mac
+
+    records = []
+    for bits, nibble in ((8, False), (8, True), (16, False)):
+        for size in (16, 32):
+            low, high = -(1 << (bits-1)), (1 << (bits-1))-1
+            left = np.resize([low, high, -1, 0, 1, low+1, high-1], size).astype(np.int32)
+            unsigned_bits = 4 if nibble else bits
+            mask = (1 << unsigned_bits)-1
+            right = np.resize([0, 1, mask, 3, 7, -1, 1 << bits], size).astype(np.int32)
+            acc = np.resize([-(1 << (2*bits-1)), (1 << (2*bits-1))-1, -1, 0, 1], size).astype(np.int32)
+            expected = np.array([wrap_integer(int(a)*(int(b) & mask)+int(c), 2*bits)
+                                 for a, b, c in zip(left, right, acc)], np.int32)
+            originals = [x.copy() for x in (left, right, acc)]
+            for swap in (False, True):
+                storage, output = guarded(size, np.int32)
+                name = f"mixed-mac-{bits}-{nibble}-{size}-{swap}"
+                compiled = mixed_integer_mac[(1,)](left, right, acc, output,
+                    N=size, BITS=bits, NIBBLE=nibble, SWAP=swap, **options)
+                exact(output, expected)
+                for actual, original in zip((left, right, acc), originals): exact(actual, original)
+                assert np.all(storage[[0, 1, -2, -1]] == -12345)
+                evidence = native_evidence(compiled, root, name, ["binary"])
+                assert "rvv.vwmaccsu.vv" in compiled.asm["riscvir"]
+                save(root, name, left=left, right=right, accumulator=acc, actual=output, expected=expected)
+                records.append({"bits": bits, "nibble": nibble, "size": size, "swapped": swap,
+                                "integer_exact": True, "evidence": evidence})
+    return {"cases": records, "integer_exact": True, "guards_and_inputs_preserved": True}
+
+
 def multi_axis_mac(root, options, close):
     from numerical_primitive_kernels import grouped_mac, grouped_mac_float, aligned_integer_pairs, byte_dot_tail, equal_extent_axes
 
@@ -671,6 +702,8 @@ def run_scenario(name, root, options, close, compile_target=None):
         return array_contractions(root, options, close, compile_target)
     if name == "array_packets":
         return array_packets(root, options, close, compile_target)
+    if name == "mixed_integer_mac":
+        return mixed_integer_mac_contract(root, options)
     if name == "grouped_mac":
         return multi_axis_mac(root, options, close)
     operations = {"sum_pairs": multi_axis_pairs,

@@ -216,6 +216,33 @@ def broadcast_half_snapshot(X: tl.View[tl.f16, (N,)], Y: tl.View[tl.f32, (N, C)]
 
 
 @triton.jit(model="weft")
+def mixed_integer_mac(A: tl.View[tl.i32, (N,)], B: tl.View[tl.i32, (N,)],
+                      Acc: tl.View[tl.i32, (N,)], Y: tl.View[tl.i32, (N,)],
+                      N: tl.constexpr, BITS: tl.constexpr, SWAP: tl.constexpr,
+                      NIBBLE: tl.constexpr = False):
+    a, b, acc = tl.load(A), tl.load(B), tl.load(Acc)
+    if BITS == 8:
+        signed = tl.i8(a)
+        if NIBBLE:
+            unsigned = tl.u4(b)
+        else:
+            unsigned = tl.u8(b)
+        if SWAP:
+            product = tl.i16(unsigned) * tl.i16(signed)
+        else:
+            product = tl.i16(signed) * tl.i16(unsigned)
+        result = tl.i16(acc) + product
+    else:
+        signed, unsigned = tl.i16(a), tl.u16(b)
+        if SWAP:
+            product = tl.i32(unsigned) * tl.i32(signed)
+        else:
+            product = tl.i32(signed) * tl.i32(unsigned)
+        result = acc + product
+    tl.store(Y, tl.i32(result))
+
+
+@triton.jit(model="weft")
 def byte_sum_tail(X: tl.View[tl.i8, (N,)], U: tl.View[tl.u8, (N,)], Y: tl.View[tl.i32, (4,)]):
     with tl.level.blocks(N, extent=257) as block:
         x, u = tl.load(X[block]), tl.load(U[block])
