@@ -122,6 +122,19 @@ def matrix_axis_body(A, B, Y, M, N, K, ACC: tl.constexpr,
 
 
 @triton.jit(model="weft")
+def scheduled_contraction_window(A: tl.View[tl.f32, (M, K)], B: tl.View[tl.f32, (K, N)],
+                                  Y: tl.View[tl.f32, (M, N)], M: tl.constexpr, N: tl.constexpr,
+                                  K: tl.constexpr, REDUCTION_LAST: tl.constexpr, MUTATE: tl.constexpr = False):
+    a, b = tl.load(A), tl.load(B)
+    if MUTATE:
+        tl.store(A, a * tl.f32(0))
+    if REDUCTION_LAST:
+        b = tl.reshape(b, shape=(N, K), axes=("n", "k"), order=("n", "k"))
+    result = tl.reduce_dot(a, b, over="K", acc_dtype=tl.f32, engine="vector")
+    tl.store(Y, result)
+
+
+@triton.jit(model="weft")
 def matrix_standard_pointer(A, B, Y, M, N, K, BM: tl.constexpr, BN: tl.constexpr,
                             BK: tl.constexpr, ENGINE: tl.constexpr):
     rows, columns, terms = tl.arange(0, BM), tl.arange(0, BN), tl.arange(0, BK)

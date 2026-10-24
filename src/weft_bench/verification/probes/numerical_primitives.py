@@ -829,6 +829,8 @@ def run_scenario(name, root, options, close, compile_target=None):
         return matrix_operand_layout_contract(root, options, compile_target)
     if name == "matrix_standard_pointer":
         return matrix_standard_pointer_contract(root, options, compile_target)
+    if name == "contraction_schedules":
+        return contraction_schedule_contract(root, options, compile_target)
     if name == "byte_contractions":
         return byte_contraction_contract(root, options, compile_target)
     if name == "amx_snapshots":
@@ -892,6 +894,48 @@ def byte_plane_contract(root, options, compile_target):
                 records.append({"width": width, "group": step, "N": n, "input_bytes": 256})
             native_evidence(compiled, root, f"byte-plane-{width}-{step}", ["cast"])
     return {"subcases": records, "integer_exact": True, "tails_and_empty": True}
+
+
+def contraction_schedule_contract(root, options, compile_target):
+    from triton import compile
+    from triton.compiler import ASTSource
+    from triton.backends.compiler import CPUTarget
+    from numerical_primitive_kernels import scheduled_contraction_window
+    if compile_target is None:
+        raise ValueError("contraction_schedules requires an explicit SIMD target")
+    records = []
+    selected_axes = set()
+    for m, n, k, mutate in ((16, 16, 512, False), (8, 32, 1024, False),
+                             (3, 9, 2048, False), (16, 16, 512, True)):
+      for reduction_last in (False, True):
+        a = ((np.arange(m*k, dtype=np.int64) * 7 % 31 - 15) / 16).astype(np.float32).reshape(m, k)
+        b = ((np.arange(k*n, dtype=np.int64) * 11 % 29 - 14) / 16).astype(np.float32).reshape(k, n)
+        if mutate:
+            b = a.reshape(k, n)
+        expected = a.astype(np.float64) @ b.astype(np.float64)
+        bindings = {"M": m, "N": n, "K": k, "REDUCTION_LAST": reduction_last, "MUTATE": mutate}
+        compiled = compile(ASTSource(scheduled_contraction_window, {}, bindings),
+                           target=CPUTarget(backend="weft", **compile_target), options=options)
+        storage, output = guarded(m*n, np.float32)
+        compiled[(1,)](a, b, output.reshape(m, n))
+        label = f"contraction-schedule-{m}-{n}-{k}-{reduction_last}-{mutate}"
+        save(root, label, actual=output.reshape(m, n), expected=expected)
+        np.testing.assert_allclose(output.reshape(m, n), expected, rtol=3e-5, atol=3e-6)
+        exact(storage[[0, 1, -2, -1]], np.full(4, -12345, np.float32))
+        if mutate:
+            exact(a, np.zeros_like(a))
+        evidence = native_evidence(compiled, root, label, ["contract"])
+        schedules = [s for s in evidence["physical_schedules"] if s.get("kind") == "contraction"]
+        assert schedules, "closed array contraction was not scheduled"
+        selected_axes.update(s["packet_axis"] for s in schedules if s["lanes"] > 1)
+        for s in schedules:
+            assert s["packet_candidates"], "bounded candidates were not recorded"
+            for candidate in s["packet_candidates"]:
+                assert "issue_units" in candidate["resources"] and "carried_path" in candidate["resources"]
+        records.append({"shape": [m, n, k], "reduction_last": reduction_last,
+                        "snapshot_after_source_write": mutate, "inputs_alias": mutate, "evidence": evidence})
+    assert selected_axes == {"output", "reduction"}, "both physical organizations must execute in this coverage set"
+    return {"cases": records, "selected_axes": sorted(selected_axes), "execution_mode": "aot"}
 
 
 def matrix_standard_pointer_contract(root, options, compile_target):
