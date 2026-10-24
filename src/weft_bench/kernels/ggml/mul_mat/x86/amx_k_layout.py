@@ -76,6 +76,32 @@ def q4_k_decode(W: tl.View[AMXQ4_KRows[16], (N, K)], Xq: tl.View[ggml.Q8_K, (K,)
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
+def q4_k_decode_group_scales(W: tl.View[AMXQ4_KRows[16], (N, K)], Xq: tl.View[ggml.Q8_K, (K,)],
+                             Y: tl.View[tl.f32, (N,)], BN: tl.constexpr = 32):
+    with tl.level.cols(N, group=BN) as columns:
+        result = tl.state(tl.f32, [BN], init=0)
+        with tl.level.blocks(K, extent=256) as block:
+            x = tl.load(Xq[block])
+            w = W[columns, block]
+            sums = tl.sum_pairs(x.bsum)
+            mins = tl.load(w.mins)
+            lane = tl.arange(0, 32, dtype=tl.u32, axis="K")
+            for group in tl.static_range(8):
+                weight = tl.load(tl.subview(w.q, offsets=(0, group * 32), extents=(BN, 32)))
+                activation = x.q[lane + tl.u32(group * 32)]
+                products = tl.reduce_dot(weight, activation, over="K", acc_dtype=tl.i32)
+                contribution = products * tl.i32(tl.load(w.scales[:, group]))
+                if group == 0:
+                    scaled = contribution
+                else:
+                    scaled += contribution
+            minimum = tl.reduce_dot(tl.i16(mins), tl.i16(sums), over="K", acc_dtype=tl.i32)
+            result += (tl.f32(tl.load(w.d)) * tl.f32(x.ds)) * tl.f32(scaled)
+            result += (tl.f32(tl.load(w.dmin)) * tl.f32(x.ds)) * -tl.f32(minimum)
+        tl.store(Y[columns], result)
+
+
+@triton.jit(model="weft", alias_groups={"Y": "output"})
 def q4_k_decode_tile(W: tl.View[AMXQ4_KRows[16], (N, K)], Xq: tl.View[ggml.Q8_K, (M, K)],
                      Y: tl.View[tl.f32, (M, N)], BN: tl.constexpr = 128):
     for row in range(M):

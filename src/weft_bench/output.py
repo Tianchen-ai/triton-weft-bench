@@ -60,7 +60,7 @@ class OutputRun:
                 for record in locations:
                     for key in ("artifact", "artifacts", "worker", "replay", "diagnostics", "paper_evidence",
                                 "paper_validation_recheck", "validation", "model_paths", "package",
-                                "source_package", "replacement_package", "candidate_package", "dot_inputs", "outputs"):
+                                "source_package", "replacement_package", "candidate_package", "profile_path", "dot_inputs", "outputs"):
                         if key in record:
                             record[key] = relocate(record[key])
             result.write_text(json.dumps(data, indent=2))

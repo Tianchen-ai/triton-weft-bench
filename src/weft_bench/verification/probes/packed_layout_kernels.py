@@ -29,6 +29,15 @@ def cohort_byte_write(X: tl.View[tl.u8, (M, K)], Y: tl.View[ByteRows[4], (M, K)]
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
+def cohort_byte_index_write(X: tl.View[tl.u8, (M, K)], Y: tl.View[ByteRows[4], (M, K)], ROWS: tl.constexpr = 8):
+    with tl.level.rows(M, group=ROWS) as rows:
+        with tl.level.blocks(K, extent=8) as block:
+            for index in tl.static_range(2, 7):
+                value = tl.load(X[rows, block][:, index])
+                tl.store(Y[rows, block].a[:, index], value)
+
+
+@triton.jit(model="weft", alias_groups={"Y": "output"})
 def cohort_byte_slice(X: tl.View[tl.u8, (M, K)], Y: tl.View[ByteRows[4], (M, K)], First: tl.i32, ROWS: tl.constexpr = 4):
     value = tl.load(tl.subview(X, offsets=(First, 2), extents=(ROWS, 5)))
     destination = tl.subview(Y, offsets=(First, 0), extents=(ROWS, 8))
@@ -118,6 +127,30 @@ def cohort_fields(X: tl.View[NaturalRows[4], (M, K)], Y: tl.View[tl.i32, (M, K)]
             second += tl.i32(tl.load(tl.subview(tile.s, offsets=(0, 3), extents=(ROWS, 5)))) * 16
             tl.store(tl.subview(Y[rows, block], offsets=(0, 0), extents=(ROWS, 3)), tag + first)
             tl.store(tl.subview(Y[rows, block], offsets=(0, 3), extents=(ROWS, 5)), tag + second)
+
+
+@triton.jit(model="weft")
+def cohort_indexed_fields(X: tl.View[NaturalRows[4], (M, K)], Y: tl.View[tl.i32, (M, K)], ROWS: tl.constexpr = 4):
+    with tl.level.rows(M, group=ROWS) as rows:
+        with tl.level.blocks(K, extent=8) as block:
+            tile = X[rows, block]
+            tag = tl.i32(tl.load(tile.tag))
+            for index in tl.static_range(8):
+                result = tag + tl.i32(tl.load(tile.q[:, index]))
+                result += tl.i32(tl.load(tile.s[:, index])) * 16
+                tl.store(Y[rows, block][:, index], result)
+
+
+@triton.jit(model="weft")
+def cohort_index_slice(X: tl.View[NaturalRows[4], (M, K)], Y: tl.View[tl.i32, (N, K)],
+                       First: tl.constexpr, ROWS: tl.constexpr):
+    tile = tl.subview(X, offsets=(First, 0), extents=(ROWS, 8))
+    destination = tl.subview(Y, offsets=(0, 0), extents=(ROWS, 8))
+    tag = tl.i32(tl.load(tile.tag))
+    for index in tl.static_range(8):
+        result = tag + tl.i32(tl.load(tile.q[:, index]))
+        result += tl.i32(tl.load(tile.s[:, index])) * 16
+        tl.store(destination[:, index], tl.reshape(result, (ROWS,), axes=("N",), order=("M",)))
 
 
 @triton.jit(model="weft")

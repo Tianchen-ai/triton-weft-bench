@@ -161,6 +161,14 @@ def cohort_byte_write_contract(root, options):
         np.testing.assert_array_equal(storage[:128], np.full(128,0xa5,np.uint8))
         np.testing.assert_array_equal(storage[-128:], np.full(128,0xa5,np.uint8))
         records.append({"M":m,"K":k,"first":first,"rows":width})
+        if first is None:
+            storage.fill(0xa5)
+            indexed = kernels.cohort_byte_index_write[(1,)](source, view, ROWS=width, **options)
+            np.testing.assert_array_equal(output, expected)
+            np.testing.assert_array_equal(storage[:128], np.full(128,0xa5,np.uint8))
+            np.testing.assert_array_equal(storage[-128:], np.full(128,0xa5,np.uint8))
+            capture(indexed, root, f"cohort-byte-index-{m}-{k}-{width}")
+            records.append({"M":m,"K":k,"first":first,"rows":width,"indexed":True})
     return {"cases":records,"partial_field_and_neighbor_bytes_exact":True,
             "cross_cohort_and_partial_rows":True,
             "evidence":[capture(compiled[8],root,"cohort-byte-write"),
@@ -193,6 +201,17 @@ def cohort_contract(root, options):
     half = kernels.cohort_fields[(1,)](view, output, ROWS=2, **options)
     np.testing.assert_array_equal(output, expected)
     capture(half, root, "packed-half-cohort")
+    indexed_evidence = []
+    for rows in (8,):
+        for width in (4, 2, 1):
+            indexed_storage = np.full(rows*16 + 8, -12345, np.int32)
+            indexed = indexed_storage[4:-4].reshape(rows, 16)
+            current = kernels.cohort_indexed_fields[(1,)](
+                tl.View(packed, encoding=kernels.NaturalRows[4], shape=(rows, 16)),
+                indexed, ROWS=width, **options)
+            np.testing.assert_array_equal(indexed, expected[:rows])
+            np.testing.assert_array_equal(indexed_storage[[0, 1, -2, -1]], np.full(4, -12345, np.int32))
+            indexed_evidence.append(capture(current, root, f"packed-indexed-{rows}-{width}"))
     artifact = root / "cohort-artifact"
     compiled.export(artifact)
     library = ctypes.CDLL(str(artifact / "kernel.so"))
@@ -209,6 +228,15 @@ def cohort_contract(root, options):
     raw_one, _, _, expected_one = fixture("natural", rows=8, records=1)
     packed_one = np.empty(raw_one.size, np.uint8)
     pack(raw_one.ctypes.data, packed_one.ctypes.data, 8, 8)
+    for first, width in ((0, 2), (1, 2), (3, 2), (6, 2), (7, 1)):
+        guard = np.full(width*8+8, -12345, np.int32)
+        result = guard[4:-4].reshape(width, 8)
+        current = kernels.cohort_index_slice[(1,)](
+            tl.View(packed_one, encoding=kernels.NaturalRows[4], shape=(8, 8)),
+            result, First=first, ROWS=width, **options)
+        np.testing.assert_array_equal(result, expected_one[first:first+width])
+        np.testing.assert_array_equal(guard[[0, 1, -2, -1]], np.full(4, -12345, np.int32))
+        indexed_evidence.append(capture(current, root, f"packed-index-slice-{first}-{width}"))
     for first in (0, 1, 4):
         result = np.full((4, 8), -12345, np.int32)
         kernels.cohort_slice[(1,)](tl.View(packed_one, encoding=kernels.NaturalRows[4], shape=(8, 8)), result, first, **options)
@@ -222,4 +250,5 @@ def cohort_contract(root, options):
     np.savez(root / "packed-cohort.npz", source=raw, expected_packed=packed, actual_packed=actual,
              expected=expected, actual=output)
     return {"independent_byte_layout": True, "exported_builder_exact": True,
-            "aligned_and_cross_cohort_slices": [0, 1, 4], "evidence": evidence}
+            "aligned_and_cross_cohort_slices": [0, 1, 4], "evidence": evidence,
+            "indexed_fields": indexed_evidence}
