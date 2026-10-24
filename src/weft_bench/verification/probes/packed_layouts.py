@@ -159,6 +159,8 @@ def nibble_contraction_contract(root, options, native_i4=False, narrow_handoff=F
 
 
 def run_scenario(name, root, options):
+    if name == "translated_windows":
+        return translated_windows_contract(root, options)
     if name == "pipeline_carriers":
         from numerical_primitives import pipeline_carrier_contract
         return pipeline_carrier_contract(root, options)
@@ -293,6 +295,68 @@ def cohort_byte_write_contract(root, options):
             "cross_cohort_and_partial_rows":True,
             "evidence":[capture(compiled[8],root,"cohort-byte-write"),
                         capture(compiled[2],root,"cohort-half-byte-write"),capture(current,root,"cohort-byte-slice")]}
+
+
+def translated_windows_contract(root, options):
+    import triton.language as tl
+    import packed_layout_kernels as kernels
+    from helper_native import capture
+
+    cases = []
+    for records in (1, 2):
+        rows, k = 8, records * 32
+        coordinates = np.arange(rows * k).reshape(rows, records, 32)
+        low, high = (coordinates * 7 + 3) % 16, (coordinates // 3 + 1) % 4
+        scales = (np.arange(rows * records * 8).reshape(rows, records, 8) * 13 % 255 - 127).astype(np.int8)
+        raw = np.zeros((rows, records, 32), np.uint8)
+        for row in range(rows):
+            for record in range(records):
+                for index in range(32):
+                    raw[row, record, index // 8 * 4 + index % 4] |= int(low[row, record, index]) << (index % 8 // 4 * 4)
+                    raw[row, record, 16 + index // 16 * 4 + index % 4] |= int(high[row, record, index]) << (index % 16 // 4 * 2)
+                raw[row, record, 24:] = scales[row, record].view(np.uint8)
+        storage = np.full(raw.size + 2, 0xa5, np.uint8)
+        packed = storage[1:-1].reshape(2, records, 128)
+        for cohort in range(2):
+            for record in range(records):
+                for row in range(4):
+                    for begin, size, chunk in ((0, 16, 4), (16, 8, 4), (24, 8, 1)):
+                        for byte in range(size):
+                            address = begin * 4 + byte // chunk * chunk * 4 + row * chunk + byte % chunk
+                            packed[cohort, record, address] = raw[cohort * 4 + row, record, begin + byte]
+        packed_bytes = packed.copy()
+        for interleaved in (False, True):
+            encoding = kernels.WindowRows[4] if interleaved else kernels.WindowFields
+            kernel = kernels.translated_field_windows if interleaved else kernels.translated_plain_windows
+            view = tl.View(storage[1:-1], encoding=encoding, shape=(rows, k))
+            for width, row_tile in ((16, 4), (16, 2), (16, 3), (8, 4)):
+                for update in (False, True):
+                    storage[1:-1] = (packed_bytes if interleaved else raw).reshape(-1)
+                    expected_storage = storage.copy()
+                    if update:
+                        for row in range(rows):
+                            for record in range(records):
+                                for index in range(0, 8, width // 4):
+                                    address = ((row // 4 * records + record) * 128 + 24 * 4 + index * 4 + row % 4
+                                               if interleaved else (row * records + record) * 32 + 24 + index)
+                                    expected_storage[1 + address] ^= 1
+                    guard = np.full(rows * k + 8, -12345, np.int32)
+                    output = guard[4:-4].reshape(rows, k)
+                    selected_scales = np.repeat(scales[:, :, np.arange(0, 32, width) // 4].astype(np.int32), width, axis=2)
+                    expected = (low + high * 16 + selected_scales * 64).reshape(rows, k).astype(np.int32)
+                    compiled = kernel[(1,)](view, output, ROWS=row_tile, WIDTH=width, UPDATE=update, **options)
+                    name = f"translated-{records}-{width}-{row_tile}-{int(interleaved)}-{int(update)}"
+                    np.savez(root / (name + ".npz"), input=raw, actual_storage=storage,
+                             expected_storage=expected_storage, actual=output, expected=expected)
+                    np.testing.assert_array_equal(output, expected)
+                    np.testing.assert_array_equal(storage, expected_storage)
+                    np.testing.assert_array_equal(guard[:4], np.full(4, -12345, np.int32))
+                    np.testing.assert_array_equal(guard[-4:], np.full(4, -12345, np.int32))
+                    cases.append({"records": records, "width": width, "row_tile": row_tile,
+                                  "interleaved": interleaved, "update": update,
+                                  "evidence": capture(compiled, root, name)})
+    return {"integer_exact": True, "input_and_output_guards_preserved": True,
+            "dynamic_windows_and_indices": True, "cross_cohort_and_tail_rows": True, "cases": cases}
 
 
 def cohort_float_scale_contract(root, options):

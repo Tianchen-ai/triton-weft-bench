@@ -141,6 +141,32 @@ def q6_k_decode(W: tl.View[AMXQ6_KRows[16], (N, K)], Xq: tl.View[ggml.Q8_K, (K,)
         tl.store(Y[columns], result)
 
 
+@triton.jit(model="weft", alias_groups={"Y": "output"})
+def q6_k_decode_streaming(W: tl.View[AMXQ6_KRows[16], (N, K)], Xq: tl.View[ggml.Q8_K, (K,)],
+                          Y: tl.View[tl.f32, (N,)], BN: tl.constexpr = 64,
+                          GROUPS: tl.constexpr = 1):
+    """Keep group traversal compact while consuming each contiguous scale row."""
+    tl.static_assert(BN > 0 and BN % 16 == 0)
+    tl.static_assert(GROUPS > 0 and 16 % GROUPS == 0)
+    with tl.level.cols(N, group=BN) as columns:
+        result = tl.state(tl.f32, [BN], init=0)
+        with tl.level.blocks(K, extent=256) as block:
+            w, x = W[columns, block], Xq[block]
+            scaled = tl.state(tl.i32, [BN], init=0)
+            for first in range(0, 16, GROUPS):
+                for part in tl.static_range(GROUPS):
+                    group = first + part
+                    low = tl.load(tl.subview(w.low, offsets=(0, group * 16), extents=(BN, 16)))
+                    high = tl.load(tl.subview(w.high, offsets=(0, group * 16), extents=(BN, 16)))
+                    weight = tl.u8(low) | (tl.u8(high) << tl.u8(4))
+                    activation = tl.load(tl.subview(x.q, offsets=(group * 16,), extents=(16,)))
+                    products = tl.reduce_dot(weight, activation, over="K", acc_dtype=tl.i32)
+                    centered = products - tl.i32(tl.load(x.bsum[group])) * tl.i32(32)
+                    scaled += centered * tl.i32(tl.load(w.scales[:, group]))
+            result += (tl.f32(tl.load(w.d)) * tl.f32(tl.load(x.ds))) * tl.f32(scaled)
+        tl.store(Y[columns], result)
+
+
 @triton.jit(model="weft", alias_groups={"Y": "output"}, strided=("Y",))
 def q4_k_prefill_tile(W: tl.View[AMXQ4_KRows[16], (N, K)], Xq: tl.View[ggml.Q8_K, (M, K)],
                       Y: tl.View[tl.f32, (M, N)], M: tl.constexpr = 32, N: tl.constexpr = 32,

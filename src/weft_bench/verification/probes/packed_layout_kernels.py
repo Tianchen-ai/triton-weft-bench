@@ -15,6 +15,51 @@ class NibblePair:
     bias: tl.i32
 
 
+@triton.encoding
+class WindowFields:
+    layout = (tl.bitorder.lsb_first, tl.byteorder.little)
+    alignment = 1
+    elements = 32
+    low: tl.u4[32] @ tl.grouped(elements=8) @ tl.bit_layers(elements=4, order=tl.lo_first)
+    high: tl.u2[32] @ tl.grouped(elements=16) @ tl.bit_layers(elements=4, order=tl.lo_first)
+    scales: tl.i8[8]
+
+
+@triton.derive
+def WindowRows(X: tl.View[WindowFields, (M, K)], *, rows: tl.static[int]) -> tl.View[WindowRows[rows], (M, K)]:
+    return tl.interleave(X, rows=rows, field_chunks={"low": 4, "high": 4, "scales": 1})
+
+
+@triton.jit
+def translated_windows(X, Y, M, K, ROWS: tl.constexpr, WIDTH: tl.constexpr, UPDATE: tl.constexpr):
+    with tl.level.rows(M, group=ROWS) as rows:
+        with tl.level.blocks(K, extent=32) as block:
+            source, destination = X[rows, block], Y[rows, block]
+            for part in range(32 // WIDTH):
+                offset = part * WIDTH
+                low = tl.load(tl.subview(source.low, offsets=(0, offset), extents=(ROWS, WIDTH)))
+                high = tl.load(tl.subview(source.high, offsets=(0, offset), extents=(ROWS, WIDTH)))
+                scale = tl.load(source.scales[:, offset // 4])
+                value = tl.i32(low) + tl.i32(high) * 16 + tl.i32(scale) * 64
+                tl.store(tl.subview(destination, offsets=(0, offset), extents=(ROWS, WIDTH)), value)
+                if UPDATE:
+                    tl.store(source.scales[:, offset // 4], scale ^ tl.i8(1))
+
+
+@triton.jit(model="weft", alias_groups={"Y": "output"})
+def translated_field_windows(X: tl.View[WindowRows[4], (M, K)],
+                             Y: tl.View[tl.i32, (M, K)], ROWS: tl.constexpr,
+                             WIDTH: tl.constexpr, UPDATE: tl.constexpr = False):
+    translated_windows(X, Y, M, K, ROWS, WIDTH, UPDATE)
+
+
+@triton.jit(model="weft", alias_groups={"Y": "output"})
+def translated_plain_windows(X: tl.View[WindowFields, (M, K)],
+                             Y: tl.View[tl.i32, (M, K)], ROWS: tl.constexpr,
+                             WIDTH: tl.constexpr, UPDATE: tl.constexpr = False):
+    translated_windows(X, Y, M, K, ROWS, WIDTH, UPDATE)
+
+
 @triton.derive
 def NibbleRows(X: tl.View[NibblePair, (M, K)], *, rows: tl.static[int]) -> tl.View[NibbleRows[rows], (M, K)]:
     return tl.interleave(X, rows=rows, field_chunks={"s": 16, "u": 16, "bias": 4})
