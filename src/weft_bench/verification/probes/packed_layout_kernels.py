@@ -24,17 +24,20 @@ def NibbleRows(X: tl.View[NibblePair, (M, K)], *, rows: tl.static[int]) -> tl.Vi
 def nibble_contraction(X: tl.View[NibbleRows[4], (M, K)],
                        W: tl.View[NibbleRows[32], (N, K)],
                        Y: tl.View[tl.i32, (M, N)], MR: tl.constexpr,
-                       UNSIGNED: tl.constexpr, BIAS: tl.constexpr = False):
+                       UNSIGNED: tl.constexpr, BIAS: tl.constexpr = False,
+                       NATIVE_I4: tl.constexpr = False, MIXED: tl.constexpr = False):
     with tl.level.rows(M, group=MR) as rows:
         with tl.level.cols(N, group=32) as columns:
             result = tl.state(tl.i32, [MR, 32], init=0)
             with tl.level.blocks(K, extent=32) as block:
                 x = tl.load(X[rows, block])
                 w = tl.load(W[columns, block])
-                if UNSIGNED:
-                    product = tl.dot(tl.i8(x.u), tl.i8(w.u), over="k", acc_dtype=tl.i32)
+                left = x.u if UNSIGNED else x.s
+                right = w.s if UNSIGNED and MIXED else w.u if UNSIGNED or MIXED else w.s
+                if NATIVE_I4:
+                    product = tl.dot(left, right, over="k", acc_dtype=tl.i32)
                 else:
-                    product = tl.dot(tl.i8(x.s), tl.i8(w.s), over="k", acc_dtype=tl.i32)
+                    product = tl.dot(tl.i8(left), tl.i8(right), over="k", acc_dtype=tl.i32)
                 if BIAS:
                     product += x.bias * w.bias
                 result += product
@@ -53,6 +56,28 @@ class FloatScale:
 @triton.derive
 def FloatScaleRows(X: tl.View[FloatScale, (M, K)], *, rows: tl.static[int]) -> tl.View[FloatScaleRows[rows], (M, K)]:
     return tl.interleave(X, rows=rows, field_chunks={"d": 4, "q": 32})
+
+
+@triton.jit(model="weft", alias_groups={"Y": "output"})
+def byte_nibble_contraction(X: tl.View[FloatScaleRows[4], (M, K)],
+                            W: tl.View[NibbleRows[32], (N, K)],
+                            Y: tl.View[tl.i32, (M, N)], MR: tl.constexpr,
+                            SHIFT: tl.constexpr, UNSIGNED: tl.constexpr,
+                            COEFFICIENT: tl.constexpr = 0):
+    with tl.level.rows(M, group=MR) as rows:
+        with tl.level.cols(N, group=32) as columns:
+            result = tl.state(tl.i32, [MR, 32], init=0)
+            with tl.level.blocks(K, extent=32) as block:
+                x = tl.load(X[rows, block])
+                w = tl.load(W[columns, block])
+                values = x.q >> 4 if SHIFT else x.q
+                left = tl.u4(values) if UNSIGNED else tl.i4(values)
+                product = tl.dot(left, w.u, over="k", acc_dtype=tl.i32)
+                if COEFFICIENT:
+                    low = tl.dot(tl.u4(x.q), w.u, over="k", acc_dtype=tl.i32)
+                    product = product * COEFFICIENT + low
+                result += product
+            tl.store(Y[rows, columns], result)
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})

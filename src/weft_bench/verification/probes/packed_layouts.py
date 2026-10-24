@@ -52,7 +52,7 @@ def fixture(name, rows=3, records=2):
     return raw, changed, output, observed.reshape(rows, records*elements)
 
 
-def nibble_contraction_contract(root, options):
+def nibble_contraction_contract(root, options, native_i4=False):
     import triton.language as tl
     import packed_layout_kernels as kernels
     from helper_native import capture
@@ -82,30 +82,75 @@ def nibble_contraction_contract(root, options):
         xb, x, xs, xu, bias_x = storage(m, k, 4, 7)
         wb, w, ws, wu, bias_w = storage(n, k, 32, 11)
         original_x, original_w = xb.copy(), wb.copy()
-        for unsigned, biased in ((False, False), (True, False), (True, True)):
+        choices = ((False, False, False), (True, False, False), (True, True, False))
+        if native_i4:
+            choices += ((False, False, True), (True, False, True))
+        for unsigned, biased, mixed in choices:
             output = np.full(m*n+64, -12345, np.int32)
             y = output[32:-32].reshape(m, n)
-            left, right = (xu, wu) if unsigned else (xs, ws)
+            left = xu if unsigned else xs
+            right = ws if unsigned and mixed else wu if unsigned or mixed else ws
             expected = left.astype(np.int64) @ right.astype(np.int64).T
             if biased:
                 expected = (expected + bias_x.astype(np.int64) @ bias_w.astype(np.int64).T).astype(np.int32)
-            name = f"nibble-{mr}-{m}-{n}-{k}-{'unsigned' if unsigned else 'signed'}" + ('-mac' if biased else '')
+            name = f"nibble-{mr}-{m}-{n}-{k}-{'unsigned' if unsigned else 'signed'}" + ('-mixed' if mixed else '') + ('-mac' if biased else '')
             compiled = kernels.nibble_contraction[(1,)](
                 tl.View(x, encoding=kernels.NibbleRows[4], shape=(m, k)),
                 tl.View(w, encoding=kernels.NibbleRows[32], shape=(n, k)),
-                y, MR=mr, UNSIGNED=unsigned, BIAS=biased, **options)
+                y, MR=mr, UNSIGNED=unsigned, BIAS=biased, NATIVE_I4=native_i4, MIXED=mixed, **options)
             np.savez(root/(name+'.npz'), left=left, right=right, actual=y, expected=expected)
             np.testing.assert_array_equal(y, expected)
             np.testing.assert_array_equal(xb, original_x)
             np.testing.assert_array_equal(wb, original_w)
             np.testing.assert_array_equal(output[:32], np.full(32, -12345, np.int32))
             np.testing.assert_array_equal(output[-32:], np.full(32, -12345, np.int32))
-            leaf = "ime.fragment-nibbles-unsigned" if unsigned else "ime.fragment-nibbles-signed"
+            leaf = "spacemit-ime2-i4-" if native_i4 else "ime.fragment-nibbles-unsigned" if unsigned else "ime.fragment-nibbles-signed"
             assert leaf in compiled.asm["riscvir"]
             if biased:
                 assert "rvv.vmacc.row.vx" in compiled.asm["riscvir"]
-            records.append({"MR": mr, "M": m, "N": n, "K": k, "unsigned": unsigned, "modular_mac": biased,
+            records.append({"MR": mr, "M": m, "N": n, "K": k, "unsigned": unsigned, "modular_mac": biased, "native_i4": native_i4, "mixed": mixed,
                             "evidence": capture(compiled, root, name)})
+        if native_i4:
+            positions = np.arange(m*k).reshape(m, k)
+            byte_values = ((positions*47 + positions//11 + 19) % 256 - 128).astype(np.int8)
+            raw = bytearray()
+            for first in range(0, m, 4):
+                for block in range(0, k, 32):
+                    raw.extend(np.ones(4, np.float32).tobytes())
+                    raw.extend(byte_values[first:first+4, block:block+32].tobytes())
+            xb = np.full(len(raw)+260, 0xa5, np.uint8)
+            x = xb[130:-130]
+            x[:] = np.frombuffer(raw, np.uint8)
+            original_x = xb.copy()
+            for shift, unsigned, coefficient in ((0, True, 0), (4, False, 0), (0, False, 0), (4, True, 0),
+                                                 (4, False, 16), (4, False, -2147483648)):
+                output = np.full(m*n+64, -12345, np.int32)
+                y = output[32:-32].reshape(m, n)
+                left = (byte_values.astype(np.int32) >> shift) & 15
+                if not unsigned:
+                    left = (left ^ 8) - 8
+                expected = left @ wu.astype(np.int32).T
+                if coefficient:
+                    low = (byte_values.astype(np.int32) & 15) @ wu.astype(np.int32).T
+                    expected = (expected.astype(np.int64) * coefficient + low).astype(np.int32)
+                name = f"byte-nibble-{mr}-{m}-{n}-{k}-{shift}-{unsigned}-{coefficient}"
+                compiled = kernels.byte_nibble_contraction[(1,)](
+                    tl.View(x, encoding=kernels.FloatScaleRows[4], shape=(m, k)),
+                    tl.View(w, encoding=kernels.NibbleRows[32], shape=(n, k)),
+                    y, MR=mr, SHIFT=shift, UNSIGNED=unsigned, COEFFICIENT=coefficient, **options)
+                np.savez(root/(name+'.npz'), left=left, right=wu, actual=y, expected=expected)
+                np.testing.assert_array_equal(y, expected)
+                np.testing.assert_array_equal(xb, original_x)
+                np.testing.assert_array_equal(wb, original_w)
+                np.testing.assert_array_equal(output[:32], np.full(32, -12345, np.int32))
+                np.testing.assert_array_equal(output[-32:], np.full(32, -12345, np.int32))
+                assert "ime.field-nibble-pack" in compiled.asm["riscvir"]
+                if coefficient:
+                    assert 'kind = "shl"' in compiled.asm["riscvir"]
+                records.append({"MR": mr, "M": m, "N": n, "K": k,
+                                "unsigned": unsigned, "shift": shift, "coefficient": coefficient,
+                                "byte_to_nibble": True,
+                                "evidence": capture(compiled, root, name)})
     return {"integer_exact": True, "guards_and_inputs_preserved": True, "cases": records}
 
 
@@ -122,6 +167,8 @@ def run_scenario(name, root, options):
         return cohort_float_scale_contract(root, options)
     if name == "nibble_contraction":
         return nibble_contraction_contract(root, options)
+    if name == "native_nibble_contraction":
+        return nibble_contraction_contract(root, options, native_i4=True)
 
     choices = {"natural": (kernels.NaturalLE, kernels.natural_fields),
                "layered_joined": (kernels.LayeredJoined, kernels.layered_joined_fields),

@@ -106,7 +106,7 @@ class ReleaseStructureTests(unittest.TestCase):
         self.assertEqual(configured["python"], base["python"])
 
     def test_catalog_sources_and_explicit_suite_membership(self):
-        expected = {"sg2044": 133, "k1": 137, "k3-a100": 135, "x86-1t": 147}
+        expected = {"sg2044": 133, "k1": 137, "k3-a100": 136, "x86-1t": 147}
         self.assertEqual(set(target_names()), set(expected))
         for target, count in expected.items():
             catalog = target_catalog(target)

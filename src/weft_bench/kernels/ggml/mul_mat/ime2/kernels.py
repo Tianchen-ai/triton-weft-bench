@@ -108,14 +108,20 @@ def i8_decode_closed(W: tl.View[IME2Weight8Rows[32], (N, K)],
 
 
 @triton.jit
-def packed_i4_affine(W, Xq, Y, MR: tl.constexpr, NR: tl.constexpr = 32):
+def packed_i4_affine(W, Xq, Y, M, MR: tl.constexpr, NR: tl.constexpr = 32,
+                     NATIVE_I4: tl.constexpr = False):
     with tl.level.rows(M, group=MR) as rows:
         with tl.level.cols(N, group=NR) as columns:
             result = tl.state(tl.f32, [MR, NR], init=0)
             with tl.level.blocks(K, extent=32) as block:
                 w = tl.load(W[columns, block])
                 x = tl.load(Xq[rows, block])
-                integer = tl.dot(x.q, tl.i8(w.q), over="k", acc_dtype=tl.i32)
+                if NATIVE_I4:
+                    high = tl.dot(tl.i4(x.q >> 4), w.q, over="k", acc_dtype=tl.i32)
+                    low = tl.dot(tl.u4(x.q), w.q, over="k", acc_dtype=tl.i32)
+                    integer = high * 16 + low
+                else:
+                    integer = tl.dot(x.q, tl.i8(w.q), over="k", acc_dtype=tl.i32)
                 integer += tl.i32(x.neg_sum) * tl.i32(w.zp)
                 if MR == 1:
                     scale = tl.reshape(tl.f32(w.d) * x.d, (MR, NR),
@@ -131,11 +137,27 @@ def i4_affine_prefill(W: tl.View[IME2Weight4AffineRows[32], (N, K)],
                      Xq: tl.View[IME2Activation8Rows[4], (M, K)],
                      Y: tl.View[tl.f32, (M, N)], *, MR: tl.constexpr = 8,
                      NR: tl.constexpr = 32):
-    packed_i4_affine(W, Xq, Y, MR, NR)
+    packed_i4_affine(W, Xq, Y, M, MR, NR)
 
 
 @triton.jit(model="weft", strided=("Y",), alias_groups={"Y": "output"})
 def i4_affine_decode(W: tl.View[IME2Weight4AffineRows[32], (N, K)],
                     Xq: tl.View[IME2Activation8Rows[1], (M, K)],
                     Y: tl.View[tl.f32, (M, N)]):
-    packed_i4_affine(W, Xq, Y, 1)
+    packed_i4_affine(W, Xq, Y, M, 1)
+
+
+@triton.jit(model="weft", strided=("Y",), alias_groups={"Y": "output"})
+def i4_affine_native_prefill(W: tl.View[IME2Weight4AffineRows[32], (N, K)],
+                            Xq: tl.View[IME2Activation8Rows[4], (M, K)],
+                            Y: tl.View[tl.f32, (M, N)], *, MR: tl.constexpr = 8,
+                            NR: tl.constexpr = 32):
+    packed_i4_affine(W, Xq, Y, M, MR, NR, True)
+
+
+@triton.jit(model="weft", strided=("Y",), alias_groups={"Y": "output"})
+def i4_affine_native_tile(W: tl.View[IME2Weight4AffineRows[32], (N, K)],
+                         Xq: tl.View[IME2Activation8Rows[4], (M, K)],
+                         Y: tl.View[tl.f32, (M, N)], *, M: tl.constexpr = 8,
+                         MR: tl.constexpr = 8, NR: tl.constexpr = 32):
+    packed_i4_affine(W, Xq, Y, M, MR, NR, True)
