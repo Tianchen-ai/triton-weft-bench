@@ -2814,7 +2814,7 @@
       "dtype": "f16*f32",
       "candidate": {
         "source": "package:kernels/ggml/blocks/mul_mat/f16.py",
-        "symbol": "production_mul_mat_f16",
+        "symbol": "production_mul_mat_f16_disjoint",
         "signature": {},
         "constexprs": {
           "NC": 32,
@@ -2858,7 +2858,7 @@
       "dtype": "f16*f32",
       "candidate": {
         "source": "package:kernels/ggml/blocks/mul_mat/f16.py",
-        "symbol": "production_mul_mat_f16",
+        "symbol": "production_mul_mat_f16_disjoint",
         "signature": {},
         "constexprs": {
           "NC": 32,

@@ -32,3 +32,17 @@ def production_mul_mat_f16(
                             activations = xp[mb, kb]
                             acc += wl.dot(activations, weights, over="k", acc_dtype=wl.f32)
                         wl.store(Y[mb, nb], acc)
+
+
+@triton.jit(model="weft", alias_groups={"Xh": "workspace", "Y": "output"})
+def production_mul_mat_f16_disjoint(
+    W: wl.View[wl.f16, (N, K)],
+    X: wl.View[wl.f32, (M, K)],
+    Xh: wl.View[wl.f16, (M, K)],
+    Y: wl.View[wl.f32, (M, N)],
+    *, KB: wl.constexpr, KC: wl.constexpr, MC: wl.constexpr, MR: wl.constexpr,
+    NC: wl.constexpr, NR: wl.constexpr, CONVERT_BLOCK: wl.constexpr = 128):
+    # GGML's prepared activation workspace and output own distinct storage.
+    # Keep this deployment contract explicit; the general helper permits aliasing.
+    production_mul_mat_f16(W, X, Xh, Y, KB=KB, KC=KC, MC=MC, MR=MR,
+                          NC=NC, NR=NR, CONVERT_BLOCK=CONVERT_BLOCK)
