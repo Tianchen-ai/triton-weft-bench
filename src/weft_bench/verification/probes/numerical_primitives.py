@@ -50,6 +50,8 @@ def native_evidence(compiled, root, name, operations):
         evidence["packing_schedules"] = compiled.metadata.compilation.get("packing_schedules", [])
         if "uniform_validity_arrays" in compiled.metadata.compilation:
             evidence["uniform_validity_arrays"] = compiled.metadata.compilation["uniform_validity_arrays"]
+    else:
+        evidence["supply_choices"] = compiled.metadata.compilation.get("supply_choices", [])
     return evidence
 
 
@@ -1575,7 +1577,7 @@ def amx_snapshot_contract(root, options, compile_target):
 
 
 def shared_supply_contract(root, options):
-    from numerical_primitive_kernels import shared_read_choice
+    from numerical_primitive_kernels import shared_read_choice, shared_read_pair
     records = []
     dynamic_kernels = {}
     variants = [(reuse, mutate, False, 1) for reuse in (0, 1, 32) for mutate in (False, True)]
@@ -1605,15 +1607,70 @@ def shared_supply_contract(root, options):
         if compiled.metadata.target.arch == "riscv64":
             physical = compiled.asm['riscvir']
             if not mutate and not observe:
-                chosen = 'register' if reuse == 32 or reuse < 0 else 'reload'
-                assert f'selected = "{chosen}"' in physical, "shared supply did not compare actual reuse"
-                assert 'physical-program-work-with-symbolic-frequency-and-opaque-terms' in physical
-                assert 'register_program_work' in physical and 'reload_program_work' in physical
+                choices = compiled.metadata.compilation['supply_choices']
+                assert len(choices) == 1
+                choice = choices[0]
+                assert choice['materialization'] == 'production-through-final-verification'
+                assert choice['register_legal'] and choice['reload_legal']
+                assert choice['register_cost_complete'] and choice['reload_cost_complete']
+                # Dynamic row projection of the saved full value currently
+                # requires local copies in the real lowering. Price that work,
+                # rather than assuming the early RVV type stays in registers.
+                assert choice['selected'] == 'reload'
+                assert choice['reload_local_bytes'] == 0 < choice['register_local_bytes']
+                assert choice['reload_peak'] <= choice['register_peak']
+                assert choice['materialized_candidates'] == 2
+                def transfer_work(name):
+                    return {tuple(term['dynamic_loops']) + (term['memory_form'],): term
+                            for term in choice[name + '_memory_work']}
+                before, after = transfer_work('register'), transfer_work('reload')
+                for key, term in after.items():
+                    for field in ('read_bytes', 'write_bytes', 'transfers'):
+                        assert term[field] <= before.get(key, {}).get(field, 0)
+                assert sum(x['write_bytes'] for x in before.values()) > sum(
+                    x['write_bytes'] for x in after.values()), 'packing writes disappeared from cost'
                 if reuse < 0:
                     assert 'signed(' in physical or 'unsigned(' in physical, "unknown iteration counts lost their bound identity"
             else:
                 assert 'selected = "reload"' not in physical, "stage snapshot crossed a write or lost a whole-value consumer"
         records.append({"reuse":reuse,"runtime_count":count,"other_consumer":observe,"mutation":mutate,"evidence":evidence})
+    for condition in (0, 1):
+        source = (np.arange(8*16, dtype=np.int32).reshape(8,16) * 13 - 300)
+        other = source * 3 + 7
+        backing, output = guarded(16, np.int32)
+        compiled = shared_read_pair[(1,)](source, other, output, condition, **options)
+        expected = (source[0]+source[2]+other[1]+other[3] if condition else
+                    source[1]+source[3]+other[0]+other[2])
+        exact(output, expected)
+        exact(backing[[0,1,-2,-1]], np.full(4,-12345,np.int32))
+        evidence = native_evidence(compiled, root, f"shared-supply-pair-{condition}", ["materialize", "extract"])
+        if compiled.metadata.target.arch == "riscv64":
+            choices = compiled.metadata.compilation['supply_choices']
+            assert len(choices) == 2
+            assert [x['materialized_candidates'] for x in choices] == [2,1]
+            assert choices[1]['incumbent_reused']
+            assert all(x['register_legal'] and x['reload_legal'] for x in choices)
+            assert all(x['register_cost_complete'] and x['reload_cost_complete'] for x in choices)
+            assert all(x['selected'] == 'reload' for x in choices)
+            domains = [term['dynamic_loops'] for choice in choices for name in ('register', 'reload')
+                       for term in choice[name + '_memory_work']]
+            assert any(any(x.startswith('then(') for x in domain) for domain in domains)
+            assert any(any(x.startswith('else(') for x in domain) for domain in domains)
+        records.append({'paired_stages':True, 'condition':condition, 'evidence':evidence})
+    if compiled.metadata.target.arch == 'riscv64':
+        settings = {**options, 'backend_options': {**options.get('backend_options', {}),
+                                                   'private_stack_bytes':64}}
+        backing, output = guarded(16, np.int32)
+        compiled = shared_read_choice[(1,)](source, output, REUSE=0, MUTATE=False,
+                                           OBSERVE=False, runtime_count=1, **settings)
+        exact(output, source[0]+source[2])
+        exact(backing[[0,1,-2,-1]], np.full(4,-12345,np.int32))
+        choice, = compiled.metadata.compilation['supply_choices']
+        assert not choice['register_legal'] and choice['reload_legal']
+        assert choice['decision'] == 'only-legal-candidate' and choice['selected'] == 'reload'
+        assert 'exceeding target budget' in choice['register_unavailable']
+        evidence = native_evidence(compiled, root, 'shared-supply-resource-retry', ['materialize', 'extract'])
+        records.append({'private_stack_budget':64,'resource_retry':True,'evidence':evidence})
     return {"execution_mode":"jit","integer_exact":True,"guards_unchanged":True,"cases":records}
 
 

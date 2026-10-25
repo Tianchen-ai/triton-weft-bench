@@ -696,6 +696,20 @@ def shared_read_choice(X: tl.View[tl.i32, (M, N)], Out: tl.View[tl.i32, (N,)],
 
 
 @triton.jit(model="weft")
+def shared_read_pair(X: tl.View[tl.i32, (M, N)], Y: tl.View[tl.i32, (M, N)],
+                     Out: tl.View[tl.i32, (N,)], choose: tl.i32,
+                     M: tl.constexpr = 8, N: tl.constexpr = 16):
+    with tl.level.rows(M, group=8) as rows:
+        left = tl.stage(tl.load(X[rows]))
+        right = tl.stage(tl.load(Y[rows]))
+        if choose > 0:
+            result = left[0, :] + left[2, :] + right[1, :] + right[3, :]
+        else:
+            result = left[1, :] + left[3, :] + right[0, :] + right[2, :]
+        tl.store(Out, result)
+
+
+@triton.jit(model="weft")
 def dense_stage_residency(X: tl.View[tl.i32, (M, N)], Y: tl.View[tl.i32, (M, N)],
                           Z: tl.View[tl.i32, (M, N)], MUTATE: tl.constexpr,
                           BLOCK: tl.constexpr, REDUCE: tl.constexpr = False):
