@@ -80,6 +80,24 @@ def pipelined_private_arrays(A: tl.View[tl.i8, (B, K)],
     tl.store(Y[1], weighted)
 
 
+@triton.jit(model="weft", alias_groups={"Y": "output"})
+def pipelined_buffer_versions(A: tl.View[tl.i8, (B, K)],
+                             S: tl.View[tl.i32, (B,)],
+                             Y: tl.View[tl.i32, (2,)], K: tl.constexpr, LOOKUPS: tl.constexpr = 16):
+    total = tl.i32(1)
+    weighted = tl.i32(7)
+    with tl.level.rows(B, group=1) as row:
+        scale = tl.sum(tl.load(S[row]), 0)
+        prepared = tl.reshape(tl.i32(tl.load(A[row])) + scale, (K,), axes=("K",), order=("B", "K"))
+        indices = (tl.arange(0, LOOKUPS, dtype=tl.u32) + tl.u32(total)) % tl.u32(K)
+        selected = tl.lookup(prepared, indices, bounds="in_bounds")
+        contribution = tl.sum(selected, 0)
+        total += contribution
+        weighted = weighted * tl.i32(3) + contribution
+    tl.store(Y[0], total)
+    tl.store(Y[1], weighted)
+
+
 @triton.jit(model="weft", alias_groups={"A": "input", "B": "input"})
 def ime_closed_reduction(A: tl.View[tl.i8, (M, K)], B: tl.View[tl.i8, (N, K)],
                          C: tl.View[tl.i32, (M, N)],

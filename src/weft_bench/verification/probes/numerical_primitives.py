@@ -195,6 +195,63 @@ def pipeline_storage_contract(root, options):
     return {"cases": records, "integer_exact": True, "guards_unchanged": True, "execution_mode": "jit"}
 
 
+def pipeline_buffer_contract(root, options):
+    import re
+    from triton.compiler.errors import BackendCompilationError
+    from numerical_primitive_kernels import pipelined_buffer_versions
+    records = []
+    for depth in (1, 2, 3, 4):
+        first = None
+        for blocks in (0, 1, 2, 3, 7):
+            width = 65
+            left = np.resize([-128, 127, -1, 3], blocks * width).astype(np.int8).reshape(blocks, width)
+            scales = np.resize([2, -3, 1, -1], blocks).astype(np.int32)
+            expected = [1, 7]
+            for row in range(blocks):
+                indices = ((np.arange(16, dtype=np.uint64) + (expected[0] & 0xffffffff)) & 0xffffffff) % width
+                contribution = wrap_integer(int((left[row].astype(np.int64) + int(scales[row]))[indices].sum()), 32)
+                expected = [wrap_integer(expected[0] + contribution, 32),
+                            wrap_integer(expected[1] * 3 + contribution, 32)]
+            storage, output = guarded(2, np.int32)
+            settings = {**options, "backend_options": {**options.get("backend_options", {}), "pipeline_depth": depth}}
+            current = pipelined_buffer_versions[(1,)](left, scales, output, K=width, **settings)
+            if first is None:
+                first = current
+            else:
+                assert current is first, "buffer pipeline recompiled dynamic iteration counts"
+            exact(output, np.array(expected, np.int32))
+            exact(storage[[0, 1, -2, -1]], np.full(4, -12345, np.int32))
+            name = f"pipeline-buffers-{depth}-{blocks}"
+            save(root, name, left=left, scales=scales, actual=output, expected=np.array(expected, np.int32))
+            records.append({"depth": depth, "iterations": blocks, "width": width, "carries": 2})
+        records[-1]["evidence"] = native_evidence(first, root, f"pipeline-buffers-{depth}", [])
+        physical = first.asm.get("riscvir", first.asm.get("x86ir", ""))
+        if depth > 1:
+            assert f'weft.pipeline.expanded_depth = {depth}' in physical
+            intervals = re.findall(r'buffer_versions = array<i64: ([^>]+)>', physical)
+            assert intervals and any(int(n) > 1 for interval in intervals for n in interval.split(',')), \
+                "private snapshot never received a real cross-stage version interval"
+    rejection = None
+    if "x86ir" in first.asm:
+        # Explicit depth does not license excessive simultaneously-live vectors.
+        # Retain the over-budget case discovered while closing this transform.
+        output = np.full(2, -12345, np.int32)
+        settings = {**options, "backend_options": {**options.get("backend_options", {}), "pipeline_depth": 2}}
+        try:
+            pipelined_buffer_versions[(1,)](np.ones((2, 1025), np.int8), np.ones(2, np.int32),
+                                           output, K=1025, LOOKUPS=256, **settings)
+        except BackendCompilationError as error:
+            if "exceeds vector/predicate residency" not in str(error):
+                raise
+            rejection = str(error)
+        else:
+            raise AssertionError("over-budget explicit pipeline was not rejected")
+        exact(output, np.full(2, -12345, np.int32))
+    return {"cases": records, "integer_exact": True, "guards_unchanged": True,
+            "execution_mode": "jit", "cross_stage_storage": True,
+            "resource_rejection": rejection}
+
+
 def multi_axis_mac(root, options, close):
     from numerical_primitive_kernels import grouped_mac, grouped_mac_float, aligned_integer_pairs, byte_dot_narrow, equal_extent_axes
 
@@ -1010,6 +1067,8 @@ def run_scenario(name, root, options, close, compile_target=None):
         return pipeline_version_contract(root, options)
     if name == "pipeline_storage":
         return pipeline_storage_contract(root, options)
+    if name == "pipeline_buffers":
+        return pipeline_buffer_contract(root, options)
     if name == "mixed_integer_mac":
         return mixed_integer_mac_contract(root, options)
     if name == "grouped_mac":

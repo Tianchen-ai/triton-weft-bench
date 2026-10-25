@@ -177,11 +177,13 @@ and addresses change without recompiling the kernel. It also includes a disjoint
 logical stage larger than the private stack budget: the compiled range proof
 must allow the original storage to supply the immutable value without copying
 the whole stage. Integer fields, untouched bytes and guards are checked exactly.
-The `pipeline_versions` and `pipeline_storage` numerical scenarios cover CPU
+The `pipeline_versions`, `pipeline_storage` and `pipeline_buffers` numerical scenarios cover CPU
 depths 1/2/3/4, empty/short loops, multiple ordered carries and private arrays;
 `pipeline_versions` includes dependent widening arithmetic that occupies actual
-intermediate stages. These are correctness and compilation checks, not timing
-results.
+intermediate stages. `pipeline_buffers` prepares a numerical lookup table before
+consuming it with recurrence-dependent indices, checks the actual buffer versions,
+and retains an explicit x86 resource-limit rejection. These are correctness and
+compilation checks, not timing results.
 
 Framework and runtime probes are the migrated integration probes, not a separate
 compiler. The target must provide NumPy and the selected Torch/Triton installation.
