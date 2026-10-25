@@ -18,13 +18,19 @@ or compiler. Use `.venv/bin/weft-bench` directly, or activate that environment.
 | GGML only | Bench, external configuration | C/C++ toolchain, GGML source/headers and built libraries |
 | Triton–Weft source | Compatible installed Triton–Weft Python and configured native/cross toolchain | Exported library, native Weft SDK and worker toolchain |
 | Triton–Weft AOT | Exported `manifest.json`, `triton.json`, `kernel.so` and accompanying files | Matching native SDK and worker toolchain |
-| Python JIT / `verify` runtime | Bench and selected case definitions | Installed Triton–Weft, NumPy and Torch for the configured probes |
+| Python JIT operators | Bench and selected case definitions | Installed Bench and Triton–Weft, native workload toolchain |
+| `verify` numerical runtime | Bench and selected probe definitions | Installed Triton–Weft and the Bench `verification` extra (NumPy) |
+| PyTorch probes | Bench and selected framework cases | Compatible Torch and Triton–Weft in the configured target Python |
 | llama.cpp | Selected package provider and replacement bindings | Normal/integrated llama.cpp builds, model and native SDK |
 
 Install compiler wheels that match each machine's architecture and Python ABI.
 An x86 host compiler and a RISC-V runtime may use different Python versions and
 need separate wheels. Torch wheels must also match the target's libc requirement.
 Keep development/compiler environments separate from shared system packages.
+Install the `verification` extra in the Python that executes the probe, including
+on SSH targets: `python -m pip install './triton_weft_bench-0.4.1-py3-none-any.whl[verification]'`.
+NumPy's extension modules must match that interpreter's Python ABI and architecture;
+an installation in another venv does not supply them.
 Use the compiler's supported PyTorch integration installer in the selected private
 Torch environment; Bench does not patch framework or compiler implementations.
 

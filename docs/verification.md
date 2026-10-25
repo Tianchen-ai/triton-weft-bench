@@ -4,6 +4,11 @@
 operator workloads, input contracts, numerical oracles and native adapters as `op`.
 It does not time GGML references, rewrite fixed baselines or select model replacements.
 
+Numerical runtime probes use the `verification` installation extra. Install it in
+the configured target Python, including remote interpreters; ordinary native and
+JIT operator workloads do not require NumPy or Torch. Framework probes additionally
+require the compatible Torch environment described in [installation](install.md).
+
 ```sh
 weft-bench verify --config /work/bench.local.json --target cpu --list
 weft-bench verify --config /work/bench.local.json --target cpu \
