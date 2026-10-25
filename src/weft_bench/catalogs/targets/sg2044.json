@@ -1712,7 +1712,8 @@
           "lmul_eighths": 16,
           "unroll": 1,
           "pipeline_depth": 1,
-          "scalar_load_prime": 0
+          "scalar_load_prime": 0,
+          "native_loop_alignment": 16
         },
         "compile_target": {
           "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
