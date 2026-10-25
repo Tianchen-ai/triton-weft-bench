@@ -174,6 +174,7 @@ def native_workload(case):
             "amx_tile_inputs.h", "AMXTileInputs data(inputs);",
             {"W": "data.weights.data()", "Xq": "data.quantized.data()", "Y": "data.output(output)"},
             output_size="data.output_size + (data.ldc != data.N ? 16 : 0)",
+            initialize_output="data.initialize_output(output);",
             defines=tuple(f"-DWB_{k}={v}" for k, v in case.shape.items()) + (
                 f"-DWB_ROWS={case.shape['N']}", "-DWB_QUANT_KIND=0", f"-DWB_WEIGHT_TYPE=GGML_TYPE_{weight.upper()}",
                 f"-DWB_ACTIVATION_TYPE=GGML_TYPE_{activation.upper()}", "-DWB_GGML_MODEL_WEIGHTS=1",

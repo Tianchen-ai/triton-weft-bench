@@ -26,6 +26,7 @@ class NativeWorkload:
     data_type: str = ""
     reset: str = ""
     collect: str = ""
+    initialize_output: str = "wb::poison_output(output);"
     snapshots: dict[str, str] = field(default_factory=dict)
     batch_buffers: dict[str, str] = field(default_factory=dict)
     strides: dict[str, tuple[int, ...]] = field(default_factory=dict)
@@ -97,9 +98,10 @@ def worker_source(
             + ("" if call.whole_workload else workload.after_call)
             + " };",
             "auto collect = [&] { " + call.collect + workload.collect + export + " };",
+            "auto initialize_output = [&] { " + workload.initialize_output + " };",
             "auto reset = [&] { " + workload.reset + call.reset + " };",
             "auto check = [&] { " + workload.check + "; };",
-            f"{'measurements.add' if alternating else 'wb::execute'}({label}, invoke, collect, reset, check, output, "
+            f"{'measurements.add' if alternating else 'wb::execute'}({label}, invoke, collect, reset, check, initialize_output, output, "
             + ("true" if call.reset or workload.reset else "false")
             + ", "
             + ("true" if save_outputs else "false")
@@ -173,6 +175,7 @@ extern "C" int wb_fixture_session(Session session,char *error,size_t capacity) {
     {input_source}
     {workload.setup}
     std::vector<{workload.output_type}> output({workload.output_size});
+    {workload.initialize_output}
     {call.prepare}
     Fixture fixture;
     std::vector<std::uint8_t> eviction({eviction_bytes}, 1);

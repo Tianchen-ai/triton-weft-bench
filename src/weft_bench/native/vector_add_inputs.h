@@ -15,6 +15,11 @@ struct VectorAddInputs {
     inputs.finish();
   }
 
+  void initialize_output(std::vector<float> &output) const {
+    std::fill(output.begin(),output.end(),0.0f);
+    for(size_t i=0;i<N;++i)output[1+i*SY]=std::numeric_limits<float>::quiet_NaN();
+  }
+
   void check(const std::vector<float> &output) const {
     if(output.size()!=expected.size())throw std::runtime_error("vector output storage size mismatch");
     for(size_t i=0;i<output.size();++i) {

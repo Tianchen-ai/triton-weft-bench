@@ -417,6 +417,7 @@ def exp_boundaries():
     maximum = np.finfo(np.float32).max
     values = [-200, -104, -103, -100, -88, -87, -80, -10, -5, -1, -0.1,
               -0.0, 0.0, 0.1, 1, 5, 10, 40, 80, 88.7, 88.72284, 90, 100]
+    values.extend((-minimum, minimum, -tiny, tiny, -2.0**-25, 2.0**-25))
     for boundary in (np.log(float(minimum)/2), np.log(float(minimum)),
                      np.log(float(tiny)), np.log(float(maximum))):
         center = np.float32(boundary)
@@ -429,34 +430,41 @@ def exp_boundaries():
     count = original.size
     capacity = 1 << count.bit_length()
     x = torch.from_numpy(original.copy())
-    y = torch.full((capacity,), -17.0, dtype=torch.float32)
-    snapshot = root / "exp-boundaries.npz"
-    np.savez(snapshot, inputs=original, expected=expected)
-    compiled = pointer_exp[(1,)](x, y, N=count, BLOCK=capacity, **options)
-    actual = y.numpy()[:count]
-    np.savez(snapshot, inputs=original, expected=expected, actual=actual,
-             output_storage=y.numpy())
-    np.testing.assert_array_equal(x.numpy(), original)
-    np.testing.assert_array_equal(y.numpy()[count:], np.full(capacity-count, -17.0, np.float32))
-    np.testing.assert_array_equal(np.isnan(actual), np.isnan(expected))
-    np.testing.assert_array_equal(np.isposinf(actual), np.isposinf(expected))
-    np.testing.assert_array_equal(actual == 0, expected == 0)
-    assert not np.any(np.signbit(actual[~np.isnan(actual)])), "exp produced a negative result or negative zero"
     positive = np.isfinite(expected) & (expected > 0)
-    assert np.all(np.isfinite(actual[positive]) & (actual[positive] > 0)), "finite positive exp was flushed or overflowed"
-    error = np.abs(actual[positive].astype(np.float64) - expected[positive].astype(np.float64))
     # Keep the runtime relative tolerance; one subnormal step accounts for f32
     # quantization without allowing small positive results to flush to zero.
     allowed = np.maximum(2e-5 * expected[positive].astype(np.float64), float(minimum))
-    if np.any(error > allowed):
-        raise ValueError("numerical mismatch in exp; see exp-boundaries.npz")
+    variants = []
+    for scalar in (False, True):
+        y = torch.full((capacity,), -17.0, dtype=torch.float32)
+        snapshot = root / ("exp-boundaries-scalar.npz" if scalar else "exp-boundaries.npz")
+        np.savez(snapshot, inputs=original, expected=expected)
+        compiled = pointer_exp[(capacity if scalar else 1,)](
+            x, y, N=count, BLOCK=capacity, SCALAR=scalar, **options)
+        actual = y.numpy()[:count]
+        np.savez(snapshot, inputs=original, expected=expected, actual=actual,
+                 output_storage=y.numpy())
+        np.testing.assert_array_equal(x.numpy(), original)
+        np.testing.assert_array_equal(y.numpy()[count:], np.full(capacity-count, -17.0, np.float32))
+        np.testing.assert_array_equal(np.isnan(actual), np.isnan(expected))
+        np.testing.assert_array_equal(np.isposinf(actual), np.isposinf(expected))
+        np.testing.assert_array_equal(actual == 0, expected == 0)
+        np.testing.assert_array_equal(actual[original == 0].view(np.uint32),
+                                      np.full(np.sum(original == 0), 0x3f800000, np.uint32))
+        assert not np.any(np.signbit(actual[~np.isnan(actual)])), "exp produced a negative result or negative zero"
+        assert np.all(np.isfinite(actual[positive]) & (actual[positive] > 0)), "finite positive exp was flushed or overflowed"
+        error = np.abs(actual[positive].astype(np.float64) - expected[positive].astype(np.float64))
+        if np.any(error > allowed):
+            raise ValueError(f"numerical mismatch in exp; see {snapshot.name}")
+        variants.append({"mode": "scalar" if scalar else "shaped", "inputs_outputs": str(snapshot),
+                         "compile_target": vars(compiled.metadata.target),
+                         "native_build": compiled.metadata.native_build})
     return {"checked": True, "elements": count, "masked": capacity-count,
             "subnormal_outputs": int(np.sum((expected > 0) & (expected < tiny))),
             "oracle": "numpy float64 exp rounded to float32", "rtol": 2e-5,
             "absolute_rounding_floor": float(minimum), "special_value_classes_exact": True,
             "positive_subnormals_preserved": True, "tail_guard_unchanged": True,
-            "inputs_outputs": str(snapshot), "compile_target": vars(compiled.metadata.target),
-            "native_build": compiled.metadata.native_build}
+            "zero_identity_exact": True, "variants": variants}
 
 
 def integer_float_conversion():

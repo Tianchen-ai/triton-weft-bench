@@ -162,6 +162,7 @@ def workload(case):
             correctness="exact-boolean-and-unchanged-padding")
     return NativeWorkload("vector_add_inputs.h", "VectorAddInputs data(inputs);",
         {"X": "data.x.data()+1", "Z": "data.z.data()+1", "Y": "output.data()+1"},
+        initialize_output="data.initialize_output(output);",
         defines=tuple(f"-DWB_VECTOR_{key}={value}" for key, value in {**case.shape, "GUARD": GUARD}.items()),
         scalars=scalars,
         pointer_shapes={name: ((case.shape["N"] + GUARD) * case.shape[stride],)

@@ -69,8 +69,10 @@ For a paired comparison of configured native artifacts, use
 `op CASE --impl before,after --sample-order alternating --target TARGET`.
 The existing worker prepares and checks both implementations, then reverses their
 order on successive sample rounds. Inputs and write-only output storage are shared;
-prepared workspaces remain private. Each numerical check starts from poisoned output,
-followed by the workload's required reset. Native calls keep their typed call boundary;
+prepared workspaces remain private. Each numerical check poisons the written output
+region and initializes any padding to the workload's declared guard value, followed
+by the required state reset. JIT fixtures use the same output initialization. Neither
+step belongs to the measured invocation. Native calls keep their typed call boundary;
 there is no extra dispatch inside the timer. With `cache=reuse`, one untimed call
 refreshes each implementation before its sample. Per-sample frequencies are
 diagnostics, never a correction to wall-clock scores. Alternating order requires

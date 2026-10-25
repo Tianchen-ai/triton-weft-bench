@@ -65,13 +65,14 @@ struct Execution {
   virtual void sample(bool refresh) = 0;
   virtual void report() = 0;
 };
-template<class Run,class Collect,class Reset,class Check,class T>
+template<class Run,class Collect,class Reset,class Check,class Initialize,class T>
 struct NativeExecution : Execution {
   const char *name;
   Run run;
   Collect collect;
   Reset reset;
   Check check;
+  Initialize initialize;
   std::vector<T>& output;
   bool stateful, save;
   const char *correctness;
@@ -79,9 +80,9 @@ struct NativeExecution : Execution {
   bool finished=false;
   const char *stage="run";
   std::optional<Timing<Run,Reset>> timing;
-  NativeExecution(const char* name,Run run,Collect collect,Reset reset,Check check,
+  NativeExecution(const char* name,Run run,Collect collect,Reset reset,Check check,Initialize initialize,
                   std::vector<T>& output,bool stateful,bool save,const char* correctness)
-      :name(name),run(run),collect(collect),reset(reset),check(check),output(output),
+      :name(name),run(run),collect(collect),reset(reset),check(check),initialize(initialize),output(output),
        stateful(stateful),save(save),correctness(correctness) {}
   void fail(const std::exception &e) {
     finished=true;
@@ -89,7 +90,7 @@ struct NativeExecution : Execution {
   }
   void prepare() override {
   try {
-    poison_output(output);
+    initialize();
     reset();run();collect();
     if(save) {
       save_buffer(std::string(name)+"-Y.bin",output);
@@ -120,11 +121,11 @@ struct NativeExecution : Execution {
 };
 struct ExecutionGroup {
   std::vector<std::unique_ptr<Execution>> executions;
-  template<class Run,class Collect,class Reset,class Check,class T>
-  void add(const char* name,Run run,Collect collect,Reset reset,Check check,
+  template<class Run,class Collect,class Reset,class Check,class Initialize,class T>
+  void add(const char* name,Run run,Collect collect,Reset reset,Check check,Initialize initialize,
            std::vector<T>& output,bool stateful,bool save,const char* correctness) {
-    executions.push_back(std::make_unique<NativeExecution<Run,Collect,Reset,Check,T>>(
-        name,run,collect,reset,check,output,stateful,save,correctness));
+    executions.push_back(std::make_unique<NativeExecution<Run,Collect,Reset,Check,Initialize,T>>(
+        name,run,collect,reset,check,initialize,output,stateful,save,correctness));
   }
   void run() {
     for (auto &execution:executions) execution->prepare();
@@ -139,9 +140,9 @@ struct ExecutionGroup {
     for (auto &execution:executions) execution->report();
   }
 };
-template<class Run,class Collect,class Reset,class Check,class T>
-void execute(const char* name,Run run,Collect collect,Reset reset,Check check,std::vector<T>& output,bool stateful,bool save,const char* correctness) {
-  NativeExecution<Run,Collect,Reset,Check,T> execution(name,run,collect,reset,check,output,stateful,save,correctness);
+template<class Run,class Collect,class Reset,class Check,class Initialize,class T>
+void execute(const char* name,Run run,Collect collect,Reset reset,Check check,Initialize initialize,std::vector<T>& output,bool stateful,bool save,const char* correctness) {
+  NativeExecution<Run,Collect,Reset,Check,Initialize,T> execution(name,run,collect,reset,check,initialize,output,stateful,save,correctness);
   execution.prepare();
   const int samples=static_cast<int>(option("WB_SAMPLES",5));
   for (int i=0;i<samples;++i) execution.sample(false);

@@ -13,6 +13,12 @@ struct AMXTileInputs : ProjectionInputs {
     return ldc==N ? 0 : ((64-reinterpret_cast<uintptr_t>(y.data())%64)%64)/sizeof(float);
   }
   float *output(std::vector<float> &y) const { return y.data()+offset(y); }
+  void initialize_output(std::vector<float> &y) const {
+    std::fill(y.begin(),y.end(),0.0f);
+    float *values=output(y);
+    for(size_t m=0;m<M;++m) for(size_t n=0;n<N;++n)
+      values[m*ldc+n]=std::numeric_limits<float>::quiet_NaN();
+  }
   void check(const std::vector<float> &y) const {
     const size_t first=offset(y);
     for(size_t m=0;m<M;++m) for(size_t n=0;n<N;++n)

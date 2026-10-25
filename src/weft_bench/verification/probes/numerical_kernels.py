@@ -4,8 +4,11 @@ import triton.language as tl
 
 
 @triton.jit(model="weft")
-def pointer_exp(X, Y, N: tl.constexpr, BLOCK: tl.constexpr):
-    offsets = tl.arange(0, BLOCK)
+def pointer_exp(X, Y, N: tl.constexpr, BLOCK: tl.constexpr, SCALAR: tl.constexpr = False):
+    if SCALAR:
+        offsets = tl.program_id(0)
+    else:
+        offsets = tl.arange(0, BLOCK)
     value = tl.load(X + offsets, offsets < N, other=0.0)
     tl.store(Y + offsets, tl.exp(value), offsets < N)
 
