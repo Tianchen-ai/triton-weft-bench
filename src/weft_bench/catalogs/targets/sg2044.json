@@ -3326,7 +3326,9 @@
         "source": "package:kernels/ggml/mul_mat/grouped_lookup.py",
         "symbol": "iq3_xxs_tensor",
         "signature": {},
-        "constexprs": {},
+        "constexprs": {
+          "INDEX_BITS": 16
+        },
         "backend_options": {
           "lmul_eighths": 32,
           "unroll": 1,
