@@ -58,7 +58,7 @@ class OutputRun:
                 locations.extend(details[name] for name in ("replacement_plan", "model_validation")
                                  if isinstance(details.get(name), dict))
                 for record in locations:
-                    for key in ("artifact", "artifacts", "worker", "replay", "diagnostics", "paper_evidence",
+                    for key in ("artifact", "artifacts", "worker", "replay", "diagnostics", "diagnostic_archive", "paper_evidence",
                                 "paper_validation_recheck", "validation", "model_paths", "package",
                                 "source_package", "replacement_package", "candidate_package", "profile_path", "dot_inputs", "outputs"):
                         if key in record:
