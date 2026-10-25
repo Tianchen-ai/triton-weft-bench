@@ -59,28 +59,44 @@ inline void describe_output_storage(const void *data, std::size_t bytes) {
 // reset() restores mutable input between invocations, outside the measured region.
 // Algorithm-required output initialization belongs inside run().
 template<class Run, class Reset>
-void measure(Run run, Reset reset, const char *correctness = "within-tolerance", bool stateful = false, const char *implementation = "",
-             const void *output = nullptr, std::size_t outputBytes = 0) {
+struct Timing {
+  Run run;
+  Reset reset;
+  const char *correctness;
+  bool stateful;
+  const char *implementation;
+  const void *output;
+  std::size_t outputBytes;
   const int warmup = static_cast<int>(option("WB_WARMUP", 3));
   const double warmup_budget = option("WB_WARMUP_MS", 200);
   const int samples = static_cast<int>(option("WB_SAMPLES", 5));
   const double budget = option("WB_BATCH_MS", 10);
   const char *mode = std::getenv("WB_CACHE");
   const bool cold = mode && std::strcmp(mode, "cold") == 0;
-  if (warmup < 0 || warmup_budget < 0 || samples < 1 || budget <= 0) throw std::runtime_error("invalid timing settings");
-  std::vector<std::uint8_t> eviction(cold ? static_cast<std::size_t>(option("WB_EVICTION_BYTES", 67108864)) : 0, 1);
+  std::vector<std::uint8_t> eviction;
+  std::size_t warmup_iterations = 0, sample_warmup_iterations = 0, iterations = 1;
+  double warmup_ms = 0, calibration_ms = 0;
+  std::vector<double> timings, cpu_timings;
+  std::vector<long> sample_frequency_before, sample_frequency_after;
+  long frequency_before = -1, frequency_after = -1;
+  Timing(Run run, Reset reset, const char *correctness, bool stateful, const char *implementation,
+         const void *output, std::size_t outputBytes)
+      : run(run), reset(reset), correctness(correctness), stateful(stateful), implementation(implementation),
+        output(output), outputBytes(outputBytes) {
+    if (warmup < 0 || warmup_budget < 0 || samples < 1 || budget <= 0)
+      throw std::runtime_error("invalid timing settings");
+    eviction.resize(cold ? static_cast<std::size_t>(option("WB_EVICTION_BYTES", 67108864)) : 0, 1);
+  }
+  void prepare() {
   // Count-only warmup lets short CPU kernels enter the samples before the
   // frequency governor has responded. Compile/import work must not decide
   // whether an otherwise identical native workload runs at idle frequency.
   const auto warmup_start = Clock::now();
-  std::size_t warmup_iterations = 0;
   if (warmup > 0)
     do { reset(); run(); barrier(); ++warmup_iterations; }
     while (warmup_iterations < static_cast<std::size_t>(warmup) || milliseconds(warmup_start) < warmup_budget);
-  const double warmup_ms = milliseconds(warmup_start);
+  warmup_ms = milliseconds(warmup_start);
   Clock::time_point start;
-  std::size_t iterations = 1;
-  double calibration_ms = 0;
   if (!cold) {
     // A single cold invocation includes timer and dispatch latency and can
     // underestimate the required batch by an order of magnitude. Calibrate
@@ -109,9 +125,16 @@ void measure(Run run, Reset reset, const char *correctness = "within-tolerance",
                                        std::ceil(double(iterations) * factor));
     }
   }
-  std::vector<double> timings, cpu_timings;
-  const long frequency_before = observed_frequency_khz();
-  for (int sample = 0; sample < samples; ++sample) {
+  }
+  void sample(bool refresh = false) {
+    // Another implementation can evict private preparation. Reestablish the
+    // requested reuse boundary outside timing before an alternating sample.
+    if (refresh && !cold && warmup > 0) {
+      reset(); run(); barrier(); ++sample_warmup_iterations;
+    }
+    const long before = observed_frequency_khz();
+    if (timings.empty()) frequency_before = before;
+    Clock::time_point start;
     double elapsed = 0;
     double cpu_elapsed = 0;
     if (stateful || cold) {
@@ -134,8 +157,11 @@ void measure(Run run, Reset reset, const char *correctness = "within-tolerance",
     }
     timings.push_back(elapsed / iterations);
     cpu_timings.push_back(cpu_elapsed / iterations);
+    frequency_after = observed_frequency_khz();
+    sample_frequency_before.push_back(before);
+    sample_frequency_after.push_back(frequency_after);
   }
-  const long frequency_after = observed_frequency_khz();
+  void report() {
   std::printf("WB_RESULT {\"implementation\":\"%s\",\"samples_ms\":[", implementation);
   for (std::size_t i = 0; i < timings.size(); ++i) std::printf("%s%.12g", i ? "," : "", timings[i]);
   // Diagnostic only: this clock excludes descheduling, and excludes other
@@ -147,8 +173,27 @@ void measure(Run run, Reset reset, const char *correctness = "within-tolerance",
   std::printf(",\"after\":");
   if (frequency_after > 0) std::printf("%ld", frequency_after); else std::printf("null");
   std::printf("},\"cpu_time_scope\":\"calling-thread-only\",\"iterations\":%zu,\"calibration_ms\":%.12g,\"warmup_iterations\":%zu,\"warmup_ms\":%.12g,\"correctness\":\"%s\",\"cache\":\"%s\"", iterations, calibration_ms, warmup_iterations, warmup_ms, correctness, cold ? "cold" : "reuse");
+  std::printf(",\"sample_warmup_iterations\":%zu,\"sample_frequencies_khz\":[", sample_warmup_iterations);
+  for (std::size_t i = 0; i < timings.size(); ++i) {
+    std::printf("%s{\"before\":", i ? "," : "");
+    if (sample_frequency_before[i] > 0) std::printf("%ld", sample_frequency_before[i]); else std::printf("null");
+    std::printf(",\"after\":");
+    if (sample_frequency_after[i] > 0) std::printf("%ld", sample_frequency_after[i]); else std::printf("null");
+    std::printf("}");
+  }
+  const char *order = std::getenv("WB_SAMPLE_ORDER");
+  std::printf("],\"sample_order\":\"%s\"", order && std::strcmp(order,"alternating") == 0 ? "alternating" : "serial");
   describe_output_storage(output, outputBytes);
   std::printf("}\n");
+  }
+};
+template<class Run, class Reset>
+void measure(Run run, Reset reset, const char *correctness = "within-tolerance", bool stateful = false, const char *implementation = "",
+             const void *output = nullptr, std::size_t outputBytes = 0) {
+  Timing<Run, Reset> timing(run, reset, correctness, stateful, implementation, output, outputBytes);
+  timing.prepare();
+  for (int i = 0; i < timing.samples; ++i) timing.sample();
+  timing.report();
 }
 template<class Run> void measure(Run run, const char *correctness = "within-tolerance") {
   measure(run, [] {}, correctness);

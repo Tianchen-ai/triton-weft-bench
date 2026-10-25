@@ -7,6 +7,8 @@
 #include <functional>
 #include <limits>
 #include <type_traits>
+#include <memory>
+#include <optional>
 
 namespace wb {
 template<class T> void poison_output(std::vector<T> &output) {
@@ -57,11 +59,37 @@ template<class T> void save_buffer(const std::string &path,const std::vector<T> 
   f.write(reinterpret_cast<const char*>(values.data()),values.size()*sizeof(T));
   if(!f)throw std::runtime_error("cannot save buffer: "+path);
 }
+struct Execution {
+  virtual ~Execution() = default;
+  virtual void prepare() = 0;
+  virtual void sample(bool refresh) = 0;
+  virtual void report() = 0;
+};
 template<class Run,class Collect,class Reset,class Check,class T>
-void execute(const char* name,Run run,Collect collect,Reset reset,Check check,std::vector<T>& output,bool stateful,bool save,const char* correctness) {
+struct NativeExecution : Execution {
+  const char *name;
+  Run run;
+  Collect collect;
+  Reset reset;
+  Check check;
+  std::vector<T>& output;
+  bool stateful, save;
+  const char *correctness;
   bool exported=false;
+  bool finished=false;
   const char *stage="run";
+  std::optional<Timing<Run,Reset>> timing;
+  NativeExecution(const char* name,Run run,Collect collect,Reset reset,Check check,
+                  std::vector<T>& output,bool stateful,bool save,const char* correctness)
+      :name(name),run(run),collect(collect),reset(reset),check(check),output(output),
+       stateful(stateful),save(save),correctness(correctness) {}
+  void fail(const std::exception &e) {
+    finished=true;
+    std::printf("WB_RESULT {\"implementation\":%s,\"status\":%s,\"stage\":%s,\"error\":%s,\"outputs_available\":%s,\"samples_ms\":[]}\n",json(name).c_str(),json(std::string(stage)=="check"?"check_failed":"run_failed").c_str(),json(stage).c_str(),json(e.what()).c_str(),exported?"true":"false");
+  }
+  void prepare() override {
   try {
+    poison_output(output);
     reset();run();collect();
     if(save) {
       save_buffer(std::string(name)+"-Y.bin",output);
@@ -72,13 +100,52 @@ void execute(const char* name,Run run,Collect collect,Reset reset,Check check,st
       std::printf("WB_RESULT {\"implementation\":%s,\"status\":\"checked\",\"correctness\":%s,\"samples_ms\":[],\"invocations\":1,\"output_elements\":%zu",json(name).c_str(),json(correctness).c_str(),output.size());
       describe_output_storage(output.data(), output.size() * sizeof(T));
       std::printf("}\n");
+      finished=true;
       return;
     }
     stage="measure";
-    measure(run,reset,correctness,stateful,name,output.data(),output.size()*sizeof(T));
+    timing.emplace(run,reset,correctness,stateful,name,output.data(),output.size()*sizeof(T));
+    timing->prepare();
   } catch(const std::exception &e) {
-    std::printf("WB_RESULT {\"implementation\":%s,\"status\":%s,\"stage\":%s,\"error\":%s,\"outputs_available\":%s,\"samples_ms\":[]}\n",json(name).c_str(),json(std::string(stage)=="check"?"check_failed":"run_failed").c_str(),json(stage).c_str(),json(e.what()).c_str(),exported?"true":"false");
+    fail(e);
   }
+  }
+  void sample(bool refresh) override {
+    if (finished) return;
+    try { timing->sample(refresh); } catch(const std::exception &e) { fail(e); }
+  }
+  void report() override {
+    if (!finished) { timing->report(); finished=true; }
+  }
+};
+struct ExecutionGroup {
+  std::vector<std::unique_ptr<Execution>> executions;
+  template<class Run,class Collect,class Reset,class Check,class T>
+  void add(const char* name,Run run,Collect collect,Reset reset,Check check,
+           std::vector<T>& output,bool stateful,bool save,const char* correctness) {
+    executions.push_back(std::make_unique<NativeExecution<Run,Collect,Reset,Check,T>>(
+        name,run,collect,reset,check,output,stateful,save,correctness));
+  }
+  void run() {
+    for (auto &execution:executions) execution->prepare();
+    const int samples=static_cast<int>(option("WB_SAMPLES",5));
+    for (int round=0;round<samples;++round)
+      for (std::size_t position=0;position<executions.size();++position) {
+        std::size_t index=(round&1)?executions.size()-1-position:position;
+        // Virtual dispatch is outside Timing::sample's measured interval.
+        // Every native invocation still uses its concrete typed lambda.
+        executions[index]->sample(true);
+      }
+    for (auto &execution:executions) execution->report();
+  }
+};
+template<class Run,class Collect,class Reset,class Check,class T>
+void execute(const char* name,Run run,Collect collect,Reset reset,Check check,std::vector<T>& output,bool stateful,bool save,const char* correctness) {
+  NativeExecution<Run,Collect,Reset,Check,T> execution(name,run,collect,reset,check,output,stateful,save,correctness);
+  execution.prepare();
+  const int samples=static_cast<int>(option("WB_SAMPLES",5));
+  for (int i=0;i<samples;++i) execution.sample(false);
+  execution.report();
 }
 }
 #include "environment.h"

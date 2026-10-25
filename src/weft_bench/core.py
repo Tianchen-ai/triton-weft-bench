@@ -62,6 +62,7 @@ def worker_source(
     *,
     save_outputs=False,
     record_environment=False,
+    alternating=False,
 ):
     includes = {workload.header, "worker.h", *workload.includes}
     for call in calls:
@@ -74,6 +75,9 @@ def worker_source(
         input_source,
         workload.setup,
     ]
+    if alternating:
+        lines += [f"std::vector<{workload.output_type}> output({workload.output_size});",
+                  "wb::ExecutionGroup measurements;"]
     for call in calls:
         label = json.dumps(call.name)
         snapshots = {**workload.snapshots, **call.snapshots} if save_outputs else {}
@@ -85,7 +89,7 @@ def worker_source(
         )
         lines += [
             "{",
-            f"std::vector<{workload.output_type}> output({workload.output_size});",
+            *( [] if alternating else [f"std::vector<{workload.output_type}> output({workload.output_size});"] ),
             call.prepare,
             "auto invoke = [&] { "
             + ("" if call.whole_workload else workload.before_call)
@@ -95,15 +99,21 @@ def worker_source(
             "auto collect = [&] { " + call.collect + workload.collect + export + " };",
             "auto reset = [&] { " + workload.reset + call.reset + " };",
             "auto check = [&] { " + workload.check + "; };",
-            f"wb::execute({label}, invoke, collect, reset, check, output, "
+            f"{'measurements.add' if alternating else 'wb::execute'}({label}, invoke, collect, reset, check, output, "
             + ("true" if call.reset or workload.reset else "false")
             + ", "
             + ("true" if save_outputs else "false")
             + ", "
             + json.dumps(workload.correctness)
             + ");",
-            "}",
         ]
+        if not alternating:
+            lines.append("}")
+    if alternating:
+        # Keep private prepared state alive. Both implementations use identical
+        # immutable inputs and the same write-only output storage/alignment.
+        lines.append("measurements.run();")
+        lines.extend("}" for _ in calls)
     lines += [
         'return 0; } catch(const std::exception &e) { std::fprintf(stderr,"prepare: %s\\n",e.what()); return 2; } }'
     ]

@@ -172,6 +172,8 @@ def parser():
             command.add_argument("--warmup-ms", type=float, default=200.0,
                                  help="minimum native warmup duration; --warmup 0 disables warmup")
             command.add_argument("--samples", type=int, default=5)
+            command.add_argument("--sample-order", choices=("serial", "alternating"), default="serial",
+                                 help="alternate sample order for prepared native implementations in one worker")
             command.add_argument("--batch-ms", type=float, default=10)
             command.add_argument("--cache", choices=("reuse", "cold"), default="reuse")
             command.add_argument("--eviction-bytes", type=int, default=64 * 1024 * 1024)
@@ -650,6 +652,7 @@ def main(argv=None):
                 args.eviction_bytes,
                 check_only=args.check_only,
                 warmup_ms=args.warmup_ms,
+                sample_order=args.sample_order,
             )
             suites = configured_suites(target.settings)
             if args.suite and args.suite not in suites:

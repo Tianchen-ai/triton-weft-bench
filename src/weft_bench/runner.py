@@ -128,6 +128,8 @@ def run_operator(
     if any(not re.fullmatch(r"[A-Za-z0-9_-]+", n) for n in implementations):
         raise ValueError("implementation names must be identifiers")
     if any(mode(n, target) == "triton_jit" for n in implementations):
+        if measurement.sample_order == "alternating":
+            raise ValueError("alternating samples require prepared native artifacts in the shared worker")
         from .adapters.triton_jit import TritonJitAdapter
 
         rows = []
@@ -149,6 +151,8 @@ def run_operator(
              **target.implementations[n].get("bindings", {}).get(case.name, {})}.get("entry", "single") == "single"
         ) for n in implementations
     )
+    if measurement.sample_order == "alternating" and (not shared_native or len(implementations) < 2):
+        raise ValueError("alternating samples require at least two single-instance native implementations with immutable inputs")
     if sum(mode(n, target) != "ggml" for n in implementations) > 1 and not shared_native:
         return [
             r
@@ -422,6 +426,7 @@ def run_operator(
                     native_inputs(selected, files),
                     save_outputs=save_outputs,
                     record_environment=target.settings.get("record_environment", False),
+                    alternating=measurement.sample_order == "alternating",
                 ),
             )
             for call in calls:

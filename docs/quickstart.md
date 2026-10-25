@@ -65,6 +65,18 @@ inputs. Required work such as projection activation quantization remains timed.
 GEMM/prefill projection use a bounded scalar output sample plus finiteness checking;
 other built-in floating workloads check their complete outputs.
 
+For a paired comparison of configured native artifacts, use
+`op CASE --impl before,after --sample-order alternating --target TARGET`.
+The existing worker prepares and checks both implementations, then reverses their
+order on successive sample rounds. Inputs and write-only output storage are shared;
+prepared workspaces remain private. Each numerical check starts from poisoned output,
+followed by the workload's required reset. Native calls keep their typed call boundary;
+there is no extra dispatch inside the timer. With `cache=reuse`, one untimed call
+refreshes each implementation before its sample. Per-sample frequencies are
+diagnostics, never a correction to wall-clock scores. Alternating order requires
+immutable workload inputs and single-instance native entries; JIT and model calls
+retain their own measurement paths. Serial order remains the default.
+
 ## llama.cpp replacement
 
 ```sh

@@ -43,6 +43,7 @@ class Measurement:
     eviction_bytes: int = 64 * 1024 * 1024
     check_only: bool = False
     warmup_ms: float = 200.0
+    sample_order: str = "serial"
 
     def __post_init__(self):
         if self.warmup < 0 or self.samples < 1 or self.batch_ms <= 0:
@@ -53,6 +54,8 @@ class Measurement:
             )
         if not 0 <= self.warmup_ms < float("inf"):
             raise ValueError("warmup_ms must be finite and nonnegative")
+        if self.sample_order not in ("serial", "alternating"):
+            raise ValueError("sample_order must be serial or alternating")
 
     def env(self):
         return {
@@ -63,6 +66,7 @@ class Measurement:
             "WB_CACHE": self.cache,
             "WB_EVICTION_BYTES": str(self.eviction_bytes),
             "WB_CHECK_ONLY": "1" if self.check_only else "0",
+            "WB_SAMPLE_ORDER": self.sample_order,
         }
 
 
