@@ -320,6 +320,7 @@ def main(argv=None):
             return 0
         if args.command == "prepare-model":
             from .models.replacements import prepare_replacements, parse_mapping
+            from .output import OutputRun
 
             mapping = (
                 json.loads(Path(args.replacement_file).read_text())
@@ -334,9 +335,12 @@ def main(argv=None):
                 target, _ = select_model(target, args.model, args.model_profile)
             if not mapping:
                 mapping = {role: "default" for role in target.settings.get("llama", {}).get("triton", {}).get("bindings", {})}
-            print(
-                json.dumps(prepare_replacements(mapping, target, args.output), indent=2)
-            )
+            output_run = OutputRun(args.output)
+            prepare_replacements(mapping, target, output_run.stage)
+            destination = output_run.destination
+            output_run.finish()
+            output_run = None
+            print((destination / "replacements.json").read_text())
             return 0
         if args.command == "model-info":
             from .execution import Executor

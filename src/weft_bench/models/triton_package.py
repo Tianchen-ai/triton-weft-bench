@@ -13,12 +13,23 @@ from ..execution import Executor, ExecutionError
 from ..libraries import WeftKernel
 
 
+def retained_replacements(spec, bindings, package):
+    """Explicit AOT inputs are copied into the package that survives replacement."""
+    for role, entry in spec.items():
+        if entry["artifact"]:
+            group, symbol = role.split("/", 1)
+            entry["artifact"] = str(package / "kernels" / bindings[group][symbol])
+    return spec
+
+
 def prepare_native_replacements(mapping, target, output):
     from .replacements import role_case
 
     directory = Path(output)
     directory.mkdir(parents=True, exist_ok=True)
-    runtime = target.settings["llama"]["triton"]
+    runtime = {"compilation_host": "target", **target.settings["llama"]["triton"]}
+    if runtime["compilation_host"] not in ("host", "target"):
+        raise ValueError("model compilation_host must be host or target")
     artifacts, remote_artifacts, bindings, spec = {}, {}, {}, {}
     for index, (role, candidate) in enumerate(mapping.items()):
         case = role_case(role)
@@ -77,7 +88,7 @@ def prepare_native_replacements(mapping, target, output):
         if package.exists():
             shutil.rmtree(package)
         (executor.local / "package").rename(package)
-        manifest = {"producer": "triton", "replacements": spec, "bindings": bindings,
+        manifest = {"producer": "triton", "replacements": retained_replacements(spec, bindings, package), "bindings": bindings,
                     "package": request["output"] if executor.host else str(package.resolve()),
                     "source_package": str(package.resolve()), "compilation_host": "target",
                     "native_link": "compiled and packaged on the execution target before inference"}
@@ -109,7 +120,7 @@ def prepare_native_replacements(mapping, target, output):
         bundle.add(package, arcname="package")
     remote = executor.upload(archive, "package.tar.gz")
     executor.command(["tar", "-xf", remote, "-C", executor.workspace], stage="deploy")
-    manifest = {"producer": "triton", "replacements": spec, "bindings": bindings,
+    manifest = {"producer": "triton", "replacements": retained_replacements(spec, bindings, package), "bindings": bindings,
                 "package": executor.workspace + "/package", "source_package": str(package.resolve()),
                 "native_link": "already linked by Triton; no target compiler invocation"}
     (directory / "replacements.json").write_text(json.dumps(manifest, indent=2))

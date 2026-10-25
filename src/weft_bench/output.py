@@ -66,7 +66,7 @@ class OutputRun:
             result.write_text(json.dumps(data, indent=2))
         for manifest in self.stage.rglob("replacements.json"):
             data = json.loads(manifest.read_text())
-            for key in ("package", "source_package"):
+            for key in ("package", "source_package", "replacements"):
                 if key in data:
                     data[key] = relocate(data[key])
             manifest.write_text(json.dumps(data, indent=2))

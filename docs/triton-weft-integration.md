@@ -166,7 +166,10 @@ Source bindings specify the role's signature, constexprs and backend options.
 `--replace ROLE=ARTIFACT` can also deploy an explicitly exported native artifact.
 The package and its single-instance ABI are bound before inference; GGML workers
 call the native functions without Python, compilation or another thread team.
-An explicit `compilation_host: "host"` with a cross toolchain retains the separate
+Model source compilation defaults to `compilation_host: "target"`, including a
+local x86 target. The recipe's ISA requirements constrain the discovered CPU;
+they do not replace its capabilities with a reduced feature list. An explicit
+`compilation_host: "host"` with a cross toolchain retains the separate
 cross-deployment path. Neither deployment mode counts as Python JIT corpus coverage.
 
 Use compatible normal and integrated llama.cpp builds with matching ordinary
