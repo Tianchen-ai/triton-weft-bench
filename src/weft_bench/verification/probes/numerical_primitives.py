@@ -1797,8 +1797,10 @@ def storage_lifetime_contract(root, options):
     from numerical_primitive_kernels import storage_lifetime_control, bounded_storage_lifetime_control
     records = []
     compiled = None
-    for bounded, n in ((False, 0), (False, 7), (False, 257), (False, 4097),
-                       (True, 7), (True, 257), (True, 4097)):
+    for bounded, n in ((False, 0), (False, 1), (False, 2), (False, 3),
+                       (False, 7), (False, 8), (False, 257), (False, 4097),
+                       (True, 1), (True, 2), (True, 3), (True, 7), (True, 8),
+                       (True, 257), (True, 4097)):
         for steps in (0, 1, 4):
             for choose in (0, 1):
                 source_storage, source = guarded(n, np.int32)
