@@ -6,6 +6,26 @@ import triton.language as tl
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
+def wide_integer_bounds(X: tl.View[tl.u64, (N,)], Y: tl.View[tl.u64, (N,)],
+                        MODE: tl.constexpr):
+    with tl.level.blocks(N, extent=32) as block:
+        x = tl.load(X[block])
+        if MODE == 0:
+            y = tl.u64(tl.u8(x & tl.u64(255)))
+        elif MODE == 1:
+            y = tl.u64(tl.u32(x | tl.u64(9223372036854775808)))
+        elif MODE == 2:
+            y = (x + tl.u64(1)) >> tl.u64(63)
+        elif MODE == 3:
+            y = tl.u64(tl.i32(tl.i64(x)))
+        elif MODE == 4:
+            y = (x * x) >> tl.u64(63)
+        else:
+            y = tl.u64(tl.i64(x) // tl.i64(3))
+        tl.store(Y[block], y)
+
+
+@triton.jit(model="weft", alias_groups={"Y": "output"})
 def pipelined_scaled_groups(A: tl.View[tl.i8, (B, G, K)],
                             X: tl.View[tl.i8, (B, G, K)],
                             S: tl.View[tl.i8, (B, G)], Y: tl.View[tl.i32, (1,)],
@@ -591,6 +611,27 @@ def storage_lifetime_control(X: tl.View[tl.i32, (N,)], Y: tl.View[tl.i32, (4,)],
 def bounded_storage_lifetime_control(X: tl.View[tl.i32, (CAP,)], Y: tl.View[tl.i32, (4,)],
                                      steps: tl.i32, choose: tl.i32, CAP: tl.constexpr):
     storage_lifetime_control(X, Y, steps, choose)
+
+
+@triton.jit(model="weft", do_not_specialize=["runtime_count"])
+def shared_read_choice(X: tl.View[tl.i32, (M, N)], Out: tl.View[tl.i32, (N,)],
+                       REUSE: tl.constexpr, MUTATE: tl.constexpr,
+                       M: tl.constexpr = 8, N: tl.constexpr = 16,
+                       OBSERVE: tl.constexpr = False, runtime_count: tl.i32 = 1):
+    with tl.level.rows(M, group=8) as rows:
+        saved = tl.stage(tl.load(X[rows]))
+        if MUTATE:
+            tl.store(X[0, :], tl.load(X[0, :]) * tl.i32(0) + tl.i32(7))
+        if REUSE == 0:
+            result = saved[0, :] + saved[2, :]
+        else:
+            result = saved[0, :] * tl.i32(0)
+            count = runtime_count if REUSE < 0 else REUSE
+            for iteration in range(count):
+                result += saved[iteration % 8, :]
+        if OBSERVE:
+            result += tl.sum(saved)
+        tl.store(Out, result)
 
 
 @triton.jit(model="weft")

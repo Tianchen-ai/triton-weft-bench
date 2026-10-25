@@ -904,6 +904,8 @@ def run_scenario(name, root, options, close, compile_target=None):
         return storage_lifetime_contract(root, options)
     if name == "dense_stage_residency":
         return dense_stage_residency_contract(root, options)
+    if name == "shared_supply":
+        return shared_supply_contract(root, options)
     if name == "packing_residency":
         return packing_residency_contract(root, options)
     if name == "packing_costs":
@@ -925,6 +927,8 @@ def run_scenario(name, root, options, close, compile_target=None):
         return array_packets(root, options, close, compile_target)
     if name == "pointwise_costs":
         return pointwise_cost_contract(root, options, close, compile_target)
+    if name == "integer_boundaries":
+        return integer_boundary_contract(root, options, compile_target)
     if name == "mixed_integer_mac":
         return mixed_integer_mac_contract(root, options)
     if name == "grouped_mac":
@@ -945,6 +949,58 @@ def run_scenario(name, root, options, close, compile_target=None):
     if name not in operations:
         raise ValueError("unknown numerical primitive scenario " + name)
     return operations[name](root, options)
+
+
+def integer_boundary_contract(root, options, compile_target):
+    from triton import compile
+    from triton.compiler import ASTSource
+    from triton.backends.compiler import CPUTarget
+    from numerical_primitive_kernels import wide_integer_bounds
+    mask = (1 << 64) - 1
+    edges = [0, 1, 127, 128, 255, 256, (1 << 31)-1, 1 << 31, (1 << 32)-1,
+             1 << 32, (1 << 63)-1, 1 << 63, (1 << 63)+1, mask-1, mask]
+    def oracle(value, mode):
+        if mode == 0:
+            return value & 255
+        if mode == 1:
+            return value & ((1 << 32)-1)
+        if mode == 2:
+            return ((value + 1) & mask) >> 63
+        if mode == 3:
+            small = value & ((1 << 32)-1)
+            return (small if small < (1 << 31) else small - (1 << 32)) & mask
+        if mode == 4:
+            return ((value * value) & mask) >> 63
+        signed = value if value < (1 << 63) else value - (1 << 64)
+        return ((abs(signed) // 3) * (-1 if signed < 0 else 1)) & mask
+    records = []
+    for mode in range(6):
+        compiled = None
+        for n in (0, 1, 17, 65):
+            x = np.resize(np.array(edges, dtype=np.uint64), n)
+            original = x.copy()
+            storage, output = guarded(n, np.uint64, 0xa5a5a5a5a5a5a5a5)
+            expected = np.array([oracle(int(v), mode) for v in x], dtype=np.uint64)
+            if compile_target is None:
+                current = wide_integer_bounds[(1,)](x, output, MODE=mode, **options)
+            else:
+                if compiled is None:
+                    compiled = compile(ASTSource(wide_integer_bounds, {}, {"MODE": mode}),
+                                       target=CPUTarget(backend="weft", **compile_target), options=options)
+                current = compiled
+                current[(1,)](x, output)
+            if compiled is not None:
+                assert current is compiled, "dynamic extents recompiled the integer kernel"
+            compiled = current
+            label = f"integer-boundaries-{mode}-{n}"
+            save(root, label, actual=output, expected=expected)
+            exact(output, expected)
+            exact(x, original)
+            exact(storage[[0, 1, -2, -1]], np.full(4, 0xa5a5a5a5a5a5a5a5, np.uint64))
+            records.append({"mode": mode, "N": n})
+        native_evidence(compiled, root, f"integer-boundaries-{mode}", [])
+    return {"cases": records, "integer_exact": True, "guards_unchanged": True,
+            "execution_mode": "jit" if compile_target is None else "aot"}
 
 
 def byte_plane_contract(root, options, compile_target):
@@ -1376,6 +1432,46 @@ def amx_snapshot_contract(root, options, compile_target):
     assert "weft.x86.shared_amx_packings" in branch_kernel.asm["x86ir"], "branch did not share complete packing"
     return {"subcases": records, "execution_mode": "jit" if compile_target is None else "aot",
             "oracle": "saved-input int64 product and untouched storage gaps"}
+
+
+def shared_supply_contract(root, options):
+    from numerical_primitive_kernels import shared_read_choice
+    records = []
+    dynamic_kernels = {}
+    variants = [(reuse, mutate, False, 1) for reuse in (0, 1, 32) for mutate in (False, True)]
+    variants += [(-1, mutate, False, count) for mutate in (False, True) for count in (0,1,32)]
+    variants += [(0, False, True, 1)]
+    for reuse, mutate, observe, count in variants:
+        storage, source = guarded(8*16, np.int32)
+        source[:] = np.arange(8*16)*37 % 251 - 125
+        source = source.reshape(8,16)
+        original = source.copy()
+        backing, output = guarded(16, np.int32)
+        compiled = shared_read_choice[(1,)](source, output, REUSE=reuse, MUTATE=mutate,
+                                            OBSERVE=observe, runtime_count=count, **options)
+        if reuse < 0:
+            if mutate in dynamic_kernels: assert compiled is dynamic_kernels[mutate], "runtime trip count recompiled the source"
+            dynamic_kernels[mutate] = compiled
+        iterations = count if reuse < 0 else reuse
+        expected = original[0]+original[2] if not reuse else sum(
+            (original[i % 8].astype(np.int64) for i in range(iterations)), np.zeros(16,np.int64)).astype(np.int32)
+        if observe: expected += original.sum(dtype=np.int32)
+        exact(output, expected)
+        expected_source = original.copy()
+        if mutate: expected_source[0] = 7
+        exact(source, expected_source)
+        for raw in (storage, backing): exact(raw[[0,1,-2,-1]], np.full(4,-12345,np.int32))
+        evidence = native_evidence(compiled,root,f"shared-supply-{reuse}-{mutate}-{observe}-{count}",["materialize","extract"])
+        if compiled.metadata.target.arch == "riscv64":
+            physical = compiled.asm['riscvir']
+            if not mutate and not observe:
+                chosen = 'register' if reuse == 32 or reuse < 0 else 'reload'
+                assert f'selected = "{chosen}"' in physical, "shared supply did not compare actual reuse"
+                assert 'actual-full-domain-transfers-by-loop-identity' in physical
+            else:
+                assert 'selected = "reload"' not in physical, "stage snapshot crossed a write or lost a whole-value consumer"
+        records.append({"reuse":reuse,"runtime_count":count,"other_consumer":observe,"mutation":mutate,"evidence":evidence})
+    return {"execution_mode":"jit","integer_exact":True,"guards_unchanged":True,"cases":records}
 
 
 def dense_stage_residency_contract(root, options):
