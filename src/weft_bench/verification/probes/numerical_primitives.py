@@ -47,6 +47,7 @@ def native_evidence(compiled, root, name, operations):
                 "native_build": compiled.metadata.native_build}
     if arch == "x86_64":
         evidence["physical_schedules"] = compiled.metadata.compilation["array_schedules"]
+        evidence["packing_schedules"] = compiled.metadata.compilation.get("packing_schedules", [])
         if "uniform_validity_arrays" in compiled.metadata.compilation:
             evidence["uniform_validity_arrays"] = compiled.metadata.compilation["uniform_validity_arrays"]
     return evidence
@@ -905,6 +906,8 @@ def run_scenario(name, root, options, close, compile_target=None):
         return dense_stage_residency_contract(root, options)
     if name == "packing_residency":
         return packing_residency_contract(root, options)
+    if name == "packing_costs":
+        return packing_cost_contract(root, options)
     if name == "word_byte_contractions":
         return word_byte_contraction_contract(root, options, compile_target)
     if name == "amx_mixed_storage":
@@ -920,6 +923,8 @@ def run_scenario(name, root, options, close, compile_target=None):
         return array_contractions(root, options, close, compile_target)
     if name == "array_packets":
         return array_packets(root, options, close, compile_target)
+    if name == "pointwise_costs":
+        return pointwise_cost_contract(root, options, close)
     if name == "mixed_integer_mac":
         return mixed_integer_mac_contract(root, options)
     if name == "grouped_mac":
@@ -1341,6 +1346,8 @@ def amx_snapshot_contract(root, options, compile_target):
             records.append({"M":m,"K":128,"snapshot_reuse":True,"mutation":mutate})
         native_evidence(reused,root,f"amx-packing-reuse-{mutate}",["contract"])
         assert "weft.x86.reused_amx_packings" in reused.asm["x86ir"], "packing reuse was not exercised"
+        assert "saved_issue_coefficients" in reused.asm["x86ir"], "packing reuse has no execution-frequency cost"
+        assert "original_vector_peak" in reused.asm["x86ir"], "packing reuse has no joint relocation resource proof"
     branch_kernel = None
     constants = {"K": 128, "N": 16, "BM": 8}
     for enabled in (0, 1):
@@ -1438,6 +1445,29 @@ def dense_stage_residency_contract(root, options):
                             selected == 'reload' and 'weft_riscv.staged_view' in physical), "shared supply ignored alias/effect proof"
                 records.append({"block":block,"mutation":mutate,"input_output_alias":alias,"reduction":reduce,
                                 "disjoint_contract":not alias,"evidence":evidence})
+    return {"execution_mode":"jit","integer_exact":True,"guards_unchanged":True,"cases":records}
+
+
+def packing_cost_contract(root, options):
+    from numerical_primitive_kernels import word_packing_iterations
+    records = []
+    a = (np.arange(8*128)*71 % 256-128).astype(np.int8).reshape(8,128)
+    b = (np.arange(16*128)*8213 % 65536-32768).astype(np.int16).reshape(16,128)
+    product = a.astype(np.int64) @ b.astype(np.int64).T
+    for start, stop, step in ((0,0,1),(0,1,1),(0,3,1),(-3,4,2)):
+        storage, output = guarded(8*16,np.int32)
+        output[:] = -12345
+        compiled = word_packing_iterations[(1,)](a,b,output.reshape(8,16),START=start,STOP=stop,STEP=step,**options)
+        iterations = list(range(start,stop,step))
+        expected = (product+iterations[-1]).astype(np.int32) if iterations else np.full((8,16),-12345,np.int32)
+        exact(output.reshape(8,16),expected)
+        exact(storage[[0,1,-2,-1]],np.full(4,-12345,np.int32))
+        label=f"packing-cost-{start}-{stop}-{step}"
+        save(root,label,left=a,right=b,actual=output,expected=expected)
+        evidence = native_evidence(compiled,root,label,["contract"] if iterations else [])
+        if len(iterations)>1:
+            assert "saved_issue_coefficients" in compiled.asm["x86ir"], "repeated invariant packing was not considered"
+        records.append({"range":[start,stop,step],"iterations":len(iterations),"evidence":evidence})
     return {"execution_mode":"jit","integer_exact":True,"guards_unchanged":True,"cases":records}
 
 
@@ -1810,6 +1840,38 @@ def array_contractions(root, options, close, compile_target):
     return {"records": records, "layouts": ["gapped", "transposed", "broadcast"],
             "shared_batch_and_two_reduction_axes": True, "indexed_subbyte_snapshot": True,
             "execution_mode": "aot", "evidence": evidence}
+
+
+def pointwise_cost_contract(root, options, close):
+    from numerical_primitive_kernels import array_cost_classes
+    records = []
+    for divisor in (7, 16):
+        first = None
+        for n in (0, 1, 17, 4097):
+            x = (np.arange(n, dtype=np.float32) % 251 - 125) / 8
+            integers = (np.arange(n, dtype=np.uint64) * 104729 + 0x80000001).astype(np.uint32)
+            fs, floating = guarded(n, np.float32, -777)
+            us, unsigned = guarded(n, np.uint32, 37)
+            compiled = array_cost_classes[(1,)](x, integers, floating, unsigned, DIVISOR=divisor, **options)
+            if first is None: first = compiled
+            assert compiled is first, "pointwise cost selection specialized a runtime extent"
+            expected = np.exp(x * np.float32(0.125))
+            close(floating, expected)
+            exact(unsigned, integers // np.uint32(divisor))
+            exact(fs[[0,1,-2,-1]], np.full(4,-777,np.float32))
+            exact(us[[0,1,-2,-1]], np.full(4,37,np.uint32))
+            label = f"pointwise-costs-{divisor}-{n}"
+            save(root,label,input=x,integer_input=integers,exp=floating,quotient=unsigned)
+            evidence = native_evidence(compiled,root,label,["unary","binary"])
+            schedules = evidence["physical_schedules"]
+            pointwise = [s for s in schedules if s.get("kind") == "pointwise"]
+            assert pointwise, "native pointwise paths were lost during cost selection"
+            for selected in pointwise:
+                assert "physical" in selected["cost_basis"]
+                for candidate in selected["candidates"]:
+                    assert "issue_units" in candidate["resources"] and "loop_startup" in candidate["resources"]
+            records.append({"N":n,"divisor":divisor,"evidence":evidence})
+    return {"execution_mode":"jit","integer_exact":True,"guards_unchanged":True,"cases":records}
 
 
 def array_packets(root, options, close, compile_target):

@@ -249,6 +249,16 @@ def array_map_reduce(X: tl.View[tl.f32, (M, N)], Y: tl.View[tl.f32, (M, N)],
 
 
 @triton.jit(model="weft")
+def array_cost_classes(X: tl.View[tl.f32, (N,)], Integer: tl.View[tl.u32, (N,)],
+                       Exp: tl.View[tl.f32, (N,)], Quotient: tl.View[tl.u32, (N,)],
+                       DIVISOR: tl.constexpr):
+    value = tl.load(X)
+    unsigned = tl.load(Integer)
+    tl.store(Exp, tl.exp(value * tl.f32(0.125)))
+    tl.store(Quotient, unsigned // tl.u32(DIVISOR))
+
+
+@triton.jit(model="weft")
 def array_tail_reduce(X: tl.View[tl.f32, (M, N)], Y: tl.View[tl.f32, (M, N)],
                       Rows: tl.View[tl.f32, (M, 3)], BLOCK: tl.constexpr):
     with tl.level.rows(M, group=2) as row:
@@ -526,6 +536,17 @@ def word_snapshot_branches(A: tl.View[tl.i8, (M, K)], B: tl.View[tl.i16, (N, K)]
             shifted = a + tl.i8(1)
             second = tl.reduce_dot(shifted, saved, over="K", acc_dtype=tl.i32)
             tl.store(Z[rows], second)
+
+
+@triton.jit(model="weft")
+def word_packing_iterations(A: tl.View[tl.i8, (M, K)], B: tl.View[tl.i16, (N, K)],
+                            Y: tl.View[tl.i32, (M, N)], START: tl.constexpr,
+                            STOP: tl.constexpr, STEP: tl.constexpr,
+                            M: tl.constexpr = 8, N: tl.constexpr = 16, K: tl.constexpr = 128):
+    a, b = tl.load(A), tl.load(B)
+    for iteration in range(START, STOP, STEP):
+        value = tl.reduce_dot(a, b, over="K", acc_dtype=tl.i32, engine="matrix")
+        tl.store(Y, value + tl.i32(iteration))
 
 
 @triton.jit(model="weft")
