@@ -412,6 +412,23 @@ def snapshot_half_pair(X: tl.View[tl.f16, (N, 2)],
         tl.store(Wide[point][0, 0], wide[0]); tl.store(Wide[point][0, 1], wide[1])
 
 
+@triton.jit(model="weft", alias_groups={"X": "input", "Joined": "joined", "Concatenated": "concatenated"})
+def logical_standard_shapes(X: tl.View[tl.i32, (N,)],
+                            Joined: tl.View[tl.i32, (N, 2)],
+                            Concatenated: tl.View[tl.i32, (2, N)], FINITE: tl.constexpr):
+    with tl.level.blocks(N, extent=8) as block:
+        values = tl.load(X[block])
+        if FINITE:
+            values = tl.i4(values)
+            scalar = tl.i4(-3)
+        else:
+            scalar = tl.i32(-3)
+        paired = tl.join(values, scalar)
+        joined = tl.reshape(tl.cat(values, values), (2, 8))
+        tl.store(Joined[block], tl.i32(paired))
+        tl.store(Concatenated[:, block], tl.i32(joined))
+
+
 @triton.jit(model="weft", strided=("X",), alias_groups={"Y": "output", "Wide": "wide"})
 def broadcast_half_snapshot(X: tl.View[tl.f16, (N,)], Y: tl.View[tl.f32, (N, C)],
                             Wide: tl.View[tl.f64, (N, C)], C: tl.constexpr = 32):

@@ -1055,6 +1055,8 @@ def run_scenario(name, root, options, close, compile_target=None):
         return byte_sum_contract(root, options, compile_target)
     if name == "extrema_and_half":
         return extrema_and_half(root, options, compile_target)
+    if name == "logical_shapes":
+        return logical_shape_contract(root, options)
     if name == "lookup":
         return lookup_contract(root, options, compile_target)
     if name == "array_contractions":
@@ -2067,6 +2069,29 @@ def extrema_and_half(root, options, compile_target):
     return {"extrema":records,"array_extrema_signed_zero_and_nan":True,"half_patterns":65536,
             "strided_half_broadcast_snapshot":True,
             "half_pairs_f32_and_f64":True,"half_nan_payload_unspecified":True,"output_guards_unchanged":True}
+
+
+def logical_shape_contract(root, options):
+    from numerical_primitive_kernels import logical_standard_shapes
+    records = []
+    for finite in (False, True):
+        first = None
+        for n in (0, 1, 7, 8, 17):
+            source = (np.arange(n, dtype=np.int32) * 7) - 31
+            joined_storage, joined = guarded(n * 2, np.int32, -777)
+            cat_storage, concatenated = guarded(n * 2, np.int32, -777)
+            joined, concatenated = joined.reshape(n, 2), concatenated.reshape(2, n)
+            compiled = logical_standard_shapes[(1,)](source, joined, concatenated, FINITE=finite, **options)
+            if first is None: first = compiled
+            assert compiled is first, "logical shape operations specialized a runtime extent"
+            expected = ((source + 8) % 16) - 8 if finite else source
+            exact(joined, np.stack((expected, np.full(n, -3, np.int32)), axis=1))
+            exact(concatenated, np.stack((expected, expected)))
+            for storage in (joined_storage, cat_storage):
+                exact(storage[[0, 1, -2, -1]], np.full(4, -777, np.int32))
+            records.append({"N": n, "finite_i4": finite})
+        native_evidence(first, root, "logical-shapes-" + str(finite), [])
+    return {"execution_mode": "jit", "records": records, "exact": True, "guards_unchanged": True}
 
 
 def array_contractions(root, options, close, compile_target):
