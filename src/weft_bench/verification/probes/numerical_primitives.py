@@ -118,6 +118,74 @@ def pipeline_carrier_contract(root, options):
     return {"cases": records, "integer_exact": True, "guards_and_inputs_preserved": True}
 
 
+def pipeline_version_contract(root, options):
+    from numerical_primitive_kernels import pipelined_multiple_carries
+    records = []
+    for depth in (1, 2, 3, 4):
+        compiled = None
+        for blocks in (0, 1, 2, 3, 5, 9):
+            shape = (blocks, 4, 16)
+            left = np.resize([-128, 127, -1, 1, 17], blocks*64).astype(np.int8).reshape(shape)
+            right = np.resize([127, -128, 7, 0, -3], blocks*64).astype(np.int8).reshape(shape)
+            expected = [2147483647, 2147483647]
+            for row in range(blocks):
+                value = sum(int(a)*int(x) for a, x in zip(left[row].flat, right[row].flat))
+                expected = [wrap_integer(expected[0] + value, 32),
+                            wrap_integer(expected[1] * 3 + value, 32)]
+            storage, output = guarded(2, np.int32)
+            settings = {**options, "backend_options": {**options.get("backend_options", {}), "pipeline_depth": depth}}
+            current = pipelined_multiple_carries[(1,)](left, right, output,
+                G=4, K=16, INITIAL=2147483647, **settings)
+            if compiled is not None:
+                assert current is compiled, "dynamic iteration count recompiled the pipeline"
+            compiled = current
+            exact(output, np.array(expected, np.int32))
+            exact(storage[[0, 1, -2, -1]], np.full(4, -12345, np.int32))
+            name = f"pipeline-versions-{depth}-{blocks}"
+            save(root, name, left=left, right=right, actual=output, expected=np.array(expected, np.int32))
+            records.append({"depth": depth, "iterations": blocks, "carries": 2})
+        evidence = native_evidence(compiled, root, f"pipeline-versions-{depth}", ["contract"])
+        physical = compiled.asm.get("riscvir", compiled.asm.get("x86ir", ""))
+        if depth > 1:
+            assert f'weft.pipeline.expanded_depth = {depth}' in physical, "requested pipeline depth was not expanded"
+        records[-1]["evidence"] = evidence
+    return {"cases": records, "integer_exact": True, "guards_unchanged": True, "execution_mode": "jit"}
+
+
+def pipeline_storage_contract(root, options):
+    from numerical_primitive_kernels import pipelined_private_arrays
+    records = []
+    for depth in (1, 2, 3, 4):
+        compiled = None
+        for blocks in (0, 1, 2, 5):
+            width = 4097
+            left = np.resize([-128, 127, -1, 3], blocks*width).astype(np.int8).reshape(blocks, width)
+            scales = np.resize([2, -3, 1, -1], blocks).astype(np.int32)
+            expected = [1, 7]
+            for row in range(blocks):
+                values = left[row].astype(np.int64)
+                values += expected[0] if scales[row] > 0 else -expected[0]
+                contribution = wrap_integer(int(values.sum()) * int(scales[row]), 32)
+                expected = [wrap_integer(expected[0] + contribution, 32),
+                            wrap_integer(expected[1] * 3 + contribution, 32)]
+            storage, output = guarded(2, np.int32)
+            settings = {**options, "backend_options": {**options.get("backend_options", {}), "pipeline_depth": depth}}
+            current = pipelined_private_arrays[(1,)](left, scales, output, K=width, **settings)
+            if compiled is not None:
+                assert current is compiled, "dynamic storage iterations recompiled the pipeline"
+            compiled = current
+            exact(output, np.array(expected, np.int32))
+            exact(storage[[0, 1, -2, -1]], np.full(4, -12345, np.int32))
+            save(root, f"pipeline-storage-{depth}-{blocks}", left=left, scales=scales,
+                 actual=output, expected=np.array(expected, np.int32))
+            records.append({"depth": depth, "iterations": blocks, "width": width, "carries": 2})
+        records[-1]["evidence"] = native_evidence(compiled, root, f"pipeline-storage-{depth}", [])
+        physical = compiled.asm.get("riscvir", compiled.asm.get("x86ir", ""))
+        if depth > 1:
+            assert f'weft.pipeline.expanded_depth = {depth}' in physical, "private-storage pipeline was not expanded"
+    return {"cases": records, "integer_exact": True, "guards_unchanged": True, "execution_mode": "jit"}
+
+
 def multi_axis_mac(root, options, close):
     from numerical_primitive_kernels import grouped_mac, grouped_mac_float, aligned_integer_pairs, byte_dot_narrow, equal_extent_axes
 
@@ -929,6 +997,10 @@ def run_scenario(name, root, options, close, compile_target=None):
         return pointwise_cost_contract(root, options, close, compile_target)
     if name == "integer_boundaries":
         return integer_boundary_contract(root, options, compile_target)
+    if name == "pipeline_versions":
+        return pipeline_version_contract(root, options)
+    if name == "pipeline_storage":
+        return pipeline_storage_contract(root, options)
     if name == "mixed_integer_mac":
         return mixed_integer_mac_contract(root, options)
     if name == "grouped_mac":
@@ -1597,7 +1669,8 @@ def storage_lifetime_contract(root, options):
     from numerical_primitive_kernels import storage_lifetime_control, bounded_storage_lifetime_control
     records = []
     compiled = None
-    for bounded, n in ((False, 0), (False, 7), (False, 257), (False, 4097), (True, 4097)):
+    for bounded, n in ((False, 0), (False, 7), (False, 257), (False, 4097),
+                       (True, 7), (True, 257), (True, 4097)):
         for steps in (0, 1, 4):
             for choose in (0, 1):
                 source_storage, source = guarded(n, np.int32)

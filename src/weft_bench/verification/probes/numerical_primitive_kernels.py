@@ -38,6 +38,42 @@ def pipelined_scaled_groups(A: tl.View[tl.i8, (B, G, K)],
     tl.store(Y[0], total)
 
 
+@triton.jit(model="weft", alias_groups={"Y": "output"})
+def pipelined_multiple_carries(A: tl.View[tl.i8, (B, G, K)],
+                              X: tl.View[tl.i8, (B, G, K)],
+                              Y: tl.View[tl.i32, (2,)],
+                              G: tl.constexpr, K: tl.constexpr, INITIAL: tl.constexpr):
+    total = tl.i32(INITIAL)
+    weighted = tl.i32(INITIAL)
+    with tl.level.rows(B, group=1) as row:
+        products = tl.reduce_dot(tl.load(A[row]), tl.load(X[row]), over="K", acc_dtype=tl.i32)
+        contribution = tl.sum(tl.sum(products, 1), 0)
+        total += contribution
+        weighted = weighted * tl.i32(3) + contribution
+    tl.store(Y[0], total)
+    tl.store(Y[1], weighted)
+
+
+@triton.jit(model="weft", alias_groups={"Y": "output"})
+def pipelined_private_arrays(A: tl.View[tl.i8, (B, K)],
+                            S: tl.View[tl.i32, (B,)],
+                            Y: tl.View[tl.i32, (2,)], K: tl.constexpr):
+    total = tl.i32(1)
+    weighted = tl.i32(7)
+    with tl.level.rows(B, group=1) as row:
+        scale = tl.sum(tl.load(S[row]), 0)
+        values = tl.i32(tl.load(A[row]))
+        if scale > 0:
+            values = values + total
+        else:
+            values = values - total
+        contribution = tl.sum(tl.sum(values, 1), 0) * scale
+        total += contribution
+        weighted = weighted * tl.i32(3) + contribution
+    tl.store(Y[0], total)
+    tl.store(Y[1], weighted)
+
+
 @triton.jit(model="weft", alias_groups={"A": "input", "B": "input"})
 def ime_closed_reduction(A: tl.View[tl.i8, (M, K)], B: tl.View[tl.i8, (N, K)],
                          C: tl.View[tl.i32, (M, N)],
@@ -602,7 +638,8 @@ def storage_lifetime_control(X: tl.View[tl.i32, (N,)], Y: tl.View[tl.i32, (4,)],
         # Later reads must see the write, while both saved SSA values retain
         # their original bytes even across a branch and a loop back edge.
         tl.store(X, tl.load(X) + tl.i32(3))
-        tl.store(Y[step], tl.sum(selected))
+        if tl.extent(X, 0) > 0:
+            tl.store(Y[step], tl.sum(selected))
         saved = selected + tl.i32(1)
         step += 1
 
