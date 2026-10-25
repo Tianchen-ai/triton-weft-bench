@@ -579,16 +579,29 @@ def cohort_float_scale_contract(root, options):
             source = ((np.arange(rows*k).reshape(rows, k) % 29 - 14) / 8).astype(np.float32)
             guarded = np.full(rows*k+8, -12345, np.float32)
             output = guarded[4:-4].reshape(rows, k)
-            compiled = kernels.cohort_float_scale[(1,)](
-                view, source, output, First=first, ROWS=rows, RECORDS=records, **options)
-            evidence.append(capture(compiled, root, f"float-scales-{records}-{first}-{rows}"))
             expected = source * scales[first:first+rows, None] * np.repeat(np.arange(1, records+1), 32)[None, :]
-            np.savez(root / "float-scales-current.npz", source=source, actual=output,
-                     expected=expected, first=first, rows=rows, records=records)
-            np.testing.assert_array_equal(output, expected.astype(np.float32))
-            np.testing.assert_array_equal(storage, original)
-            np.testing.assert_array_equal(guarded[[0, 1, -2, -1]], np.full(4, -12345, np.float32))
-    return {"two_byte_alignment": True, "read_only_input_preserved": True,
+            for saved, update in ((False, False), (True, False), (True, True)):
+                storage[:] = original
+                guarded.fill(-12345)
+                compiled = kernels.cohort_float_scale[(1,)](
+                    view, source, output, First=first, ROWS=rows, RECORDS=records,
+                    SAVED=saved, UPDATE=update, **options)
+                name = f"float-scales-{records}-{first}-{rows}-{saved}-{update}"
+                evidence.append(capture(compiled, root, name))
+                np.savez(root / (name + ".npz"), source=source, actual=output,
+                         expected=expected, first=first, rows=rows, records=records)
+                np.testing.assert_array_equal(output, expected.astype(np.float32))
+                expected_storage = original.copy()
+                if update:
+                    expected_packed = expected_storage[2:-2].reshape(2, records, 144)
+                    for row in range(first, first + rows):
+                        for block in range(records):
+                            value = np.array([scales[row] * (block + 1) + 1], np.float32)
+                            start = (row % 4) * 4
+                            expected_packed[row // 4, block, start:start + 4] = value.view(np.uint8)
+                np.testing.assert_array_equal(storage, expected_storage)
+                np.testing.assert_array_equal(guarded[[0, 1, -2, -1]], np.full(4, -12345, np.float32))
+    return {"two_byte_alignment": True, "saved_read_and_update_preserved": True,
             "partial_and_cross_cohort_rows": True, "evidence": evidence}
 
 

@@ -206,10 +206,14 @@ def byte_nibble_contraction(X: tl.View[FloatScaleRows[4], (M, K)],
 def cohort_float_scale(X: tl.View[FloatScaleRows[4], (M, K)],
                        Z: tl.View[tl.f32, (N, K)], Y: tl.View[tl.f32, (N, K)],
                        First: tl.constexpr, ROWS: tl.constexpr = 4,
-                       RECORDS: tl.constexpr = 1):
+                       RECORDS: tl.constexpr = 1, SAVED: tl.constexpr = False,
+                       UPDATE: tl.constexpr = False):
     for record in tl.static_range(RECORDS):
         part = tl.subview(X, offsets=(First, record * 32), extents=(ROWS, 32))
-        scale = tl.reshape(tl.load(part.d), (ROWS,), axes=("N",), order=("M",))
+        value = tl.load(part).d if SAVED else tl.load(part.d)
+        if UPDATE:
+            tl.store(part.d, value + tl.f32(1.0))
+        scale = tl.reshape(value, (ROWS,), axes=("N",), order=("M",))
         source = tl.subview(Z, offsets=(0, record * 32), extents=(ROWS, 32))
         destination = tl.subview(Y, offsets=(0, record * 32), extents=(ROWS, 32))
         tl.store(destination, tl.load(source) * scale)

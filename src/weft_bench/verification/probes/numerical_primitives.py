@@ -1677,7 +1677,7 @@ def shared_supply_contract(root, options):
 def dense_stage_residency_contract(root, options):
     from numerical_primitive_kernels import dense_stage_residency, dense_stage_disjoint
     records = []
-    for block in (32, 128):
+    for block in (32, 128, 1024):
         for mutate in (False, True):
             compiled = None
             for m, n in ((0, 0), (1, 7), (3, 37), (5, 129)):
