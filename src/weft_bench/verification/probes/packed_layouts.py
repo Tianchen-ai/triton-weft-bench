@@ -159,6 +159,8 @@ def nibble_contraction_contract(root, options, native_i4=False, narrow_handoff=F
 
 
 def run_scenario(name, root, options):
+    if name == "numeric_bitplanes":
+        return numeric_bitplanes_contract(root, options)
     if name == "snapshot_storage":
         return snapshot_storage_contract(root, options)
     if name == "translated_windows":
@@ -303,6 +305,36 @@ def run_scenario(name, root, options):
             "whole_record_stage_snapshot": True, "partial_row_guard": True,
             "signed_i4_unsigned_u6": name != "orders", "oracle": "independent declared byte layout",
             "snapshot": str(path), "evidence": evidence, "record_reshapes": reshape_evidence}
+
+
+def numeric_bitplanes_contract(root, options):
+    import triton.language as tl
+    import packed_layout_kernels as kernels
+    from helper_native import capture
+
+    records = []
+    for select, keep in ((False, False), (True, False), (False, True)):
+        for n in (64, 192):
+            bits = ((np.arange(n) * 7 + np.arange(n) // 5) % 2).astype(np.uint8)
+            packed = np.packbits(bits, bitorder="little")
+            values = np.resize(np.array([-128, -127, -1, 0, 1, 63, 127], np.int8), n)
+            output = np.full(n + 16, 77, np.int8)
+            observed = np.full(n, -99, np.int8)
+            compiled = kernels.encoded_sign_product[(1,)](
+                tl.View(packed, encoding=kernels.BitSigns, shape=(n,)),
+                values, output[:n], observed, SELECT=select, KEEP=keep, **options)
+            expected = (values.astype(np.int16) * (1 - 2 * bits.astype(np.int16))).astype(np.int8)
+            np.testing.assert_array_equal(output[:n], expected)
+            np.testing.assert_array_equal(output[n:], np.full(16, 77, np.int8))
+            np.testing.assert_array_equal(observed, bits.astype(np.int8) if keep else np.full(n, -99, np.int8))
+            np.testing.assert_array_equal(packed, np.packbits(bits, bitorder="little"))
+            if "riscvir" in compiled.asm and not select and not keep:
+                assert "rvv.masked-negate" in compiled.asm["riscvir"], "numeric predicate materialization lost masked negation"
+            name = f"numeric-bitplane-{select}-{keep}-{n}"
+            np.savez(root / (name + '.npz'), output=output, expected=expected, bits=bits)
+            records.append({"size": n, "select": select, "extra_consumer": keep,
+                            "evidence": capture(compiled, root, name)})
+    return {"integer_exact": True, "signed_min_wrap_preserved": True, "cases": records}
 
 
 def snapshot_storage_contract(root, options):

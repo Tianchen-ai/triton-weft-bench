@@ -6,6 +6,26 @@ import triton.language as tl
 
 
 @triton.encoding
+class BitSigns:
+    layout = (tl.bitorder.lsb_first, tl.byteorder.little)
+    alignment = 1
+    elements = 64
+    bit: tl.u1[64] @ tl.grouped(elements=8) @ tl.bit_layers(elements=1, order=tl.lo_first)
+
+
+@triton.jit(model="weft")
+def encoded_sign_product(Signs: tl.View[BitSigns, (N,)], X: tl.View[tl.i8, (N,)],
+                         Y: tl.View[tl.i8, (N,)], Bits: tl.View[tl.i8, (N,)],
+                         SELECT: tl.constexpr, KEEP: tl.constexpr):
+    with tl.level.blocks(N, extent=64) as block:
+        bit = tl.load(Signs[block]).bit
+        numeric = tl.where(bit != tl.u1(0), tl.i8(1), tl.i8(0)) if SELECT else tl.i8(bit)
+        tl.store(Y[block], tl.load(X[block]) * (tl.i8(1) - tl.i8(2) * numeric))
+        if KEEP:
+            tl.store(Bits[block], numeric)
+
+
+@triton.encoding
 class NibblePair:
     layout = (tl.bitorder.lsb_first, tl.byteorder.little)
     alignment = 1
