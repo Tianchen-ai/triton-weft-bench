@@ -159,6 +159,8 @@ def nibble_contraction_contract(root, options, native_i4=False, narrow_handoff=F
 
 
 def run_scenario(name, root, options):
+    if name == "unaligned_windows":
+        return unaligned_windows_contract(root, options)
     if name == "numeric_bitplanes":
         return numeric_bitplanes_contract(root, options)
     if name == "snapshot_storage":
@@ -307,6 +309,38 @@ def run_scenario(name, root, options):
             "snapshot": str(path), "evidence": evidence, "record_reshapes": reshape_evidence}
 
 
+def unaligned_windows_contract(root, options):
+    import triton.language as tl
+    import packed_layout_kernels as kernels
+    from helper_native import capture
+
+    records = []
+    for update, whole in ((False, False), (True, False), (False, True), (True, True)):
+        for count in (1, 3):
+            words = (np.arange(count * 8, dtype=np.uint64) * 0x9e3779b9 + 0xfffffff0).astype(np.uint32).reshape(count, 8)
+            source = np.full(count * 34 + 132, 0xa5, np.uint8)
+            raw = source[66:-66].reshape(count, 34)
+            raw[:, :2] = np.array([0x53, 0x29], np.uint8)
+            raw[:, 2:] = words.astype('<u4').view(np.uint8).reshape(count, 32)
+            before = source.copy()
+            output = np.full(count + 16, 0xdeadbeef, np.uint32)
+            compiled = kernels.unaligned_word_windows[(1,)](
+                tl.View(raw.reshape(-1), encoding=kernels.UnalignedWords, shape=(count * 8,)),
+                output[:count], UPDATE=update, WHOLE=whole, **options)
+            expected = words.sum(axis=1, dtype=np.uint64).astype(np.uint32)
+            np.testing.assert_array_equal(output[:count], expected)
+            np.testing.assert_array_equal(output[count:], np.full(16, 0xdeadbeef, np.uint32))
+            expected_source = before.copy()
+            if update:
+                expected_source[66:-66].reshape(count, 34)[:, 2:] = (words ^ np.uint32(0x13579bdf)).astype('<u4').view(np.uint8).reshape(count, 32)
+            np.testing.assert_array_equal(source, expected_source)
+            name = f"unaligned-words-{update}-{whole}-{count}"
+            np.savez(root / (name + '.npz'), actual=output, expected=expected, source=source)
+            records.append({"update": update, "whole": whole, "records": count,
+                            "evidence": capture(compiled, root, name)})
+    return {"integer_exact": True, "read_snapshot_and_guards_preserved": True, "cases": records}
+
+
 def numeric_bitplanes_contract(root, options):
     import triton.language as tl
     import packed_layout_kernels as kernels
@@ -320,20 +354,39 @@ def numeric_bitplanes_contract(root, options):
             values = np.resize(np.array([-128, -127, -1, 0, 1, 63, 127], np.int8), n)
             output = np.full(n + 16, 77, np.int8)
             observed = np.full(n, -99, np.int8)
+            wide = np.full(n + 16, 0xdeadbeef, np.uint32)
             compiled = kernels.encoded_sign_product[(1,)](
                 tl.View(packed, encoding=kernels.BitSigns, shape=(n,)),
-                values, output[:n], observed, SELECT=select, KEEP=keep, **options)
+                values, output[:n], observed, wide[:n], SELECT=select, KEEP=keep, **options)
             expected = (values.astype(np.int16) * (1 - 2 * bits.astype(np.int16))).astype(np.int8)
             np.testing.assert_array_equal(output[:n], expected)
             np.testing.assert_array_equal(output[n:], np.full(16, 77, np.int8))
             np.testing.assert_array_equal(observed, bits.astype(np.int8) if keep else np.full(n, -99, np.int8))
+            np.testing.assert_array_equal(wide[:n], bits.astype(np.uint32) if keep else np.full(n, 0xdeadbeef, np.uint32))
+            np.testing.assert_array_equal(wide[n:], np.full(16, 0xdeadbeef, np.uint32))
             np.testing.assert_array_equal(packed, np.packbits(bits, bitorder="little"))
             if "riscvir" in compiled.asm and not select and not keep:
                 assert "rvv.masked-negate" in compiled.asm["riscvir"], "numeric predicate materialization lost masked negation"
             name = f"numeric-bitplane-{select}-{keep}-{n}"
-            np.savez(root / (name + '.npz'), output=output, expected=expected, bits=bits)
+            np.savez(root / (name + '.npz'), output=output, expected=expected, bits=bits, wide=wide)
             records.append({"size": n, "select": select, "extra_consumer": keep,
                             "evidence": capture(compiled, root, name)})
+    for base in (-128, -1, 0, 1, 127):
+        n = 192
+        bits = ((np.arange(n) * 7 + np.arange(n) // 5) % 2).astype(np.uint8)
+        packed = np.packbits(bits, bitorder="little")
+        values = np.resize(np.array([-128, -127, -1, 0, 1, 63, 127], np.int8), n)
+        output = np.full(9, -12345, np.int32)
+        compiled = kernels.encoded_sign_reduction[(1,)](
+            tl.View(packed, encoding=kernels.BitSigns, shape=(n,)),
+            values, output[:1], BASE=base, **options)
+        signed = (base * (1 - 2 * bits.astype(np.int16))).astype(np.int8)
+        expected = (signed.astype(np.int64) * values.astype(np.int64)).sum()
+        np.testing.assert_array_equal(output[:1], np.array([expected], np.int32))
+        np.testing.assert_array_equal(output[1:], np.full(8, -12345, np.int32))
+        name = f"numeric-bitplane-reduction-{base}"
+        np.savez(root / (name + '.npz'), output=output, expected=expected, signed=signed)
+        records.append({"base": base, "reduction": True, "evidence": capture(compiled, root, name)})
     return {"integer_exact": True, "signed_min_wrap_preserved": True, "cases": records}
 
 

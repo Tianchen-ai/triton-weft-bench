@@ -13,9 +13,38 @@ class BitSigns:
     bit: tl.u1[64] @ tl.grouped(elements=8) @ tl.bit_layers(elements=1, order=tl.lo_first)
 
 
+@triton.encoding
+class UnalignedWords:
+    layout = (tl.bitorder.lsb_first, tl.byteorder.little)
+    alignment = 2
+    elements = 8
+    tag: tl.u16
+    word: tl.u32[8]
+
+
+@triton.jit(model="weft", alias_groups={"Y": "output"})
+def unaligned_word_windows(X: tl.View[UnalignedWords, (K,)], Y: tl.View[tl.u32, (R,)],
+                           UPDATE: tl.constexpr, WHOLE: tl.constexpr):
+    record = tl.index(0)
+    with tl.level.blocks(K, extent=8) as block:
+        saved = tl.load(X[block])
+        if UPDATE:
+            tl.store(X[block].word, saved.word ^ tl.u32(0x13579bdf))
+        if WHOLE:
+            total = tl.sum(saved.word)
+        else:
+            total = tl.u32(0)
+            lane = tl.arange(0, 2, dtype=tl.u32, axis="lane")
+            for group in range(4):
+                total += tl.sum(saved.word[tl.u32(group) * tl.u32(2) + lane])
+        tl.store(Y[record], total)
+        record += tl.index(1)
+
+
 @triton.jit(model="weft")
 def encoded_sign_product(Signs: tl.View[BitSigns, (N,)], X: tl.View[tl.i8, (N,)],
                          Y: tl.View[tl.i8, (N,)], Bits: tl.View[tl.i8, (N,)],
+                         Wide: tl.View[tl.u32, (N,)],
                          SELECT: tl.constexpr, KEEP: tl.constexpr):
     with tl.level.blocks(N, extent=64) as block:
         bit = tl.load(Signs[block]).bit
@@ -23,6 +52,19 @@ def encoded_sign_product(Signs: tl.View[BitSigns, (N,)], X: tl.View[tl.i8, (N,)]
         tl.store(Y[block], tl.load(X[block]) * (tl.i8(1) - tl.i8(2) * numeric))
         if KEEP:
             tl.store(Bits[block], numeric)
+            tl.store(Wide[block], tl.u32(bit))
+
+
+@triton.jit(model="weft")
+def encoded_sign_reduction(Signs: tl.View[BitSigns, (N,)], X: tl.View[tl.i8, (N,)],
+                           Y: tl.View[tl.i32, (1,)], BASE: tl.constexpr):
+    total = tl.i32(0)
+    with tl.level.blocks(N, extent=64) as block:
+        bit = tl.i8(tl.load(Signs[block]).bit)
+        data = tl.i8(BASE) + bit * tl.i8(0)
+        signed = data * (tl.i8(1) - tl.i8(2) * bit)
+        total += tl.reduce_dot(signed, tl.load(X[block]), over="n", acc_dtype=tl.i32)
+    tl.store(Y[0], total)
 
 
 @triton.encoding
