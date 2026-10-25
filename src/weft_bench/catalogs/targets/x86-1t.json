@@ -1563,7 +1563,9 @@
         "constexprs": {
           "K": 4096
         },
-        "backend_options": {},
+        "backend_options": {
+          "tune_cpu": "sapphirerapids"
+        },
         "compile_target": {
           "arch": "x86_64",
           "march": "x86-64-v4+avx512vnni+avx512vbmi+avx512vbmi2+avx512fp16",
