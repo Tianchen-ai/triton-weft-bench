@@ -120,8 +120,9 @@ def pipeline_carrier_contract(root, options):
 
 def pipeline_version_contract(root, options):
     from numerical_primitive_kernels import pipelined_multiple_carries
+    import re
     records = []
-    for depth in (1, 2, 3, 4):
+    for depth, transform in [(depth, False) for depth in (1, 2, 3, 4)] + [(3, True), (4, True)]:
         compiled = None
         for blocks in (0, 1, 2, 3, 5, 9):
             shape = (blocks, 4, 16)
@@ -129,25 +130,33 @@ def pipeline_version_contract(root, options):
             right = np.resize([127, -128, 7, 0, -3], blocks*64).astype(np.int8).reshape(shape)
             expected = [2147483647, 2147483647]
             for row in range(blocks):
-                value = sum(int(a)*int(x) for a, x in zip(left[row].flat, right[row].flat))
+                value = sum((int(a) + int(transform))*(int(x) - int(transform))
+                            for a, x in zip(left[row].flat, right[row].flat))
                 expected = [wrap_integer(expected[0] + value, 32),
                             wrap_integer(expected[1] * 3 + value, 32)]
             storage, output = guarded(2, np.int32)
             settings = {**options, "backend_options": {**options.get("backend_options", {}), "pipeline_depth": depth}}
             current = pipelined_multiple_carries[(1,)](left, right, output,
-                G=4, K=16, INITIAL=2147483647, **settings)
+                G=4, K=16, INITIAL=2147483647, TRANSFORM=transform, **settings)
             if compiled is not None:
                 assert current is compiled, "dynamic iteration count recompiled the pipeline"
             compiled = current
             exact(output, np.array(expected, np.int32))
             exact(storage[[0, 1, -2, -1]], np.full(4, -12345, np.int32))
-            name = f"pipeline-versions-{depth}-{blocks}"
+            name = f"pipeline-versions-{depth}-{blocks}-transform-{transform}"
             save(root, name, left=left, right=right, actual=output, expected=np.array(expected, np.int32))
-            records.append({"depth": depth, "iterations": blocks, "carries": 2})
-        evidence = native_evidence(compiled, root, f"pipeline-versions-{depth}", ["contract"])
+            records.append({"depth": depth, "iterations": blocks, "carries": 2, "transform": transform})
+        evidence = native_evidence(compiled, root, f"pipeline-versions-{depth}-transform-{transform}", ["contract"])
         physical = compiled.asm.get("riscvir", compiled.asm.get("x86ir", ""))
         if depth > 1:
             assert f'weft.pipeline.expanded_depth = {depth}' in physical, "requested pipeline depth was not expanded"
+            counts = re.findall(r'stage_operations = array<i64: ([^>]+)>', physical)
+            assert counts, "pipeline has no selected stage membership"
+            stages = [int(n) for n in counts[0].split(',')]
+            assert len(stages) == depth
+            if transform:
+                assert all(n > 0 for n in stages), "read/widen/arithmetic/recurrence chain lost an actual stage"
+            records[-1]['stage_operations'] = stages
         records[-1]["evidence"] = evidence
     return {"cases": records, "integer_exact": True, "guards_unchanged": True, "execution_mode": "jit"}
 

@@ -15,6 +15,20 @@ class NibblePair:
     bias: tl.i32
 
 
+@triton.jit(model="weft", alias_groups={"Values": "values"})
+def encoded_snapshot_rows(X: tl.View[NibblePair, (M, K)],
+                          Y: tl.View[NibblePair, (M, K)],
+                          Values: tl.View[tl.i32, (M, K)]):
+    with tl.level.rows(M, group=4) as rows:
+        saved = tl.stage(tl.load(X[rows]))
+        for step in range(2):
+            with tl.level.rows(rows, group=1) as row:
+                with tl.level.blocks(K, extent=32) as block:
+                    value = saved[row, block]
+                    tl.store(Y[row, block].s, value.s ^ tl.i4(1))
+                    tl.store(Values[row, block], tl.i32(value.s) + step * 1000)
+
+
 @triton.encoding
 class WindowFields:
     layout = (tl.bitorder.lsb_first, tl.byteorder.little)

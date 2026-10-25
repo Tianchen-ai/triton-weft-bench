@@ -42,11 +42,17 @@ def pipelined_scaled_groups(A: tl.View[tl.i8, (B, G, K)],
 def pipelined_multiple_carries(A: tl.View[tl.i8, (B, G, K)],
                               X: tl.View[tl.i8, (B, G, K)],
                               Y: tl.View[tl.i32, (2,)],
-                              G: tl.constexpr, K: tl.constexpr, INITIAL: tl.constexpr):
+                              G: tl.constexpr, K: tl.constexpr, INITIAL: tl.constexpr,
+                              TRANSFORM: tl.constexpr = False):
     total = tl.i32(INITIAL)
     weighted = tl.i32(INITIAL)
     with tl.level.rows(B, group=1) as row:
-        products = tl.reduce_dot(tl.load(A[row]), tl.load(X[row]), over="K", acc_dtype=tl.i32)
+        left = tl.load(A[row])
+        right = tl.load(X[row])
+        if TRANSFORM:
+            left = tl.i16(left) + tl.i16(1)
+            right = tl.i16(right) - tl.i16(1)
+        products = tl.reduce_dot(left, right, over="K", acc_dtype=tl.i32)
         contribution = tl.sum(tl.sum(products, 1), 0)
         total += contribution
         weighted = weighted * tl.i32(3) + contribution

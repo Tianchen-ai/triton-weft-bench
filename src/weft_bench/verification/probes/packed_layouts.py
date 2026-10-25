@@ -159,6 +159,8 @@ def nibble_contraction_contract(root, options, native_i4=False, narrow_handoff=F
 
 
 def run_scenario(name, root, options):
+    if name == "snapshot_storage":
+        return snapshot_storage_contract(root, options)
     if name == "translated_windows":
         return translated_windows_contract(root, options)
     if name == "pipeline_carriers":
@@ -301,6 +303,62 @@ def run_scenario(name, root, options):
             "whole_record_stage_snapshot": True, "partial_row_guard": True,
             "signed_i4_unsigned_u6": name != "orders", "oracle": "independent declared byte layout",
             "snapshot": str(path), "evidence": evidence, "record_reshapes": reshape_evidence}
+
+
+def snapshot_storage_contract(root, options):
+    import triton.language as tl
+    import packed_layout_kernels as kernels
+    from helper_native import capture
+
+    records, first = [], None
+    for m, k, overlap in ((1, 32, False), (5, 96, False), (5, 96, True),
+                          (4, 1024, True), (4, 32768, False)):
+        signed = ((np.arange(m * k) * 7 + 3) % 16 - 8).reshape(m, k)
+        raw = bytearray()
+        for row in range(m):
+            for block in range(k // 32):
+                raw.extend(dense_bits(signed[row, block * 32:(block + 1) * 32], 4))
+                raw.extend(bytes([0xa5] * 16))
+                raw.extend((12345 + row + block).to_bytes(4, "little", signed=True))
+        source_storage = np.full(len(raw) + 128, 0xc3, np.uint8)
+        x = source_storage[64:-64]
+        x[:] = np.frombuffer(raw, np.uint8)
+        destination_storage = source_storage if overlap else np.full_like(source_storage, 0x5a)
+        y = destination_storage[64:-64]
+        before = y.copy().reshape(m, k // 32, 36)
+        expected = before.copy()
+        for row in range(m):
+            for block in range(k // 32):
+                expected[row, block, :16] = np.frombuffer(dense_bits(
+                    signed[row, block * 32:(block + 1) * 32] ^ 1, 4), np.uint8)
+        output_storage = np.full(m * k + 64, -12345, np.int32)
+        output = output_storage[32:-32].reshape(m, k)
+        compiled = kernels.encoded_snapshot_rows[(1,)](
+            tl.View(x, encoding=kernels.NibblePair, shape=(m, k)),
+            tl.View(y, encoding=kernels.NibblePair, shape=(m, k)), output, **options)
+        if first is None:
+            first = compiled
+        else:
+            assert compiled is first, "record snapshot JIT specialized dynamic shape or alias addresses"
+        np.testing.assert_array_equal(output, signed.astype(np.int32) + 1000)
+        np.testing.assert_array_equal(y.reshape(expected.shape), expected)
+        np.testing.assert_array_equal(source_storage[:64], np.full(64, 0xc3, np.uint8))
+        np.testing.assert_array_equal(source_storage[-64:], np.full(64, 0xc3, np.uint8))
+        if not overlap:
+            np.testing.assert_array_equal(x, np.frombuffer(raw, np.uint8))
+            np.testing.assert_array_equal(destination_storage[:64], np.full(64, 0x5a, np.uint8))
+            np.testing.assert_array_equal(destination_storage[-64:], np.full(64, 0x5a, np.uint8))
+        np.testing.assert_array_equal(output_storage[:32], np.full(32, -12345, np.int32))
+        np.testing.assert_array_equal(output_storage[-32:], np.full(32, -12345, np.int32))
+        name = f"record-snapshot-{m}-{k}-{'overlap' if overlap else 'disjoint'}"
+        proof = capture(compiled, root, name)
+        if "riscvir" in compiled.asm:
+            assert 'snapshot_may_borrow = true' in compiled.asm["riscvir"]
+            assert 'weft_riscv.storage_disjoint' in compiled.asm["riscvir"]
+        np.savez(root / (name + '.npz'), actual=output, expected=signed + 1000, bytes=y)
+        records.append({"M": m, "K": k, "overlap": overlap, "evidence": proof})
+    return {"integer_exact": True, "same_jit_for_shapes_and_aliases": True,
+            "guards_preserved": True, "cases": records}
 
 
 def cohort_byte_write_contract(root, options):

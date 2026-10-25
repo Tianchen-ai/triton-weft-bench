@@ -171,6 +171,18 @@ the exported i4/u6 types; the order case uses a big-endian u16 and MSB-first u1
 array. Existing GGML native and encoded Program entries can be selected alongside
 these cases without changing their author source or oracle.
 
+`snapshot_storage` exercises a dynamic, multi-row Encoding stage across repeated
+field writes, using both disjoint and overlapping input/output buffers. Shapes
+and addresses change without recompiling the kernel. It also includes a disjoint
+logical stage larger than the private stack budget: the compiled range proof
+must allow the original storage to supply the immutable value without copying
+the whole stage. Integer fields, untouched bytes and guards are checked exactly.
+The `pipeline_versions` and `pipeline_storage` numerical scenarios cover CPU
+depths 1/2/3/4, empty/short loops, multiple ordered carries and private arrays;
+`pipeline_versions` includes dependent widening arithmetic that occupies actual
+intermediate stages. These are correctness and compilation checks, not timing
+results.
+
 Framework and runtime probes are the migrated integration probes, not a separate
 compiler. The target must provide NumPy and the selected Torch/Triton installation.
 Missing framework capabilities are reported as `unsupported`. Hardware-inapplicable
