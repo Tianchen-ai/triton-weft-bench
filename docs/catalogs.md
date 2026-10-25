@@ -60,7 +60,7 @@ is reported as missing rather than inferred from a repository's current tip.
 ## Models and native packages
 
 `packages.json` contains nine explicitly selected model/backend recipes and
-25 role bindings. They distinguish normal CPU/RVV and vendor IME2 policies and
+27 role bindings. They distinguish normal CPU/RVV and vendor IME2 policies and
 preserve independent prefill/decode protocols. A local model profile names its
 `package_recipe`, toolchain, normal binary, integrated binary, model file, fixed
 reference and deployed package.

@@ -1014,6 +1014,8 @@ def ime_reduction_contract(root, options):
 
 
 def run_scenario(name, root, options, close, compile_target=None):
+    if name == "affine_contraction":
+        return affine_contraction_contract(root, options, close)
     if name == "ime_reduction":
         return ime_reduction_contract(root, options)
     if name == "indexed_packets":
@@ -1093,6 +1095,59 @@ def run_scenario(name, root, options, close, compile_target=None):
     if name not in operations:
         raise ValueError("unknown numerical primitive scenario " + name)
     return operations[name](root, options)
+
+
+def affine_contraction_contract(root, options, close):
+    from weft_bench.kernels.dense.affine import affine_full_tiles
+    from numerical_primitive_kernels import affine_float64
+    records = []
+    scale, bias, block = np.float32(0.75), np.float32(-0.375), 1024
+    first = None
+    for n in (0, 1, 33, 1024, 2051):
+        for overlap in ("disjoint", "inplace", "forward"):
+            source = (np.arange(n + 5, dtype=np.float32) % 97 - 48) / 16
+            if overlap == "disjoint":
+                backing = np.full(n + 4, -777, np.float32)
+                x, y = source[2:n+2], backing[2:n+2]
+            else:
+                backing = source.copy()
+                x = backing[2:n+2]
+                y = backing[2:n+2] if overlap == "inplace" else backing[3:n+3]
+            expected = backing.copy()
+            # The source reads one complete author tile before its stores. A
+            # forward overlap can affect the next tile, never the current one.
+            for start in range(0, n, block):
+                count = min(block, n-start)
+                values = (x[start:start+count].copy() if overlap == "disjoint"
+                          else expected[2+start:2+start+count].copy())
+                destination = (3 if overlap == "forward" else 2) + start
+                expected[destination:destination+count] = values * scale + bias
+            compiled = affine_full_tiles[(1,)](x, y, float(scale), bias=float(bias), B=block,
+                **{**options, "backend_options": {**options.get("backend_options", {}),
+                                                 "lmul_eighths": 64, "pointwise_issue_copies": 2}})
+            if first is None: first = compiled
+            assert compiled is first, "runtime length/alias relationship specialized the affine kernel"
+            close(backing, expected)
+            records.append({"N": n, "overlap": overlap})
+    first.export(str(root / "affine-contraction"))
+    physical = first.asm["riscvir"]
+    assert "rvv.vfmadd.vf" in physical, "complete repeated issue loop lost input-tied FMA"
+    double_first = None
+    for n in (0, 1, 1024, 2051):
+        x = (np.arange(n, dtype=np.float64) % 97 - 48) / 16
+        backing, y = guarded(n, np.float64, -777)
+        compiled = affine_float64[(1,)](x, y, 0.75, -0.375,
+            **{**options, "backend_options": {**options.get("backend_options", {}),
+                                             "lmul_eighths": 64, "pointwise_issue_copies": 2}})
+        if double_first is None: double_first = compiled
+        assert compiled is double_first, "runtime length specialized the F64 affine kernel"
+        close(y, x * 0.75 - 0.375)
+        exact(backing[[0, 1, -2, -1]], np.full(4, -777, np.float64))
+        records.append({"N": n, "dtype": "f64", "overlap": "disjoint"})
+    double_first.export(str(root / "affine-f64"))
+    assert "rvv.vfmadd.vf" in double_first.asm["riscvir"], "F64 repeated issue loop lost input-tied FMA"
+    return {"execution_mode": "jit", "cases": records,
+            "author_tile_snapshot_preserved": True, "artifact": str(root / "affine-contraction")}
 
 
 def integer_boundary_contract(root, options, compile_target):

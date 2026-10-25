@@ -5,6 +5,20 @@ import triton
 import triton.language as tl
 
 
+@triton.jit(model="weft")
+def affine_float64(X: tl.View[tl.f64, (N,)], Y: tl.View[tl.f64, (N,)],
+                   scale: tl.f64, bias: tl.f64):
+    end = N // 1024 * 1024
+    for start in range(0, end, 1024):
+        x = tl.subview(X, offsets=(start,), extents=(1024,))
+        y = tl.subview(Y, offsets=(start,), extents=(1024,))
+        tl.store(y, tl.load(x) * scale + bias)
+    if end < N:
+        x = tl.subview(X, offsets=(end,), extents=(N-end,))
+        y = tl.subview(Y, offsets=(end,), extents=(N-end,))
+        tl.store(y, tl.load(x) * scale + bias)
+
+
 @triton.jit(model="weft", alias_groups={"Y": "output"})
 def wide_integer_bounds(X: tl.View[tl.u64, (N,)], Y: tl.View[tl.u64, (N,)],
                         MODE: tl.constexpr):
