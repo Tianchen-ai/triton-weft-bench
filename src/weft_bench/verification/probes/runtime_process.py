@@ -17,7 +17,7 @@ import triton.language as tl
 from kernels import affine, coordinates
 
 torch = None
-if any(name != "packed_layouts" for name in sys.argv[1:]):
+if any(name not in ("packed_layouts", "numerical_primitives") for name in sys.argv[1:]):
     import torch
 
 faulthandler.enable()
@@ -33,8 +33,9 @@ rows = json.loads((root / "results.json").read_text())["results"] if (root / "re
 
 
 def close(actual, expected):
-    a = actual.detach().numpy() if isinstance(actual, torch.Tensor) else np.asarray(actual)
-    b = expected.detach().numpy() if isinstance(expected, torch.Tensor) else np.asarray(expected)
+    tensor_module = sys.modules.get("torch")
+    a = actual.detach().numpy() if tensor_module is not None and isinstance(actual, tensor_module.Tensor) else np.asarray(actual)
+    b = expected.detach().numpy() if tensor_module is not None and isinstance(expected, tensor_module.Tensor) else np.asarray(expected)
     if a.shape != b.shape or not np.allclose(a, b, rtol=2e-5, atol=2e-5):
         raise ValueError("numerical mismatch")
 
@@ -1024,7 +1025,8 @@ operations={"reduction_domains":reduction_domains,"dynamic_rounding":dynamic_rou
 
 
 def save():
-    (root/'results.json').write_text(json.dumps({"target":request['target'],"triton":triton.__file__,"torch":torch.__version__ if torch is not None else None,"results":rows},indent=2))
+    tensor_module = sys.modules.get("torch")
+    (root/'results.json').write_text(json.dumps({"target":request['target'],"triton":triton.__file__,"torch":tensor_module.__version__ if tensor_module is not None else None,"results":rows},indent=2))
 
 
 for name in sys.argv[1:]:
