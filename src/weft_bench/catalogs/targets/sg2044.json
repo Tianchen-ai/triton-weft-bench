@@ -312,6 +312,7 @@
         },
         "backend_options": {
           "lmul_eighths": 64,
+          "native_loop_alignment": 0,
           "unroll": 1,
           "pipeline_depth": 1
         },
@@ -347,6 +348,7 @@
         },
         "backend_options": {
           "lmul_eighths": 64,
+          "native_loop_alignment": 0,
           "unroll": 1,
           "pipeline_depth": 1
         },
@@ -3521,6 +3523,9 @@
         "source": "package:kernels/ggml/blocks/mul_mat/iq4_xs.py",
         "symbol": "production_mul_mat_iq4_xs",
         "signature": {},
+        "toolchain": {
+          "cflags": ["-fno-slp-vectorize"]
+        },
         "constexprs": {
           "NC": 32,
           "MC": 16,
@@ -3808,7 +3813,8 @@
         "constexprs": {},
         "toolchain": {
           "cflags": [
-            "-falign-loops=16"
+            "-falign-loops=16",
+            "-fno-slp-vectorize"
           ]
         },
         "backend_options": {
@@ -3994,6 +4000,9 @@
         "source": "package:kernels/ggml/blocks/mul_mat/q4_0.py",
         "symbol": "production_mul_mat_q4_0",
         "signature": {},
+        "toolchain": {
+          "cflags": ["-fno-slp-vectorize"]
+        },
         "constexprs": {
           "NC": 32,
           "MC": 16,
@@ -4315,6 +4324,9 @@
         "source": "package:kernels/ggml/blocks/mul_mat/q5_k.py",
         "symbol": "production_mul_mat_q5_k",
         "signature": {},
+        "toolchain": {
+          "cflags": ["-fno-slp-vectorize"]
+        },
         "constexprs": {
           "NC": 32,
           "MC": 16,
