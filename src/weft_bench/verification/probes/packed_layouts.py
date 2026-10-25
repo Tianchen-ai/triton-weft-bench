@@ -158,7 +158,47 @@ def nibble_contraction_contract(root, options, native_i4=False, narrow_handoff=F
     return {"integer_exact": True, "guards_and_inputs_preserved": True, "cases": records}
 
 
+def masked_record_contraction_contract(root, options):
+    import triton.language as tl
+    import packed_layout_kernels as kernels
+    from helper_native import capture
+
+    raw, _, _, _ = fixture("natural", rows=1, records=4)
+    raw = raw.reshape(-1)
+    positions = np.arange(32).reshape(4, 8)
+    products = ((positions * 3 + 2) % 16 - 8) * ((positions * 7 + 11) % 64)
+    records, first = [], None
+    for left in (0, 8, 16, 24, 32):
+        for right in (0, 8, 24, 32):
+            lhs = np.full(raw.size + 64, 0xa5, np.uint8)
+            rhs = np.full(raw.size + 64, 0x5a, np.uint8)
+            lhs[32:-32], rhs[32:-32] = raw, raw
+            guard = np.full(13, -12345, np.int32)
+            output = guard[4:9]
+            a = tl.View(lhs[32:32 + left // 8 * 12], encoding=kernels.NaturalLE, shape=(left,))
+            c = tl.View(rhs[32:32 + right // 8 * 12], encoding=kernels.NaturalLE, shape=(right,))
+            compiled = kernels.masked_record_contract[(1,)](a, c, output, **options)
+            if first is None:
+                first = compiled
+            assert compiled is first, "encoded contraction specialized runtime valid extents"
+            active = min(left, right) // 8
+            wanted = np.full(5, -12345, np.int32)
+            wanted[:active] = products[:active].sum(axis=1, dtype=np.int32)
+            if active:
+                wanted[4] = products[:active].sum(dtype=np.int32)
+            np.testing.assert_array_equal(output, wanted)
+            np.testing.assert_array_equal(guard[:4], np.full(4, -12345, np.int32))
+            np.testing.assert_array_equal(guard[9:], np.full(4, -12345, np.int32))
+            np.testing.assert_array_equal(lhs[32:-32], raw)
+            np.testing.assert_array_equal(rhs[32:-32], raw)
+            records.append({"left": left, "right": right, "active_rows": active})
+    return {"cases": records, "integer_exact": True, "two_reduction_axes": True,
+            "invalid_outputs_untouched": True, "evidence": capture(first, root, "masked-record-contract")}
+
+
 def run_scenario(name, root, options):
+    if name == "masked_contract":
+        return masked_record_contraction_contract(root, options)
     if name == "unaligned_windows":
         return unaligned_windows_contract(root, options)
     if name == "numeric_bitplanes":

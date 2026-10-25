@@ -268,6 +268,19 @@ class NaturalLE:
     s: tl.u6[8]
 
 
+@triton.jit(model="weft", alias_groups={"X": "lhs", "Z": "rhs", "Y": "output"})
+def masked_record_contract(X: tl.View[NaturalLE, (L,)], Z: tl.View[NaturalLE, (P,)], Y):
+    with tl.level.tiles(L, extent=32) as l:
+        with tl.level.tiles(P, extent=32) as p:
+            left = tl.reshape(tl.load(X[l]), (4, 8), axes=("row", "k"), order=("L",))
+            right = tl.reshape(tl.load(Z[p]), (4, 8), axes=("row", "k"), order=("P",))
+            rows = tl.reduce_dot(tl.i8(left.q), tl.u8(right.s), over="k", acc_dtype=tl.i32)
+            total = tl.reduce_dot(tl.i8(left.q), tl.u8(right.s), over=("row", "k"), acc_dtype=tl.i32)
+            for row in range(4):
+                tl.store(Y + row, rows[row])
+            tl.store(Y + 4, total)
+
+
 @triton.encoding
 class LayeredJoined:
     layout = (tl.bitorder.lsb_first, tl.byteorder.little)
