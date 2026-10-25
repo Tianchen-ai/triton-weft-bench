@@ -1539,7 +1539,10 @@ def shared_supply_contract(root, options):
             if not mutate and not observe:
                 chosen = 'register' if reuse == 32 or reuse < 0 else 'reload'
                 assert f'selected = "{chosen}"' in physical, "shared supply did not compare actual reuse"
-                assert 'actual-full-domain-transfers-by-loop-identity' in physical
+                assert 'physical-program-work-with-symbolic-frequency-and-opaque-terms' in physical
+                assert 'register_program_work' in physical and 'reload_program_work' in physical
+                if reuse < 0:
+                    assert 'signed(' in physical or 'unsigned(' in physical, "unknown iteration counts lost their bound identity"
             else:
                 assert 'selected = "reload"' not in physical, "stage snapshot crossed a write or lost a whole-value consumer"
         records.append({"reuse":reuse,"runtime_count":count,"other_consumer":observe,"mutation":mutate,"evidence":evidence})
