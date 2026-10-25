@@ -513,6 +513,61 @@ def word_snapshot_reuse(A: tl.View[tl.i8, (M, K)], B: tl.View[tl.i16, (N, K)],
 
 
 @triton.jit(model="weft")
+def word_snapshot_branches(A: tl.View[tl.i8, (M, K)], B: tl.View[tl.i16, (N, K)],
+                           Y: tl.View[tl.i32, (M, N)], Z: tl.View[tl.i32, (M, N)],
+                           enabled: tl.i32, K: tl.constexpr = 128,
+                           N: tl.constexpr = 16, BM: tl.constexpr = 8):
+    saved = tl.load(B)
+    with tl.level.rows(M, group=BM) as rows:
+        a = tl.load(A[rows])
+        first = tl.reduce_dot(a, saved, over="K", acc_dtype=tl.i32)
+        tl.store(Y[rows], first)
+        if enabled:
+            shifted = a + tl.i8(1)
+            second = tl.reduce_dot(shifted, saved, over="K", acc_dtype=tl.i32)
+            tl.store(Z[rows], second)
+
+
+@triton.jit(model="weft")
+def word_snapshot_pressure(A: tl.View[tl.i8, (M, K)], B: tl.View[tl.i16, (N, K)],
+                           Y: tl.View[tl.i32, (M, N)], K: tl.constexpr = 128,
+                           N: tl.constexpr = 32, BM: tl.constexpr = 8):
+    saved = tl.load(B)
+    with tl.level.rows(M, group=BM) as rows:
+        total = tl.state(tl.i32, [BM, N], init=0)
+        a = tl.load(A[rows])
+        for step in tl.static_range(9):
+            changed = saved + tl.i16(step)
+            total += tl.reduce_dot(a, changed, over="K", acc_dtype=tl.i32)
+        tl.store(Y[rows], total)
+
+
+@triton.jit(model="weft")
+def storage_lifetime_control(X: tl.View[tl.i32, (N,)], Y: tl.View[tl.i32, (4,)],
+                             steps: tl.i32, choose: tl.i32):
+    original = tl.load(X)
+    saved = original
+    step = 0
+    while step < steps:
+        if (step + choose) % 2:
+            selected = saved
+        else:
+            selected = original
+        # Later reads must see the write, while both saved SSA values retain
+        # their original bytes even across a branch and a loop back edge.
+        tl.store(X, tl.load(X) + tl.i32(3))
+        tl.store(Y[step], tl.sum(selected))
+        saved = selected + tl.i32(1)
+        step += 1
+
+
+@triton.jit(model="weft")
+def bounded_storage_lifetime_control(X: tl.View[tl.i32, (CAP,)], Y: tl.View[tl.i32, (4,)],
+                                     steps: tl.i32, choose: tl.i32, CAP: tl.constexpr):
+    storage_lifetime_control(X, Y, steps, choose)
+
+
+@triton.jit(model="weft")
 def partial_axis_identity(X: tl.View[tl.f32, (M, K)], Y: tl.View[tl.f32, (M, K)]):
     ROWS: tl.constexpr = 8
     with tl.level.rows(M, group=ROWS) as rows:

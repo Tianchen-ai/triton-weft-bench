@@ -899,6 +899,10 @@ def run_scenario(name, root, options, close, compile_target=None):
         return byte_contraction_contract(root, options, compile_target)
     if name == "amx_snapshots":
         return amx_snapshot_contract(root, options, compile_target)
+    if name == "storage_lifetimes":
+        return storage_lifetime_contract(root, options)
+    if name == "packing_residency":
+        return packing_residency_contract(root, options)
     if name == "word_byte_contractions":
         return word_byte_contraction_contract(root, options, compile_target)
     if name == "amx_mixed_storage":
@@ -1278,22 +1282,29 @@ def word_byte_contraction_contract(root, options, compile_target, mixed_storage=
 
 
 def amx_snapshot_contract(root, options, compile_target):
-    from numerical_primitive_kernels import byte_contraction_snapshot, word_snapshot_reuse
+    from numerical_primitive_kernels import byte_contraction_snapshot, word_snapshot_reuse, word_snapshot_branches
     from triton import compile
     from triton.compiler import ASTSource
     from triton.backends.compiler import CPUTarget
     records = []
     for mutate, low_mask in ((False, 255), (False, 127), (True, 255), (True, 127)):
-        compiled = compile(ASTSource(byte_contraction_snapshot, {}, {"MUTATE": mutate, "BM": 16, "BN": 16,
-                                                                  "LOW_MASK": low_mask}),
-                           target=CPUTarget(backend="weft", **compile_target), options=options)
+        constants = {"MUTATE": mutate, "BM": 16, "BN": 16, "LOW_MASK": low_mask}
+        compiled = (compile(ASTSource(byte_contraction_snapshot, {}, constants),
+                            target=CPUTarget(backend="weft", **compile_target), options=options)
+                    if compile_target is not None else None)
         for m, k, stride in ((16, 32, 1), (16, 64, 1), (13, 37, 1), (16, 32, 2), (0, 32, 1), (16, 0, 1)):
             backing = (np.arange(m*(k*stride+17), dtype=np.int64)*37 % 256).astype(np.int8).reshape(m, k*stride+17)
             a = backing[:, :k*stride:stride]
             original, before = a.copy(), backing.copy()
             b = (np.arange(16*k, dtype=np.int64)*71 % 256).astype(np.int8).reshape(16, k)
             storage, output = guarded(m*16, np.int32)
-            compiled[(1,)](a, b, output.reshape(m, 16))
+            if compile_target is None:
+                current = byte_contraction_snapshot[(1,)](a, b, output.reshape(m, 16), **constants, **options)
+                if compiled is None:
+                    compiled = current
+                assert current is compiled, "snapshot JIT specialized the runtime extent/stride"
+            else:
+                compiled[(1,)](a, b, output.reshape(m, 16))
             transformed = (original.astype(np.int16) & low_mask).astype(np.int8)
             expected = (transformed.astype(np.int64) @ b.astype(np.int64).T).astype(np.int32)
             exact(output.reshape(m, 16), expected)
@@ -1306,21 +1317,122 @@ def amx_snapshot_contract(root, options, compile_target):
         native_evidence(compiled, root, f"amx-snapshot-{mutate}-{low_mask}", ["contract"])
         if low_mask != 255:
             continue
-        reused = compile(ASTSource(word_snapshot_reuse, {}, {"MUTATE": mutate, "K": 128, "N": 16, "BM": 8}),
-                         target=CPUTarget(backend="weft", **compile_target), options=options)
+        constants = {"MUTATE": mutate, "K": 128, "N": 16, "BM": 8}
+        reused = (compile(ASTSource(word_snapshot_reuse, {}, constants),
+                          target=CPUTarget(backend="weft", **compile_target), options=options)
+                  if compile_target is not None else None)
         for m in (0, 8, 16, 17):
             a = (np.arange(m*128,dtype=np.int64)*71 % 256).astype(np.int8).reshape(m,128)
             b = ((np.arange(16*128,dtype=np.int64)*8213 % 65536)-32768).astype(np.int16).reshape(16,128)
             prior = b.copy()
             storage, output = guarded(m*16,np.int32)
-            reused[(1,)](a,b,output.reshape(m,16))
+            if compile_target is None:
+                current = word_snapshot_reuse[(1,)](a, b, output.reshape(m, 16), **constants, **options)
+                if reused is None:
+                    reused = current
+                assert current is reused, "packing JIT specialized the runtime extent"
+            else:
+                reused[(1,)](a,b,output.reshape(m,16))
             exact(output.reshape(m,16),(a.astype(np.int64) @ prior.astype(np.int64).T).astype(np.int32))
             exact(b,np.zeros_like(b) if mutate else prior)
             exact(storage[[0,1,-2,-1]],np.full(4,-12345,np.int32))
             records.append({"M":m,"K":128,"snapshot_reuse":True,"mutation":mutate})
         native_evidence(reused,root,f"amx-packing-reuse-{mutate}",["contract"])
         assert "weft.x86.reused_amx_packings" in reused.asm["x86ir"], "packing reuse was not exercised"
-    return {"subcases": records, "oracle": "saved-input int64 product and untouched storage gaps"}
+    branch_kernel = None
+    constants = {"K": 128, "N": 16, "BM": 8}
+    for enabled in (0, 1):
+        for m in (0, 8, 17):
+            a = (np.arange(m*128, dtype=np.int64)*71 % 256).astype(np.int8).reshape(m, 128)
+            b = ((np.arange(16*128, dtype=np.int64)*8213 % 65536)-32768).astype(np.int16).reshape(16, 128)
+            storage_y, y = guarded(m*16, np.int32)
+            storage_z, z = guarded(m*16, np.int32)
+            if compile_target is None:
+                branch_kernel = word_snapshot_branches[(1,)](a, b, y.reshape(m,16), z.reshape(m,16),
+                                                             enabled, **constants, **options)
+            else:
+                if branch_kernel is None:
+                    branch_kernel = compile(ASTSource(word_snapshot_branches, {}, constants),
+                                            target=CPUTarget(backend="weft", **compile_target), options=options)
+                branch_kernel[(1,)](a, b, y.reshape(m,16), z.reshape(m,16), enabled)
+            exact(y.reshape(m,16), (a.astype(np.int64) @ b.astype(np.int64).T).astype(np.int32))
+            expected_z = (((a.astype(np.int16)+1).astype(np.int8).astype(np.int64) @
+                           b.astype(np.int64).T).astype(np.int32) if enabled
+                          else np.full((m,16), -12345, np.int32))
+            exact(z.reshape(m,16), expected_z)
+            for storage in (storage_y, storage_z):
+                exact(storage[[0,1,-2,-1]], np.full(4, -12345, np.int32))
+            evidence = native_evidence(branch_kernel, root, f"packing-branch-{enabled}-{m}", ["contract"])
+            records.append({"M":m, "enabled": enabled, "shared_snapshot_branch":True, "evidence":evidence})
+    assert "weft.x86.shared_amx_packings" in branch_kernel.asm["x86ir"], "branch did not share complete packing"
+    return {"subcases": records, "execution_mode": "jit" if compile_target is None else "aot",
+            "oracle": "saved-input int64 product and untouched storage gaps"}
+
+
+def packing_residency_contract(root, options):
+    import re
+    from numerical_primitive_kernels import word_snapshot_pressure
+
+    records = []
+    for m in (0, 8, 17):
+        a = (np.arange(m*128, dtype=np.int64)*71 % 256).astype(np.int8).reshape(m,128)
+        b = ((np.arange(32*128, dtype=np.int64)*8213 % 65536)-32768).astype(np.int16).reshape(32,128)
+        storage, output = guarded(m*32, np.int32)
+        expected = np.zeros((m,32), dtype=np.int64)
+        for step in range(9):
+            changed = (b.astype(np.int32) + step).astype(np.int16)
+            expected += a.astype(np.int64) @ changed.astype(np.int64).T
+        compiled = word_snapshot_pressure[(1,)](a, b, output.reshape(m,32), **options)
+        exact(output.reshape(m,32), expected.astype(np.int32))
+        exact(storage[[0,1,-2,-1]], np.full(4,-12345,np.int32))
+        physical = compiled.asm["x86ir"]
+        assert "weft.x86.amx_pack_resource_rejections" in physical, "packing pressure did not reconsider residency"
+        peaks = [int(n) for n in re.findall(r"packed_operand_peak_bytes = (\d+)", physical)]
+        assert peaks and min(peaks) > 0 and max(peaks) <= 65536, "invalid selected packing residency"
+        evidence = native_evidence(compiled, root, f"packing-residency-{m}", ["contract"])
+        save(root, f"packing-residency-{m}", left=a, right=b, actual=output, expected=expected.astype(np.int32))
+        records.append({"M":m, "independent_contractions":9, "selected_packing_peaks":peaks, "evidence":evidence})
+    return {"execution_mode":"jit", "integer_exact":True, "resource_reconsideration_observed":True, "cases":records}
+
+
+def storage_lifetime_contract(root, options):
+    from numerical_primitive_kernels import storage_lifetime_control, bounded_storage_lifetime_control
+    records = []
+    compiled = None
+    for bounded, n in ((False, 0), (False, 7), (False, 257), (False, 4097), (True, 4097)):
+        for steps in (0, 1, 4):
+            for choose in (0, 1):
+                source_storage, source = guarded(n, np.int32)
+                source[:] = (np.arange(n) * 37 % 251) - 125
+                before = source.copy()
+                result_storage, result = guarded(4, np.int32)
+                expected = result.copy()
+                saved = before.copy()
+                changed = before.copy()
+                for step in range(steps):
+                    selected = saved if (step + choose) % 2 else before
+                    if n:
+                        expected[step] = np.sum(selected, dtype=np.int64)
+                    changed += 3
+                    saved = selected + 1
+                if bounded:
+                    current = bounded_storage_lifetime_control[(1,)](source, result, steps, choose, CAP=n, **options)
+                else:
+                    current = storage_lifetime_control[(1,)](source, result, steps, choose, **options)
+                if compiled is None:
+                    compiled = current
+                # Scalar values may specialize per Triton's scalar rules;
+                # all extents are runtime descriptor values.
+                exact(result, expected)
+                exact(source, changed)
+                exact(source_storage[[0, 1, -2, -1]], np.full(4, -12345, np.int32))
+                exact(result_storage[[0, 1, -2, -1]], np.full(4, -12345, np.int32))
+                label = f"storage-lifetime-{bounded}-{n}-{steps}-{choose}"
+                save(root, label, before=before, actual=source, output=result, expected=expected)
+                evidence = native_evidence(current, root, label, ["admit", "reduce"])
+                records.append({"N": n, "bounded": bounded, "steps": steps, "branch": choose, "evidence": evidence})
+    return {"execution_mode": "jit", "integer_exact": True,
+            "output_and_input_guards_unchanged": True, "cases": records}
 
 
 def byte_sum_contract(root, options, compile_target):
