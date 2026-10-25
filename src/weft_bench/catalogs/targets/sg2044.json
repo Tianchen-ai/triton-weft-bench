@@ -1495,8 +1495,9 @@
         "signature": {},
         "constexprs": {},
         "backend_options": {
-          "lmul_eighths": 16,
-          "unroll": 4,
+          "lmul_eighths": 8,
+          "unroll": 2,
+          "native_loop_alignment": 16,
           "pipeline_depth": 1,
           "scalar_load_prime": 0,
           "partial_combine_policy": "independent-multilevel",
