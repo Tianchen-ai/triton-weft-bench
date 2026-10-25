@@ -176,6 +176,12 @@ the exported i4/u6 types; the order case uses a big-endian u16 and MSB-first u1
 array. Existing GGML native and encoded Program entries can be selected alongside
 these cases without changing their author source or oracle.
 
+`masked_contract` varies the runtime valid extents of two encoded operands across
+20 combinations, including empty and unequal domains. One cached JIT kernel must
+compute the exact integer contractions over their common active domain, leave
+fully inactive outputs untouched, and preserve input bytes and output guards.
+It exercises both row-wise and complete reductions without changing tolerances.
+
 `snapshot_storage` exercises a dynamic, multi-row Encoding stage across repeated
 field writes, using both disjoint and overlapping input/output buffers. Shapes
 and addresses change without recompiling the kernel. It also includes a disjoint
