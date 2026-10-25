@@ -568,6 +568,48 @@ def bounded_storage_lifetime_control(X: tl.View[tl.i32, (CAP,)], Y: tl.View[tl.i
 
 
 @triton.jit(model="weft")
+def dense_stage_residency(X: tl.View[tl.i32, (M, N)], Y: tl.View[tl.i32, (M, N)],
+                          Z: tl.View[tl.i32, (M, N)], MUTATE: tl.constexpr,
+                          BLOCK: tl.constexpr, REDUCE: tl.constexpr = False):
+    with tl.level.rows(M, group=2) as rows:
+        with tl.level.blocks(N, extent=BLOCK) as block:
+            saved = tl.stage(tl.load(X[rows, block]))
+            if MUTATE:
+                tl.store(X[rows, block], saved * tl.i32(0) + tl.i32(7))
+            with tl.level.subtiles(rows, extent=1) as row:
+                with tl.level.subtiles(block, extent=8) as small:
+                    value = saved[row, small]
+                    if REDUCE == 4:
+                        delta = tl.sum(tl.reshape(value, (8,)) * tl.i32(2) + tl.i32(1))
+                    elif REDUCE == 2:
+                        delta = tl.max(value)
+                    elif REDUCE == 3:
+                        delta = tl.min(value)
+                    else:
+                        delta = tl.sum(value) if REDUCE else tl.i32(1)
+                    tl.store(Y[row, small], value + delta)
+            with tl.level.subtiles(rows, extent=1) as row:
+                with tl.level.subtiles(block, extent=16) as large:
+                    value = saved[row, large]
+                    if REDUCE == 4:
+                        delta = tl.sum(tl.reshape(value, (16,)) * tl.i32(2) + tl.i32(1))
+                    elif REDUCE == 2:
+                        delta = tl.max(value)
+                    elif REDUCE == 3:
+                        delta = tl.min(value)
+                    else:
+                        delta = tl.sum(value) if REDUCE else tl.i32(1)
+                    tl.store(Z[row, large], value - delta)
+
+
+@triton.jit(model="weft", alias_groups={"X": "input", "Y": "output", "Z": "output"})
+def dense_stage_disjoint(X: tl.View[tl.i32, (M, N)], Y: tl.View[tl.i32, (M, N)],
+                         Z: tl.View[tl.i32, (M, N)], MUTATE: tl.constexpr,
+                         BLOCK: tl.constexpr, REDUCE: tl.constexpr = False):
+    dense_stage_residency(X, Y, Z, MUTATE=MUTATE, BLOCK=BLOCK, REDUCE=REDUCE)
+
+
+@triton.jit(model="weft")
 def partial_axis_identity(X: tl.View[tl.f32, (M, K)], Y: tl.View[tl.f32, (M, K)]):
     ROWS: tl.constexpr = 8
     with tl.level.rows(M, group=ROWS) as rows:

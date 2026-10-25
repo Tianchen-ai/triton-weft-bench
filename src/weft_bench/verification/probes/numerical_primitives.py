@@ -901,6 +901,8 @@ def run_scenario(name, root, options, close, compile_target=None):
         return amx_snapshot_contract(root, options, compile_target)
     if name == "storage_lifetimes":
         return storage_lifetime_contract(root, options)
+    if name == "dense_stage_residency":
+        return dense_stage_residency_contract(root, options)
     if name == "packing_residency":
         return packing_residency_contract(root, options)
     if name == "word_byte_contractions":
@@ -1367,6 +1369,76 @@ def amx_snapshot_contract(root, options, compile_target):
     assert "weft.x86.shared_amx_packings" in branch_kernel.asm["x86ir"], "branch did not share complete packing"
     return {"subcases": records, "execution_mode": "jit" if compile_target is None else "aot",
             "oracle": "saved-input int64 product and untouched storage gaps"}
+
+
+def dense_stage_residency_contract(root, options):
+    from numerical_primitive_kernels import dense_stage_residency, dense_stage_disjoint
+    records = []
+    for block in (32, 128):
+        for mutate in (False, True):
+            compiled = None
+            for m, n in ((0, 0), (1, 7), (3, 37), (5, 129)):
+                xs, x = guarded(m*n, np.int32)
+                ys, y = guarded(m*n, np.int32)
+                zs, z = guarded(m*n, np.int32)
+                x[:] = np.arange(m*n) * 37 % 251 - 125
+                original = x.copy().reshape(m, n)
+                label = f"dense-stage-{block}-{mutate}-{m}-{n}"
+                save(root, label, input=original, expected_y=original+1, expected_z=original-1)
+                current = dense_stage_residency[(1,)](x.reshape(m,n), y.reshape(m,n), z.reshape(m,n),
+                                                     MUTATE=mutate, BLOCK=block, **options)
+                if compiled is None:
+                    compiled = current
+                assert current is compiled, "stage domain shape recompiled the JIT kernel"
+                exact(y.reshape(m,n), original+1)
+                exact(z.reshape(m,n), original-1)
+                exact(x.reshape(m,n), np.full_like(original,7) if mutate else original)
+                for storage in (xs, ys, zs):
+                    exact(storage[[0,1,-2,-1]], np.full(4,-12345,np.int32))
+                save(root, label, input=original, actual_input=x, actual_y=y, actual_z=z)
+                evidence = native_evidence(current, root, label, ["materialize", "extract"])
+                records.append({"block":block,"mutation":mutate,"M":m,"N":n,"evidence":evidence})
+            for alias, reduce in ((alias, reduce) for reduce in (0, 1, 2, 3, 4) for alias in (True, False)):
+                m, n = 3, 129 if reduce else 37
+                xs, x = guarded(m*n, np.int32)
+                ys, separate_y = guarded(m*n, np.int32)
+                zs, z = guarded(m*n, np.int32)
+                x[:] = np.arange(m*n) * 37 % 251 - 125
+                original = x.copy().reshape(m,n)
+                expected_y, expected_z = original+1, original-1
+                if reduce:
+                    for row in range(m):
+                        for start in range(0,n,8):
+                            values=original[row,start:start+8]
+                            delta = np.max(values) if reduce == 2 else np.min(values) if reduce == 3 else np.sum(values,dtype=np.int64)
+                            if reduce == 4: delta = 2*delta + len(values)
+                            expected_y[row,start:start+8]=values+delta
+                        for start in range(0,n,16):
+                            values=original[row,start:start+16]
+                            delta = np.max(values) if reduce == 2 else np.min(values) if reduce == 3 else np.sum(values,dtype=np.int64)
+                            if reduce == 4: delta = 2*delta + len(values)
+                            expected_z[row,start:start+16]=values-delta
+                y = x if alias else separate_y
+                kernel = dense_stage_residency if alias else dense_stage_disjoint
+                current = kernel[(1,)](x.reshape(m,n), y.reshape(m,n), z.reshape(m,n),
+                                       MUTATE=mutate, BLOCK=block, REDUCE=reduce, **options)
+                exact(y.reshape(m,n), expected_y)
+                exact(z.reshape(m,n), expected_z)
+                expected_x = expected_y if alias else np.full_like(original,7) if mutate else original
+                exact(x.reshape(m,n), expected_x)
+                for storage in (xs, ys, zs):
+                    exact(storage[[0,1,-2,-1]], np.full(4,-12345,np.int32))
+                label = f"dense-stage-{block}-{mutate}-alias-{alias}-reduce-{reduce}"
+                save(root,label,input=original,actual_input=x,actual_y=y,actual_z=z)
+                evidence = native_evidence(current,root,label,["materialize","extract"])
+                if current.metadata.target.arch == "riscv64":
+                    selected = 'snapshot' if alias or mutate else 'reload'
+                    physical = current.asm['riscvir']
+                    assert (f'shared_domain_supply = "{selected}"' in physical or
+                            selected == 'reload' and 'weft_riscv.staged_view' in physical), "shared supply ignored alias/effect proof"
+                records.append({"block":block,"mutation":mutate,"input_output_alias":alias,"reduction":reduce,
+                                "disjoint_contract":not alias,"evidence":evidence})
+    return {"execution_mode":"jit","integer_exact":True,"guards_unchanged":True,"cases":records}
 
 
 def packing_residency_contract(root, options):
