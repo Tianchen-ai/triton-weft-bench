@@ -924,7 +924,7 @@ def run_scenario(name, root, options, close, compile_target=None):
     if name == "array_packets":
         return array_packets(root, options, close, compile_target)
     if name == "pointwise_costs":
-        return pointwise_cost_contract(root, options, close)
+        return pointwise_cost_contract(root, options, close, compile_target)
     if name == "mixed_integer_mac":
         return mixed_integer_mac_contract(root, options)
     if name == "grouped_mac":
@@ -1842,8 +1842,22 @@ def array_contractions(root, options, close, compile_target):
             "execution_mode": "aot", "evidence": evidence}
 
 
-def pointwise_cost_contract(root, options, close):
-    from numerical_primitive_kernels import array_cost_classes
+def pointwise_cost_contract(root, options, close, compile_target=None):
+    from numerical_primitive_kernels import array_cost_classes, array_integer_absolute
+    artifacts = {}
+    def execute(kernel, *arguments, **constants):
+        if compile_target is None:
+            return kernel[(1,)](*arguments, **constants, **options)
+        from triton import compile
+        from triton.compiler import ASTSource
+        from triton.backends.compiler import CPUTarget
+        key = kernel.__name__, tuple(sorted(constants.items()))
+        if key not in artifacts:
+            artifacts[key] = compile(ASTSource(kernel, {}, constants),
+                target=CPUTarget(backend="weft", **compile_target), options=options)
+        compiled = artifacts[key]
+        compiled[(1,)](*arguments)
+        return compiled
     records = []
     for divisor in (7, 16):
         first = None
@@ -1852,7 +1866,7 @@ def pointwise_cost_contract(root, options, close):
             integers = (np.arange(n, dtype=np.uint64) * 104729 + 0x80000001).astype(np.uint32)
             fs, floating = guarded(n, np.float32, -777)
             us, unsigned = guarded(n, np.uint32, 37)
-            compiled = array_cost_classes[(1,)](x, integers, floating, unsigned, DIVISOR=divisor, **options)
+            compiled = execute(array_cost_classes, x, integers, floating, unsigned, DIVISOR=divisor)
             if first is None: first = compiled
             assert compiled is first, "pointwise cost selection specialized a runtime extent"
             expected = np.exp(x * np.float32(0.125))
@@ -1871,7 +1885,22 @@ def pointwise_cost_contract(root, options, close):
                 for candidate in selected["candidates"]:
                     assert "issue_units" in candidate["resources"] and "loop_startup" in candidate["resources"]
             records.append({"N":n,"divisor":divisor,"evidence":evidence})
-    return {"execution_mode":"jit","integer_exact":True,"guards_unchanged":True,"cases":records}
+    first = None
+    for n in (0, 1, 17, 4097):
+        source = np.resize(np.array([-(1 << 63), (1 << 63)-1, -1, 0, 1, -17], np.int64), n)
+        backing, output = guarded(n, np.int64, 37)
+        compiled = execute(array_integer_absolute, source, output)
+        if first is None: first = compiled
+        assert compiled is first, "integer absolute value specialized a runtime extent"
+        expected = np.array([wrap_integer(abs(int(x)), 64) for x in source], np.int64)
+        exact(output, expected)
+        exact(backing[[0, 1, -2, -1]], np.full(4, 37, np.int64))
+        evidence = native_evidence(compiled, root, f"pointwise-absolute-{n}", ["unary"])
+        schedules = evidence["physical_schedules"]
+        assert any(s.get("lanes", 1) > 1 for s in schedules), "integer absolute value lost SIMD selection"
+        assert all(s.get("unpriced_operations", 0) == 0 for s in schedules)
+        records.append({"N": n, "integer_absolute": True, "evidence": evidence})
+    return {"execution_mode":"aot" if compile_target else "jit","integer_exact":True,"guards_unchanged":True,"cases":records}
 
 
 def array_packets(root, options, close, compile_target):

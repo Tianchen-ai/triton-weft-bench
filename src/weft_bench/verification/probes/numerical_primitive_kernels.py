@@ -249,6 +249,11 @@ def array_map_reduce(X: tl.View[tl.f32, (M, N)], Y: tl.View[tl.f32, (M, N)],
 
 
 @triton.jit(model="weft")
+def array_integer_absolute(X: tl.View[tl.i64, (N,)], Y: tl.View[tl.i64, (N,)]):
+    tl.store(Y, tl.abs(tl.load(X)))
+
+
+@triton.jit(model="weft")
 def array_cost_classes(X: tl.View[tl.f32, (N,)], Integer: tl.View[tl.u32, (N,)],
                        Exp: tl.View[tl.f32, (N,)], Quotient: tl.View[tl.u32, (N,)],
                        DIVISOR: tl.constexpr):

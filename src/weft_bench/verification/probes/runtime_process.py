@@ -69,12 +69,95 @@ def numerical_primitives():
     from triton.runtime.driver import driver
 
     if request.get("execution_mode") == "aot":
-        if request["numerical_scenario"] not in {"array_packets", "array_contractions", "lookup", "indexed_packets", "extrema_and_half", "byte_sum", "byte_planes", "byte_contractions", "bfloat_contractions", "amx_snapshots", "word_byte_contractions", "amx_mixed_storage", "matrix_operand_layout", "matrix_standard_pointer", "contraction_schedules", "streaming_stores", "cpu_tuning"}:
+        if request["numerical_scenario"] not in {"pointwise_costs", "array_packets", "array_contractions", "lookup", "indexed_packets", "extrema_and_half", "byte_sum", "byte_planes", "byte_contractions", "bfloat_contractions", "amx_snapshots", "word_byte_contractions", "amx_mixed_storage", "matrix_operand_layout", "matrix_standard_pointer", "contraction_schedules", "streaming_stores", "cpu_tuning"}:
             raise NotImplementedError("explicit target AOT is not implemented for this numerical scenario")
         return run_scenario(request["numerical_scenario"], root, options, close, request["compile_target"])
     check_jit_target(request.get("architecture"), request.get("compile_target"),
                      vars(driver.for_model("weft").get_current_target()))
     return run_scenario(request["numerical_scenario"], root, options, close)
+
+
+def reduction_domains():
+    """Replay closed physical reductions, including domains not emitted by arrays."""
+    import ctypes
+    import re
+    import subprocess
+    from triton._C.libtriton import ir, weft
+    from triton.backends.compiler import CPUTarget
+    from triton.backends.weft.toolchain import Toolchain
+
+    optimizer = request["optimizer"]
+    target = CPUTarget(backend="weft", arch="x86_64", march="x86-64-v3", abi="sysv", vlen_bits=0)
+    toolchain = Toolchain.resolve({}, target)
+    cases = [(0, 0, 1), (7, -5, 3), (0, 7, 4), (-3, 4, 2), (0, 12, 2),
+             (-11, 71, 3), (0, 4097, 16), (-17, 4201, 17),
+             (-(1 << 63) + 100, -(1 << 63) + 181, 3),
+             ((1 << 63) - 100, (1 << 63) - 19, 3),
+             ((1 << 63) - 1, -(1 << 63), 1), (0, 1, (1 << 62) + 1)]
+    functions, calls = [], []
+    for static in (False, True):
+        for lower, upper, step in cases:
+            name = "reduce_" + str(len(calls))
+            bounds = (f"%lower = arith.constant {lower} : index\n"
+                      f"%upper = arith.constant {upper} : index") if static else (
+                      "%lower = arith.index_cast %lo : i64 to index\n"
+                      "%upper = arith.index_cast %hi : i64 to index")
+            functions.append(f'''func.func @{name}(%lo: i64, %hi: i64) -> i64
+                attributes {{weft.x86.vector_bits = 256 : i64,
+                            weft.x86.vector_registers = 16 : i64,
+                            weft.x86.array_schedule = [{{kind = "reduction"}}]}} {{
+              {bounds}
+              %step = arith.constant {step} : index
+              %zero = arith.constant dense<0> : vector<4xi64>
+              %sum = scf.for %iv = %lower to %upper step %step
+                  iter_args(%partial = %zero) -> vector<4xi64> {{
+                %scalar = arith.index_cast %iv : index to i64
+                %packet = vector.broadcast %scalar : i64 to vector<4xi64>
+                %next = arith.addi %partial, %packet : vector<4xi64>
+                scf.yield %next : vector<4xi64>
+              }} {{weft.x86.array_reduction, weft.x86.array_schedule_id = 0 : i64}}
+              %result = vector.reduction <add>, %sum : vector<4xi64> into i64
+              return %result : i64
+            }}''')
+            calls.append((name, lower, upper, step, static))
+    abi = json.dumps(json.dumps({"march": "x86-64-v3"}))
+    original = root / "reduction-domains.mlir"
+    original.write_text("module attributes {weft.x86.abi = " + abi + "} {\n" + "\n".join(functions) + "\n}")
+    commands = []
+    def run(arguments):
+        commands.append(arguments)
+        result = subprocess.run(arguments, capture_output=True, text=True)
+        (root / "commands.json").write_text(json.dumps(commands, indent=2))
+        if result.returncode:
+            raise RuntimeError(result.stderr or result.stdout)
+        return result.stdout
+    scheduled = run([optimizer, str(original), "--weft-x86-schedule-array-reductions", "--canonicalize", "--cse"])
+    (root / "reduction-domains.scheduled.mlir").write_text(scheduled)
+    selected = [int(value) for value in re.findall(r"weft.x86.partial_copies = (\d+)", scheduled)]
+    assert selected and max(selected) > 1, "probe did not exercise an interleaved reduction"
+    final = root / "reduction-domains.cf.mlir"
+    final.write_text(run([optimizer, str(root / "reduction-domains.scheduled.mlir"), "--convert-scf-to-cf"]))
+    context = ir.context()
+    ir.load_dialects(context)
+    weft.load_dialects(context)
+    physical = ir.parse_mlir_module(str(final), context)
+    llir = root / "reduction-domains.ll"
+    llir.write_text(weft.emit_x86(physical)["llvm_ir"])
+    library = root / "reduction-domains.so"
+    run([toolchain.cc, "-O3", "-fPIC", "-shared", str(llir), "-o", str(library)])
+    native = ctypes.CDLL(str(library))
+    records = []
+    for name, lower, upper, step, static in calls:
+        function = getattr(native, name)
+        function.argtypes = [ctypes.c_int64, ctypes.c_int64]
+        function.restype = ctypes.c_int64
+        expected = ctypes.c_int64(4 * sum(range(lower, upper, step))).value
+        actual = function(lower, upper)
+        if actual != expected:
+            raise ValueError(f"numerical mismatch: {name} {actual} != {expected}")
+        records.append({"lower": lower, "upper": upper, "step": step, "static": static, "value": actual})
+    return {"execution_mode": "physical-pass-replay-native", "integer_exact": True,
+            "selected_partial_copies": selected, "cases": records}
 
 
 def packed_layouts():
@@ -918,7 +1001,7 @@ def default_toolchain():
             "actual_runtime_file_identity_matches": True, "native_build": build}
 
 
-operations={"dynamic_rounding":dynamic_rounding,"packed_layouts":packed_layouts,"numerical_primitives":numerical_primitives,"source_auto":source_auto,"dense_view":dense_view,
+operations={"reduction_domains":reduction_domains,"dynamic_rounding":dynamic_rounding,"packed_layouts":packed_layouts,"numerical_primitives":numerical_primitives,"source_auto":source_auto,"dense_view":dense_view,
             "numpy_buffer":numpy_and_buffer,"aliases":aliases,"resize_views":resize_views,
             "zero_concurrency":zero_and_concurrency,"pid_grid":pid_grid,"affinity":affinity,"lifetime":lifetime,
             "default_toolchain":default_toolchain,"integer_type_protocol":integer_type_protocol,
