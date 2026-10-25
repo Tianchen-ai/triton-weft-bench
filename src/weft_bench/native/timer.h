@@ -68,7 +68,7 @@ struct Timing {
   const void *output;
   std::size_t outputBytes;
   const int warmup = static_cast<int>(option("WB_WARMUP", 3));
-  const double warmup_budget = option("WB_WARMUP_MS", 200);
+  const double warmup_budget = option("WB_WARMUP_MS", 0);
   const int samples = static_cast<int>(option("WB_SAMPLES", 5));
   const double budget = option("WB_BATCH_MS", 10);
   const char *mode = std::getenv("WB_CACHE");
@@ -88,9 +88,8 @@ struct Timing {
     eviction.resize(cold ? static_cast<std::size_t>(option("WB_EVICTION_BYTES", 67108864)) : 0, 1);
   }
   void prepare() {
-  // Count-only warmup lets short CPU kernels enter the samples before the
-  // frequency governor has responded. Compile/import work must not decide
-  // whether an otherwise identical native workload runs at idle frequency.
+  // Keep the count-only default used by fixed native references. A sustained
+  // warmup is an explicit measurement choice and part of its comparison key.
   const auto warmup_start = Clock::now();
   if (warmup > 0)
     do { reset(); run(); barrier(); ++warmup_iterations; }

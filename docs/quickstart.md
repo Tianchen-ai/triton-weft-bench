@@ -59,11 +59,18 @@ Floating buffers use native little-endian float32; quantized outputs retain thei
 GGML block encoding. Allocation, loading, validation and output export are untimed.
 Requested output files are retained even when numerical checking fails.
 
-Defaults: at least three native warmups spanning 200 ms, then five sample groups, approximately 10 ms per group for
+Defaults: three native warmup calls, then five sample groups, approximately 10 ms per group for
 short calls. `--cache cold` evicts before each call; `--cache reuse` reuses prepared
 inputs. Required work such as projection activation quantization remains timed.
 GEMM/prefill projection use a bounded scalar output sample plus finiteness checking;
 other built-in floating workloads check their complete outputs.
+
+Use `--warmup-ms 200` for an explicit sustained warmup. Warmup count/duration,
+batch duration and sample order are part of the comparison contract; sample count
+may differ. Fixed `native-workload-v3` records from before duration/order options
+used count-only warmup and serial samples. Those absent fields retain that meaning;
+other missing historical settings are not inferred. Existing measurements are not
+rewritten when a new measurement uses different settings.
 
 For a paired comparison of configured native artifacts, use
 `op CASE --impl before,after --sample-order alternating --target TARGET`.

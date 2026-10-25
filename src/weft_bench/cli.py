@@ -169,7 +169,7 @@ def parser():
                 "--shape", help="explicit dimensions, e.g. rows=1,K=4096"
             )
             command.add_argument("--warmup", type=int, default=3)
-            command.add_argument("--warmup-ms", type=float, default=200.0,
+            command.add_argument("--warmup-ms", type=float, default=0.0,
                                  help="minimum native warmup duration; --warmup 0 disables warmup")
             command.add_argument("--samples", type=int, default=5)
             command.add_argument("--sample-order", choices=("serial", "alternating"), default="serial",

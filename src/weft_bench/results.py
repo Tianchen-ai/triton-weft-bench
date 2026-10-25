@@ -43,11 +43,23 @@ def contract(row):
     measurement = d.get("measurement", {})
     timing = {
         k: measurement[k]
-        for k in ("cache", "eviction_bytes", "profile", "protocol")
+        for k in ("cache", "eviction_bytes", "profile", "protocol", "warmup", "warmup_ms", "batch_ms", "sample_order")
         if k in measurement
     }
     if timing.get("cache") == "reuse":
         timing.pop("eviction_bytes", None)
+    # native-workload-v3 originally had only count-based warmup and serial
+    # samples. Its later optional duration/order fields did not change the
+    # protocol name. Normalize only these documented absent v3 fields; other
+    # historical protocols keep missing settings unknown.
+    if timing.get("protocol") == "native-workload-v3":
+        timing.setdefault("warmup_ms", 0.0)
+        timing.setdefault("sample_order", "serial")
+    if timing.get("warmup") == 0:
+        timing["warmup_ms"] = 0.0
+    for key in ("warmup_ms", "batch_ms"):
+        if key in timing:
+            timing[key] = float(timing[key])
     return (
         row.case,
         row.target,
@@ -273,6 +285,8 @@ def save(rows, destination):
         "baseline_median_ms",
         "speedup",
         "warmup",
+        "warmup_ms",
+        "sample_order",
         "samples",
         "samples_collected",
         "batch_ms",
@@ -280,6 +294,8 @@ def save(rows, destination):
         "cache",
         "baseline_scope",
         "baseline_warmup",
+        "baseline_warmup_ms",
+        "baseline_sample_order",
         "baseline_samples",
         "baseline_batch_ms",
         "comparison_note",
@@ -335,7 +351,8 @@ def save(rows, destination):
             data["observed_frequency_before_khz"] = frequency.get("before")
             data["observed_frequency_after_khz"] = frequency.get("after")
             measurement = row.details.get("measurement", {})
-            data.update(warmup=measurement.get("warmup"), samples=measurement.get("samples"),
+            data.update(warmup=measurement.get("warmup"), warmup_ms=measurement.get("warmup_ms"),
+                        sample_order=measurement.get("sample_order"), samples=measurement.get("samples"),
                         samples_collected=len(row.samples_ms), measurement_protocol=measurement.get("protocol"),
                         batch_ms=measurement.get("batch_ms"), cache=measurement.get("cache"))
             # Only comparison paths that selected a unique successful reference
@@ -344,7 +361,7 @@ def save(rows, destination):
             data["baseline_median_ms"] = row.details.get("baseline_median_ms") if compared else None
             data["baseline_scope"] = row.details.get("baseline_scope") if compared else None
             reference_measurement = row.details.get("baseline_measurement", {}) if compared else {}
-            for key in ("warmup", "samples", "batch_ms"):
+            for key in ("warmup", "warmup_ms", "sample_order", "samples", "batch_ms"):
                 data["baseline_" + key] = reference_measurement.get(key)
             data["speedup"] = row.speedup if compared else None
             notes = [row.details["comparison_note"]] if row.details.get("comparison_note") else []

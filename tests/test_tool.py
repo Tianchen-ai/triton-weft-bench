@@ -74,6 +74,30 @@ class ToolTests(unittest.TestCase):
             apply_baselines([candidate], [baseline])
             self.assertIsNone(candidate.speedup)
 
+    def test_native_warmup_and_batch_contracts(self):
+        measurement = {"protocol": "native-workload-v3", "cache": "reuse",
+                       "warmup": 3, "samples": 5, "batch_ms": 10}
+        reference = Result("dot", "ggml", "board", {"K": 4096}, "leaf", "ok", 2,
+                           details={"measurement": measurement})
+        candidate = replace(reference, implementation="weft", median_ms=1,
+                            details={"measurement": {**measurement, "warmup_ms": 0,
+                                                     "sample_order": "serial", "samples": 7}})
+        apply_baselines([candidate], [reference])
+        self.assertEqual(candidate.speedup, 2)
+        self.assertNotIn("warmup_ms", reference.details["measurement"])
+        for changed in ({"warmup_ms": 200}, {"warmup": 4}, {"batch_ms": 100},
+                        {"sample_order": "alternating"}):
+            different = replace(candidate, details={"measurement": {
+                **candidate.details["measurement"], **changed}})
+            apply_baselines([different], [reference])
+            self.assertIsNone(different.speedup)
+            self.assertIn("measurement", different.details["comparison_differences"][0]["differences"])
+        unknown = replace(reference, details={"measurement": {**measurement, "protocol": "custom"}})
+        explicit = replace(candidate, details={"measurement": {
+            **candidate.details["measurement"], "protocol": "custom"}})
+        apply_baselines([explicit], [unknown])
+        self.assertIsNone(explicit.speedup)
+
     def test_failures_are_results_and_not_winners(self):
         with tempfile.TemporaryDirectory() as directory:
             script = Path(directory) / "adapter.py"

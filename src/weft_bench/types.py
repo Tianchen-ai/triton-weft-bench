@@ -42,7 +42,7 @@ class Measurement:
     cache: str = "reuse"
     eviction_bytes: int = 64 * 1024 * 1024
     check_only: bool = False
-    warmup_ms: float = 200.0
+    warmup_ms: float = 0.0
     sample_order: str = "serial"
 
     def __post_init__(self):
