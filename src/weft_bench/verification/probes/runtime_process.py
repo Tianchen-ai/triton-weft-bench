@@ -17,7 +17,9 @@ import triton.language as tl
 from kernels import affine, coordinates
 
 torch = None
-if any(name not in ("packed_layouts", "numerical_primitives") for name in sys.argv[1:]):
+if any(name not in ("packed_layouts", "numerical_primitives", "helper_noinline",
+                    "helper_loop_returns", "helper_context_return", "helper_descriptors")
+       for name in sys.argv[1:]):
     import torch
 
 faulthandler.enable()
@@ -853,16 +855,16 @@ def atomic_contention():
 def helper_loop_returns():
     from riscv_kernels import helper_returns
 
-    x = torch.arange(35, dtype=torch.float32) / 8
+    x = np.arange(35, dtype=np.float32) / 8
     expected_offset = np.array([3*stop+1 if 0 <= stop < 4 else 22
                                 for stop in np.arange(35)%6-1], dtype=np.float32)
     evidence = []
     for mode in (0, 1):
-        storage = torch.full((41,), -999.0); y = storage[:35]
+        storage = np.full(41, -999.0, np.float32); y = storage[:35]
         compiled = helper_returns[(40,)](x, y, N=35, MODE=mode, **options)
         evidence.append(helper_native_evidence(compiled, f"helper-loop-{mode}"))
-        close(y, (x.numpy()+expected_offset)*2)
-        assert bool(torch.all(storage[35:] == -999))
+        close(y, (x+expected_offset)*2)
+        assert np.all(storage[35:] == -999)
     return {"for_and_while": True, "early_and_fallthrough_paths": True,
             "caller_continues_after_return": True,
             "tail_guard_unchanged": True, "native_evidence": evidence}
@@ -871,12 +873,12 @@ def helper_loop_returns():
 def helper_noinline():
     from riscv_kernels import helper_returns
 
-    x = torch.arange(35, dtype=torch.float32) / 8
-    storage = torch.full((41,), -999.0); y = storage[:35]
+    x = np.arange(35, dtype=np.float32) / 8
+    storage = np.full(41, -999.0, np.float32); y = storage[:35]
     compiled = helper_returns[(40,)](x, y, N=35, MODE=2, **options)
     evidence = helper_native_evidence(compiled, "helper-noinline", minimum_noinline=1)
-    close(y, (x.numpy()+np.arange(35)%2+1)*2)
-    assert bool(torch.all(storage[35:] == -999))
+    close(y, (x+np.arange(35)%2+1)*2)
+    assert np.all(storage[35:] == -999)
     return {"noinline_requested": True, "both_helper_returns_checked": True,
             "caller_continues_after_return": True, "tail_guard_unchanged": True, "native_evidence": evidence}
 
@@ -897,20 +899,20 @@ def helper_context_return():
 
     scenarios, evidence = [], []
     for n in (35, 131):
-        x = torch.arange(n, dtype=torch.float32) / 8
-        original = x.clone()
+        x = np.arange(n, dtype=np.float32) / 8
+        original = x.copy()
         for stop in (-1, 0, 1, 2, 3):
-            storage = torch.full((n+6,), -999.0); y = storage[:n]
-            flag = torch.zeros(1, dtype=torch.int32)
-            expected = helper_context_expected(original.numpy(), stop)
+            storage = np.full(n+6, -999.0, np.float32); y = storage[:n]
+            flag = np.zeros(1, np.int32)
+            expected = helper_context_expected(original, stop)
             snapshot = root / f"helper-context-n{n}-stop{stop}.npz"
-            np.savez(snapshot, source=original.numpy(), expected=expected, initial=storage.numpy())
+            np.savez(snapshot, source=original, expected=expected, initial=storage)
             compiled = kernel[(1,)](x, y, flag, stop, **options)
-            np.savez(snapshot, source=original.numpy(), actual_source=x.numpy(), expected=expected,
-                     actual=storage.numpy(), caller_flag=flag.numpy())
+            np.savez(snapshot, source=original, actual_source=x, expected=expected,
+                     actual=storage, caller_flag=flag)
             close(y, expected)
-            assert torch.equal(x, original), "helper changed input storage"
-            assert flag.item() == 77 and bool(torch.all(storage[n:] == -999))
+            assert np.array_equal(x, original), "helper changed input storage"
+            assert flag.item() == 77 and np.all(storage[n:] == -999)
             scenarios.append({"N": n, "stop": stop, "first_block_elements": min(n, 64),
                               "remaining_blocks": "sentinel" if stop == 0 else
                                   "previous complete step" if stop in (1, 2) else "fallthrough",
@@ -925,37 +927,39 @@ def helper_descriptors():
     from control_kernels import helper_descriptor_composition
 
     m, n = 3, 35
-    source = torch.arange(m*(2*n+5), dtype=torch.float32).reshape(m, 2*n+5)/2048
-    original = source.clone()
-    destination = torch.full((m, 3*n+6), -999.0)
-    temporary = torch.full((m, 4*n+7), -777.0)
+    source = np.arange(m*(2*n+5), dtype=np.float32).reshape(m, 2*n+5)/2048
+    original = source.copy()
+    destination = np.full((m, 3*n+6), -999.0, np.float32)
+    temporary = np.full((m, 4*n+7), -777.0, np.float32)
     x = source[:, 1:1+2*n:2]
     y = destination[:, 2:2+3*n:3]
     scratch = temporary[:, 3:3+4*n:4]
-    bias = torch.tensor([-0.5], dtype=torch.float32)
-    reference = x.numpy().astype(np.float64)
-    expected_scratch = temporary.numpy().copy()
+    bias = np.array([-0.5], np.float32)
+    reference = x.astype(np.float64)
+    expected_scratch = temporary.copy()
     expected_scratch[:, 3:3+4*n:4] = reference*1.25-0.5
-    expected = destination.numpy().copy()
+    expected = destination.copy()
     expected[:, 2:2+3*n:3] = reference*3.75-0.5
-    output_guard = torch.ones_like(destination, dtype=torch.bool)
+    output_guard = np.ones_like(destination, dtype=bool)
     output_guard[:, 2:2+3*n:3] = False
-    scratch_guard = torch.ones_like(temporary, dtype=torch.bool)
+    scratch_guard = np.ones_like(temporary, dtype=bool)
     scratch_guard[:, 3:3+4*n:4] = False
     snapshot = root / "helper-descriptors.npz"
-    np.savez(snapshot, source=original.numpy(), expected=expected, expected_scratch=expected_scratch)
+    np.savez(snapshot, source=original, expected=expected, expected_scratch=expected_scratch)
     compiled = helper_descriptor_composition[(1,)](x, y, scratch, bias, **options)
-    np.savez(snapshot, source=original.numpy(), actual_source=source.numpy(), expected=expected,
-             actual=destination.numpy(), expected_scratch=expected_scratch, actual_scratch=temporary.numpy())
+    np.savez(snapshot, source=original, actual_source=source, expected=expected,
+             actual=destination, expected_scratch=expected_scratch, actual_scratch=temporary)
     evidence = helper_native_evidence(compiled, "helper-descriptors", minimum_noinline=2)
     close(destination, expected)
     close(temporary, expected_scratch)
-    assert torch.equal(source, original) and bias.item() == -0.5, "helper changed read-only storage"
-    assert bool(torch.all(destination[output_guard] == -999)), "helper overwrote output guard"
-    assert bool(torch.all(temporary[scratch_guard] == -777)), "helper overwrote scratch guard"
+    assert np.array_equal(source, original) and bias.item() == -0.5, "helper changed read-only storage"
+    assert np.all(destination[output_guard] == -999), "helper overwrote output guard"
+    assert np.all(temporary[scratch_guard] == -777), "helper overwrote scratch guard"
     return {"shape": [m, n], "fixed_value_shape": [1, 16], "nested_helpers": True,
-            "outer_level_captures": True, "descriptor_strides": [list(v.stride()) for v in (x, y, scratch)],
-            "descriptor_offsets": [v.storage_offset() for v in (x, y, scratch)],
+            "outer_level_captures": True,
+            "descriptor_strides": [[s // v.itemsize for s in v.strides] for v in (x, y, scratch)],
+            "descriptor_offsets": [(v.ctypes.data-owner.ctypes.data) // v.itemsize
+                                   for v, owner in ((x, source), (y, destination), (scratch, temporary))],
             "scratch_then_output_then_caller_effect_checked": True, "guards_unchanged": True,
             "oracle": "independent float64 affine formulas", "snapshot": str(snapshot), "native_evidence": evidence}
 
