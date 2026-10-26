@@ -487,7 +487,7 @@ def grouped_consumers_contract(root, options):
 
 
 def reduction_identity_contract(root, options):
-    from numerical_primitive_kernels import extrema_identity
+    from numerical_primitive_kernels import extrema_identity, reassociated_extrema
     records = []
     patterns = ([np.nan], [np.nan, -7., 2., np.nan, -3.], [-0., 0.], [-np.inf, np.nan, np.inf])
     for kind in ("max", "min"):
@@ -512,7 +512,17 @@ def reduction_identity_contract(root, options):
                 if answer == 0: exact(np.signbit(output), np.signbit(expected))
                 exact(storage[[0, 1, -2, -1]], np.full(4, -12345, np.float32))
                 records.append({"kind": kind, "length": length, "block": block, "pattern": pattern_id, "evidence": evidence})
-    return {"subcases": records, "nan_and_signed_zero_checked": True}
+    source = ((np.arange(64, dtype=np.uint16) * 79 + 23) % 256).astype(np.uint8)
+    for kind in ("max", "min"):
+        output = np.zeros(16, np.uint8)
+        expected = (source.reshape(4, 16).max(axis=0) if kind == "max"
+                    else source.reshape(4, 16).min(axis=0))
+        compiled = reassociated_extrema[(1,)](source, output, KIND=kind, **options)
+        evidence = native_evidence(compiled, root, "reassociated-extrema-" + kind, ["reshape", "reduce"])
+        exact(output, expected)
+        records.append({"kind": kind, "shape": [4, 16], "evidence": evidence})
+    return {"subcases": records, "nan_and_signed_zero_checked": True,
+            "reassociated_free_axis_checked": True}
 
 
 def multi_axis_pairs(root, options):

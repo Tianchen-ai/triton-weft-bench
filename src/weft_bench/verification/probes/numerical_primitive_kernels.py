@@ -799,6 +799,16 @@ def array_scalar_reduce(X: tl.View[tl.f32, (N,)], Y: tl.View[tl.f32, (3,)]):
     tl.store(Y[2], tl.reduce(value, op="min", axis="n"))
 
 
+@triton.jit(model="weft")
+def reassociated_extrema(X, Out, KIND: tl.constexpr):
+    value = tl.reshape(tl.load(X + tl.arange(0, 64)), (4, 16))
+    if KIND == "max":
+        result = tl.max(value, axis=0)
+    else:
+        result = tl.min(value, axis=0)
+    tl.store(Out + tl.arange(0, 16), result)
+
+
 @triton.jit(model="weft", strided=("X8", "Y8", "X16", "Y16", "Half", "HalfOut", "Wide", "WideOut"))
 def array_storage(X8: tl.View[tl.i8, (N,)], Y8: tl.View[tl.i8, (N,)],
                   X16: tl.View[tl.i16, (N,)], Y16: tl.View[tl.i16, (N,)],
