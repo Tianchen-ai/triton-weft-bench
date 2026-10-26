@@ -4671,14 +4671,12 @@
       "dtype": "f32",
       "candidate": {
         "source": "package:kernels/dense/affine.py",
-        "symbol": "affine_full_tiles",
+        "symbol": "affine_disjoint",
         "signature": {},
-        "constexprs": {
-          "B": 1024
-        },
+        "constexprs": {},
         "backend_options": {
           "lmul_eighths": 64,
-          "pointwise_issue_copies": 2
+          "pointwise_issue_copies": 4
         },
         "compile_target": {
           "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
