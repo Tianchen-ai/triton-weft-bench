@@ -1,9 +1,10 @@
 """Opt-in timings around the installed CompiledKernel's real native launcher."""
 import statistics
 import time
+import ctypes
 
 
-def profile_runtime(invoke, compiled, *, iterations, groups, plain_samples):
+def profile_runtime(invoke, compiled, *, iterations, groups, plain_samples, bound, grid):
     # CompiledKernel.run resolves this callable on every launch, including the
     # native C++ launcher. Instrument only this kernel instance; keep its ABI
     # validation, worker checks and actual computation in the measured call.
@@ -47,7 +48,7 @@ def profile_runtime(invoke, compiled, *, iterations, groups, plain_samples):
     }
     profiled_mean = statistics.mean(per_call) / 1e6
     plain_mean = statistics.mean(plain_samples)
-    return {
+    result = {
         "status": "ok",
         "scope": "instrumented complete kernel[grid] calls through the installed native launcher",
         "calls": calls,
@@ -64,3 +65,45 @@ def profile_runtime(invoke, compiled, *, iterations, groups, plain_samples):
             "Component means sum to instrumented time; instrumentation is not subtracted from the plain measurement.",
         ],
     }
+    if all(size == 1 for size in grid):
+        # Reuse the compiler's ABI binder and the loaded kernel at the very same
+        # fixture addresses. This isolates native computation from launch work;
+        # it is a diagnostic boundary, not the independent native baseline run.
+        from triton.runtime.weft.abi import ABIPlan
+        from triton.runtime.weft.native import Error, NativeSignature
+        signature = NativeSignature(compiled.metadata.kernel_abi,
+                                    bindings=compiled.metadata.source_bindings)
+        values = {}
+        for argument in signature.arguments:
+            if argument.name.startswith("__triton_pid_"):
+                values[argument.name] = 0
+            elif argument.name.startswith("__triton_grid_"):
+                values[argument.name] = 1
+            else:
+                values[argument.name] = bound[argument.name]
+        plan = ABIPlan(signature.arguments, signature.shape_parameters, 64)
+        binding = plan.bind(signature.normalize((), values))
+        module = compiled.module
+        check = module.sdk.weft_kernel_check_worker
+        check.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t]
+        check.restype = ctypes.c_int
+        error = Error()
+        status = check(module.handle, ctypes.addressof(error) + Error.message.offset, 1024)
+        if status:
+            raise RuntimeError(bytes(error.message).decode())
+        entry = ctypes.CFUNCTYPE(None, *plan.ctypes)(module.entry.value)
+        native_samples = []
+        for _ in range(groups):
+            start = time.perf_counter_ns()
+            for _ in range(iterations):
+                entry(*binding.arguments)
+            native_samples.append((time.perf_counter_ns() - start) / iterations / 1e6)
+        result["prepared_single_instance"] = {
+            "scope": "loaded native entry with the original JIT fixture storage; ctypes call overhead included",
+            "samples_ms": native_samples,
+            "median_ms": statistics.median(native_samples),
+            "entry_address": module.entry.value,
+            "buffers": [{"name": view.argument.name, "address": view.buffer.address,
+                         "bytes": view.span} for view in binding.views],
+        }
+    return result

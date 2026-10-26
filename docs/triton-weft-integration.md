@@ -132,6 +132,12 @@ checks, grid dispatch and computation. The remainder is Python dispatch and
 specialization. Instrumented totals and their overhead remain separate from the
 plain hot-call samples; no component is subtracted from the reported latency.
 The original callable is restored even when a launch fails.
+For a single program instance, `prepared_single_instance` also times the loaded
+entry with the original JIT input and output addresses, using Triton's typed ABI
+binder. It includes ctypes call overhead and records the entry and buffer
+addresses. This diagnostic separates computation on that storage from launch
+work; it does not replace the native reference comparison. The workload oracle
+checks outputs again after profiling.
 
 Python JIT uses the product's native target detection on RISC-V or x86. Bench
 checks the requested execution architecture before launch and records the detected
@@ -149,11 +155,6 @@ the same storage. Packed Encoding cases use the public `tl.View` interface. Data
 cache mode is currently `reuse`; compiler cold starts and compiler cache reuse are
 recorded separately. Further framework contracts use explicitly selected
 [verification cases](verification.md).
-
-Optional `profile_runtime` retains normal uninstrumented samples and records
-available Python runtime segments separately. If the installed runtime uses a C++
-launcher that cannot expose those segments, they are `unavailable`; unobserved
-internal work is not reported as zero.
 
 For a buffer-boundary investigation, `guard_input_ends: ["W", "X"]` places
 the named read-only input buffers immediately before inaccessible memory pages.

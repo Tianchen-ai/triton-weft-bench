@@ -294,7 +294,9 @@ def run(request):
                 if request["reset_each_call"] or len(bound_calls) != 1:
                     raise NotImplementedError("runtime component profiling requires a stateless single launch")
                 framework["runtime_profile"] = profile_runtime(
-                    invoke, first[0], iterations=count, groups=measurement["samples"], plain_samples=samples)
+                    invoke, first[0], iterations=count, groups=measurement["samples"], plain_samples=samples,
+                    bound=bound_calls[0], grid=grid)
+                action(1)
             if request["save_outputs"]:
                 action(2)
             result.update(status="ok", samples_ms=samples, iterations=count,
