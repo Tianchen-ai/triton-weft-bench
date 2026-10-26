@@ -307,6 +307,18 @@ def benchmark_model(
                 *command,
             ]
             try:
+                if config.get("package"):
+                    package = json.loads(executor.command(
+                        ["cat", str(Path(config["package"]) / "package.json")],
+                        stage="prepare",
+                    ).stdout)
+                    row.details["replacement_bindings"] = package["bindings"]
+                    row.details["replacement_roles"] = sorted(
+                        f"{integration}/{role}"
+                        for integration, roles in package["bindings"].items()
+                        for role in roles
+                    )
+                    (directory / "package.json").write_text(json.dumps(package, indent=2) + "\n")
                 if implementation not in inspected_builds:
                     inspected_builds[implementation] = inspect_build(executor, config)
                 build_info = inspected_builds[implementation]
