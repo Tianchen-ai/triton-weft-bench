@@ -4,7 +4,7 @@ import time
 import ctypes
 
 
-def profile_runtime(invoke, compiled, *, iterations, groups, plain_samples, bound, grid):
+def profile_runtime(invoke, compiled, *, iterations, groups, plain_samples, bound, grid, check, reference=None):
     # CompiledKernel.run resolves this callable on every launch, including the
     # native C++ launcher. Instrument only this kernel instance; keep its ABI
     # validation, worker checks and actual computation in the measured call.
@@ -84,20 +84,34 @@ def profile_runtime(invoke, compiled, *, iterations, groups, plain_samples, boun
         plan = ABIPlan(signature.arguments, signature.shape_parameters, 64)
         binding = plan.bind(signature.normalize((), values))
         module = compiled.module
-        check = module.sdk.weft_kernel_check_worker
-        check.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t]
-        check.restype = ctypes.c_int
         error = Error()
-        status = check(module.handle, ctypes.addressof(error) + Error.message.offset, 1024)
+        status = check_worker(module, error)
         if status:
             raise RuntimeError(bytes(error.message).decode())
         entry = ctypes.CFUNCTYPE(None, *plan.ctypes)(module.entry.value)
-        native_samples = []
-        for _ in range(groups):
-            start = time.perf_counter_ns()
-            for _ in range(iterations):
-                entry(*binding.arguments)
-            native_samples.append((time.perf_counter_ns() - start) / iterations / 1e6)
+        entries = {"candidate": entry}
+        if reference is not None:
+            reference.run  # Load and verify the native module through the product.
+            abi = reference.metadata.kernel_abi
+            if (abi["arguments"] != compiled.metadata.kernel_abi["arguments"] or
+                    abi["shape_parameters"] != compiled.metadata.kernel_abi["shape_parameters"]):
+                raise ValueError("same-storage native comparison requires the same typed ABI")
+            status = check_worker(reference.module, error)
+            if status:
+                raise RuntimeError(bytes(error.message).decode())
+            entries["reference"] = ctypes.CFUNCTYPE(None, *plan.ctypes)(reference.module.entry.value)
+        for function in entries.values():
+            function(*binding.arguments)
+            check()
+        timings = {name: [] for name in entries}
+        for group in range(groups):
+            order = list(entries) if group % 2 == 0 else list(reversed(entries))
+            for name in order:
+                start = time.perf_counter_ns()
+                for _ in range(iterations):
+                    entries[name](*binding.arguments)
+                timings[name].append((time.perf_counter_ns() - start) / iterations / 1e6)
+        native_samples = timings["candidate"]
         result["prepared_single_instance"] = {
             "scope": "loaded native entry with the original JIT fixture storage; ctypes call overhead included",
             "samples_ms": native_samples,
@@ -106,4 +120,17 @@ def profile_runtime(invoke, compiled, *, iterations, groups, plain_samples, boun
             "buffers": [{"name": view.argument.name, "address": view.buffer.address,
                          "bytes": view.span} for view in binding.views],
         }
+        if reference is not None:
+            result["prepared_single_instance"]["paired_reference"] = {
+                "order": "alternating", "samples_ms": timings["reference"],
+                "median_ms": statistics.median(timings["reference"]),
+                "entry_address": reference.module.entry.value,
+            }
     return result
+
+
+def check_worker(module, error):
+    callback = module.sdk.weft_kernel_check_worker
+    callback.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t]
+    callback.restype = ctypes.c_int
+    return callback(module.handle, ctypes.addressof(error) + type(error).message.offset, 1024)

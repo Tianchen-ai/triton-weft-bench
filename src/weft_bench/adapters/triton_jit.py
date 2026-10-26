@@ -95,6 +95,15 @@ class TritonJitAdapter:
                 "architecture": target_architecture(target.settings["target"]),
                 "compile_target": compiler_target(options["compile_target"]) if "compile_target" in options else None,
             }
+            if options.get("profile_reference_artifact"):
+                if not request["profile_runtime"]:
+                    raise ValueError("profile_reference_artifact requires runtime profiling")
+                reference = Path(options["profile_reference_artifact"]).resolve(strict=True)
+                if not (reference / "triton.json").is_file() or not (reference / "kernel.so").is_file():
+                    raise ValueError("runtime profile reference requires an exported Triton artifact")
+                executor.upload_many((path, "profile-reference/" + str(path.relative_to(reference)))
+                                     for path in reference.rglob("*") if path.is_file())
+                request["profile_reference_artifact"] = executor.workspace + "/profile-reference"
             environment = {**options.get("environment", {}), "PYTHONDONTWRITEBYTECODE": "1",
                            "TRITON_CACHE_DIR": executor.workspace + "/triton-cache",
                            "TORCHINDUCTOR_CACHE_DIR": executor.workspace + "/torch-cache",

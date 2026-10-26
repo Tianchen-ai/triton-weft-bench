@@ -138,6 +138,11 @@ binder. It includes ctypes call overhead and records the entry and buffer
 addresses. This diagnostic separates computation on that storage from launch
 work; it does not replace the native reference comparison. The workload oracle
 checks outputs again after profiling.
+An optional `profile_reference_artifact` selects an already exported kernel for
+an alternating native comparison on those exact same buffers. The product loads
+and checks both artifacts, their typed ABIs must match, and both outputs pass the
+workload oracle. This additional diagnostic records every sample and is separate
+from the ordinary JIT and fixed-reference measurements.
 
 Python JIT uses the product's native target detection on RISC-V or x86. Bench
 checks the requested execution architecture before launch and records the detected

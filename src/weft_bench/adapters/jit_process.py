@@ -295,7 +295,9 @@ def run(request):
                     raise NotImplementedError("runtime component profiling requires a stateless single launch")
                 framework["runtime_profile"] = profile_runtime(
                     invoke, first[0], iterations=count, groups=measurement["samples"], plain_samples=samples,
-                    bound=bound_calls[0], grid=grid)
+                    bound=bound_calls[0], grid=grid, check=lambda: action(1),
+                    reference=triton.load(request["profile_reference_artifact"])
+                    if request.get("profile_reference_artifact") else None)
                 action(1)
             if request["save_outputs"]:
                 action(2)
