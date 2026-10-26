@@ -169,6 +169,17 @@ def byte_plane_fields(X: tl.View[tl.u8, (N,)], Y: tl.View[tl.u8, (N,)],
         tl.store(Y[block], tl.u8(field) << tl.u8(destination))
 
 
+@triton.jit(model="weft", alias_groups={"Y": "output"})
+def interleaved_byte_fields(X: tl.View[tl.u8, (N,)], Y: tl.View[tl.u8, (N, FIELDS)],
+                            FIRST: tl.constexpr, SECOND: tl.constexpr, MASK: tl.constexpr,
+                            FIELDS: tl.constexpr = 2):
+    with tl.level.blocks(N, extent=16) as block:
+        field = tl.arange(0, FIELDS, dtype=tl.u8, axis="FIELDS")
+        shifts = tl.where(field == 0, tl.u8(FIRST), tl.u8(SECOND))
+        values = tl.load(X[block])
+        tl.store(Y[block, :], (values >> shifts) & tl.u8(MASK))
+
+
 @triton.jit
 def streaming_body(X, Y, N, BLOCK: tl.constexpr = 64):
     with tl.level.blocks(N, extent=BLOCK) as block:

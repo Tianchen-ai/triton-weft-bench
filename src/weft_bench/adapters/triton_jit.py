@@ -108,11 +108,14 @@ class TritonJitAdapter:
                            "TRITON_CACHE_DIR": executor.workspace + "/triton-cache",
                            "TORCHINDUCTOR_CACHE_DIR": executor.workspace + "/torch-cache",
                            "TRITON_DUMP_DIR": executor.workspace + "/triton-dump"}
+            # Clear an inherited controller overlay, but honor an explicitly
+            # selected development environment on the execution machine.
+            unset_environment = () if "PYTHONPATH" in environment else ("PYTHONPATH",)
             command = [options["python"], "-m", "weft_bench.adapters.jit_process"]
             remote_request = executor.write("jit-request.json", json.dumps(request, indent=2))
             stage = "interface"
             described = executor.command([*command, "--describe", remote_request], cwd=executor.workspace,
-                                         env=environment, affinity=True, unset_env=("PYTHONPATH",))
+                                         env=environment, affinity=True, unset_env=unset_environment)
             interface = [json.loads(line[10:]) for line in described.stdout.splitlines() if line.startswith("WB_RESULT ")]
             if len(interface) != 1:
                 raise ValueError("target returned no unique Canonical interface")
@@ -132,7 +135,7 @@ class TritonJitAdapter:
             remote_request = executor.write("jit-request.json", json.dumps(request, indent=2))
             stage = "run"
             done = executor.command([*command, remote_request], cwd=executor.workspace,
-                                    env=environment, affinity=True, check=False, unset_env=("PYTHONPATH",))
+                                    env=environment, affinity=True, check=False, unset_env=unset_environment)
             (directory / "stdout.log").write_text(done.stdout)
             (directory / "stderr.log").write_text(done.stderr)
             records = [json.loads(line[10:]) for line in done.stdout.splitlines() if line.startswith("WB_RESULT ")]
@@ -159,7 +162,7 @@ class TritonJitAdapter:
                                  "measurement": {**request["measurement"], "check_only": True}}
                 cache_path = executor.write("jit-cache-request.json", json.dumps(cache_request, indent=2))
                 reuse = executor.command([*command, cache_path], cwd=executor.workspace,
-                                         env=environment, affinity=True, check=False, unset_env=("PYTHONPATH",))
+                                         env=environment, affinity=True, check=False, unset_env=unset_environment)
                 (directory / "cache-stdout.log").write_text(reuse.stdout)
                 (directory / "cache-stderr.log").write_text(reuse.stderr)
                 cache_records = [json.loads(line[10:]) for line in reuse.stdout.splitlines() if line.startswith("WB_RESULT ")]

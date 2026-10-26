@@ -1225,7 +1225,7 @@ def byte_plane_contract(root, options, compile_target):
     from triton import compile
     from triton.compiler import ASTSource
     from triton.backends.compiler import CPUTarget
-    from numerical_primitive_kernels import byte_plane_fields
+    from numerical_primitive_kernels import byte_plane_fields, interleaved_byte_fields
     records = []
     for width in (1, 2, 4):
         for step in (1, 4):
@@ -1246,6 +1246,25 @@ def byte_plane_contract(root, options, compile_target):
                 exact(storage[[0, 1, -2, -1]], np.full(4, 0xa5, np.uint8))
                 records.append({"width": width, "group": step, "N": n, "input_bytes": 256})
             native_evidence(compiled, root, f"byte-plane-{width}-{step}", ["cast"])
+    for first, second, mask in ((0, 4, 15), (2, 5, 7), (4, 0, 15), (0, 7, 1), (0, 4, 255)):
+        compiled = compile(ASTSource(interleaved_byte_fields, {},
+                           {"FIRST": first, "SECOND": second, "MASK": mask, "FIELDS": 2}),
+                           target=CPUTarget(backend="weft", **compile_target), options=options)
+        for n in (0, 1, 3, 16, 17, 63, 64, 65):
+            storage, output = guarded(n * 2, np.uint8, 0xa5)
+            for value in range(256):
+                x = ((np.arange(n, dtype=np.uint16) * 73 + value) % 256).astype(np.uint8)
+                expected = ((x[:, None].astype(np.uint16) >> np.array([first, second])) & mask).astype(np.uint8)
+                compiled[(1,)](x, output.reshape(n, 2))
+                exact(output.reshape(n, 2), expected)
+            exact(storage[[0, 1, -2, -1]], np.full(4, 0xa5, np.uint8))
+            records.append({"interleaved_shifts": [first, second], "mask": mask, "N": n, "input_bytes": 256})
+        selected = "weft.x86.interleaved_byte_fields" in compiled.asm.get("x86ir", "")
+        if mask == 255:
+            assert not selected, "packed shift must not import neighboring byte bits"
+        elif compile_target["arch"] == "x86_64":
+            assert selected, "legal duplicated-byte fields did not use the physical shift"
+        native_evidence(compiled, root, f"byte-interleave-{first}-{second}-{mask}", ["binary"])
     return {"subcases": records, "integer_exact": True, "tails_and_empty": True}
 
 
