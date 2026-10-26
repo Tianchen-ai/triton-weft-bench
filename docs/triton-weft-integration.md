@@ -124,6 +124,15 @@ Only the main native row is compared with a fixed native GGML reference. Neither
 Python overhead nor cold compilation is included in that speedup. This additional
 native measurement consumes the JIT result; it cannot rescue a failed JIT case.
 
+For a stateless workload with one JIT launch, `profile_runtime: true` in the
+implementation configuration records an additional component profile under
+`details.jit.runtime.runtime_profile`. It instruments that `CompiledKernel`'s
+existing native launcher, including C++ argument preparation, worker capability
+checks, grid dispatch and computation. The remainder is Python dispatch and
+specialization. Instrumented totals and their overhead remain separate from the
+plain hot-call samples; no component is subtracted from the reported latency.
+The original callable is restored even when a launch fails.
+
 Python JIT uses the product's native target detection on RISC-V or x86. Bench
 checks the requested execution architecture before launch and records the detected
 compiler target and actual affinity. Registration and CPU binding precede detection.
