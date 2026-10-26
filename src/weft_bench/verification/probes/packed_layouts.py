@@ -451,7 +451,8 @@ def snapshot_storage_contract(root, options):
     from helper_native import capture
 
     records, first = [], None
-    for m, k, overlap in ((1, 32, False), (5, 96, False), (5, 96, True),
+    for m, k, overlap in ((0, 32, False), (1, 0, False), (1, 32, False),
+                          (5, 96, False), (5, 96, True),
                           (4, 1024, True), (4, 32768, False)):
         signed = ((np.arange(m * k) * 7 + 3) % 16 - 8).reshape(m, k)
         raw = bytearray()
@@ -493,7 +494,7 @@ def snapshot_storage_contract(root, options):
         name = f"record-snapshot-{m}-{k}-{'overlap' if overlap else 'disjoint'}"
         proof = capture(compiled, root, name)
         if "riscvir" in compiled.asm:
-            assert 'snapshot_may_borrow = true' in compiled.asm["riscvir"]
+            assert 'rvv.read-snapshot' in compiled.asm["riscvir"]
             assert 'weft_riscv.storage_disjoint' in compiled.asm["riscvir"]
         np.savez(root / (name + '.npz'), actual=output, expected=signed + 1000, bytes=y)
         records.append({"M": m, "K": k, "overlap": overlap, "evidence": proof})
