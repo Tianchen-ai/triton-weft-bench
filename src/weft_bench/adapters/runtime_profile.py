@@ -4,7 +4,54 @@ import time
 import ctypes
 
 
-def profile_runtime(invoke, compiled, *, iterations, groups, plain_samples, bound, grid, check, reference=None):
+def paired_jit_calls(invoke, compiled, reference, *, iterations, groups, check):
+    abi = reference.metadata.kernel_abi
+    if (abi["arguments"] != compiled.metadata.kernel_abi["arguments"] or
+            abi["shape_parameters"] != compiled.metadata.kernel_abi["shape_parameters"] or
+            reference.metadata.launch_args != compiled.metadata.launch_args or
+            reference.metadata.num_cpu_threads != compiled.metadata.num_cpu_threads):
+        raise ValueError("same-storage JIT comparison requires identical typed ABI, launch arguments and threads")
+    # Both alternatives use the normal JITFunction dispatch and exactly the
+    # same storage. Only this instance's loaded native implementation changes.
+    launcher = compiled.run
+    launches = {
+        "candidate": (launcher, compiled.function, compiled.packed_metadata),
+        "reference": (reference.run, reference.function, reference.packed_metadata),
+    }
+    selected = launches["candidate"]
+
+    def paired_launch(gx, gy, gz, stream, function, metadata, *args):
+        run, entry, packed = selected
+        return run(gx, gy, gz, stream, entry, packed, *args)
+
+    compiled._run = paired_launch
+    hot = {name: [] for name in launches}
+    try:
+        for name in launches:
+            selected = launches[name]
+            invoke()
+            check()
+        for group in range(groups):
+            order = list(launches) if group % 2 == 0 else list(reversed(launches))
+            for name in order:
+                selected = launches[name]
+                start = time.perf_counter_ns()
+                for _ in range(iterations):
+                    invoke()
+                hot[name].append((time.perf_counter_ns() - start) / iterations / 1e6)
+    finally:
+        compiled._run = launcher
+    return {
+        "scope": "same JITFunction and workload storage; alternating loaded implementations through the current runtime",
+        "hook": "the same per-instance launcher hook on both implementations",
+        "samples_ms": hot,
+        "median_ms": {name: statistics.median(values) for name, values in hot.items()},
+        "runtime_comparison": False,
+    }
+
+
+def profile_runtime(invoke, compiled, *, iterations, groups, plain_samples, bound, grid, check,
+                    reference=None, launches_per_workload=1):
     # CompiledKernel.run resolves this callable on every launch, including the
     # native C++ launcher. Instrument only this kernel instance; keep its ABI
     # validation, worker checks and actual computation in the measured call.
@@ -32,8 +79,8 @@ def profile_runtime(invoke, compiled, *, iterations, groups, plain_samples, boun
         compiled._run = launcher
 
     calls, total = len(per_call), sum(per_call)
-    if native_calls != calls:
-        raise RuntimeError("runtime component profiling requires one native launch per invocation")
+    if native_calls != calls * launches_per_workload:
+        raise RuntimeError("runtime component profiling did not observe every declared workload launch")
     components = {
         "native_launcher_and_kernel": {
             "mean_ms": durations / calls / 1e6,
@@ -52,6 +99,7 @@ def profile_runtime(invoke, compiled, *, iterations, groups, plain_samples, boun
         "status": "ok",
         "scope": "instrumented complete kernel[grid] calls through the installed native launcher",
         "calls": calls,
+        "launches_per_workload": launches_per_workload,
         "instrumented_mean_ms": profiled_mean,
         "instrumented_median_ms": statistics.median(per_call) / 1e6,
         "plain_mean_ms": plain_mean,
@@ -65,7 +113,11 @@ def profile_runtime(invoke, compiled, *, iterations, groups, plain_samples, boun
             "Component means sum to instrumented time; instrumentation is not subtracted from the plain measurement.",
         ],
     }
-    if all(size == 1 for size in grid):
+    if reference is not None:
+        result["paired_jit_calls"] = paired_jit_calls(
+            invoke, compiled, reference, iterations=iterations, groups=groups, check=check)
+        result["paired_jit_calls"]["launches_per_workload"] = launches_per_workload
+    if all(size == 1 for size in grid) and launches_per_workload == 1:
         # Reuse the compiler's ABI binder and the loaded kernel at the very same
         # fixture addresses. This isolates native computation from launch work;
         # it is a diagnostic boundary, not the independent native baseline run.
@@ -100,47 +152,6 @@ def profile_runtime(invoke, compiled, *, iterations, groups, plain_samples, boun
             if status:
                 raise RuntimeError(bytes(error.message).decode())
             entries["reference"] = ctypes.CFUNCTYPE(None, *plan.ctypes)(reference.module.entry.value)
-            if (reference.metadata.launch_args != compiled.metadata.launch_args or
-                    reference.metadata.num_cpu_threads != compiled.metadata.num_cpu_threads):
-                raise ValueError("same-storage JIT comparison requires identical launch arguments and threads")
-            # Use the existing per-instance launcher hook for both alternatives.
-            # The normal JITFunction dispatch, specialization lookup, ABI binder
-            # and buffer objects remain the same. This compares loaded compiler
-            # outputs under the current runtime; it does not compare runtimes.
-            launches = {
-                "candidate": (launcher, compiled.function, compiled.packed_metadata),
-                "reference": (reference.run, reference.function, reference.packed_metadata),
-            }
-            selected = launches["candidate"]
-
-            def paired_launch(gx, gy, gz, stream, function, metadata, *args):
-                run, entry, packed = selected
-                return run(gx, gy, gz, stream, entry, packed, *args)
-
-            compiled._run = paired_launch
-            hot = {name: [] for name in launches}
-            try:
-                for name in launches:
-                    selected = launches[name]
-                    invoke()
-                    check()
-                for group in range(groups):
-                    order = list(launches) if group % 2 == 0 else list(reversed(launches))
-                    for name in order:
-                        selected = launches[name]
-                        start = time.perf_counter_ns()
-                        for _ in range(iterations):
-                            invoke()
-                        hot[name].append((time.perf_counter_ns() - start) / iterations / 1e6)
-            finally:
-                compiled._run = launcher
-            result["paired_jit_calls"] = {
-                "scope": "same JITFunction and storage; alternating loaded implementations through the current runtime",
-                "hook": "the same per-instance launcher hook on both implementations",
-                "samples_ms": hot,
-                "median_ms": {name: statistics.median(values) for name, values in hot.items()},
-                "runtime_comparison": False,
-            }
         for function in entries.values():
             function(*binding.arguments)
             check()

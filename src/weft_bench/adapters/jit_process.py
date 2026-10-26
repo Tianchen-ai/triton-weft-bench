@@ -291,11 +291,12 @@ def run(request):
                 from .runtime_profile import profile_runtime
                 if cold_data:
                     raise NotImplementedError("runtime component profiling uses prepared-data reuse")
-                if request["reset_each_call"] or len(bound_calls) != 1:
-                    raise NotImplementedError("runtime component profiling requires a stateless single launch")
+                if request["reset_each_call"]:
+                    raise NotImplementedError("runtime component profiling requires a stateless workload")
                 framework["runtime_profile"] = profile_runtime(
                     invoke, first[0], iterations=count, groups=measurement["samples"], plain_samples=samples,
                     bound=bound_calls[0], grid=grid, check=lambda: action(1),
+                    launches_per_workload=len(bound_calls),
                     reference=triton.load(request["profile_reference_artifact"])
                     if request.get("profile_reference_artifact") else None)
                 action(1)
