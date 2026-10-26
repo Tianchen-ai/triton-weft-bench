@@ -37,3 +37,10 @@ def affine_full_tiles(X: wl.View[wl.f32, (N,)], Y: wl.View[wl.f32, (N,)],
         x = wl.subview(X, offsets=(end,), extents=(N - end,))
         y = wl.subview(Y, offsets=(end,), extents=(N - end,))
         wl.store(y, wl.load(x) * scale + bias)
+
+
+@triton.jit(model="weft", alias_groups={"X": "input", "Y": "output"})
+def affine_disjoint(X: wl.View[wl.f32, (N,)], Y: wl.View[wl.f32, (N,)],
+                    scale: wl.f32 = 1.0, *, bias: wl.f32 = 0.0):
+    """A whole-domain pointwise program with independent input and output."""
+    wl.store(Y, wl.load(X) * scale + bias)
