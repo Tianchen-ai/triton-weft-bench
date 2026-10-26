@@ -192,7 +192,22 @@ def masked_record_contraction_contract(root, options):
             np.testing.assert_array_equal(lhs[32:-32], raw)
             np.testing.assert_array_equal(rhs[32:-32], raw)
             records.append({"left": left, "right": right, "active_rows": active})
-    return {"cases": records, "integer_exact": True, "two_reduction_axes": True,
+    lookup_records = []
+    table = (np.arange(16, dtype=np.int16) * 13 - 93).astype(np.int8)
+    for count in (0, 1, 3, 4, 5):
+        raw, _, _, _ = fixture("natural", rows=count, records=1)
+        position = np.arange(count * 8).reshape(count, 8)
+        q, s = (position * 3 + 2) % 16 - 8, (position * 7 + 11) % 64
+        guard = np.full(count + 8, -12345, np.int32)
+        output = guard[4:-4]
+        source = tl.View(raw, encoding=kernels.NaturalLE, shape=(count, 8))
+        compiled = kernels.looked_record_groups[(1,)](source, table, output, K=8, **options)
+        wanted = (table[(q.astype(np.int32) & 15)].astype(np.int32) * s.astype(np.int32)).reshape(count, 8).sum(axis=1, dtype=np.int32)
+        np.testing.assert_array_equal(output, wanted)
+        np.testing.assert_array_equal(guard[:4], np.full(4, -12345, np.int32))
+        np.testing.assert_array_equal(guard[-4:], np.full(4, -12345, np.int32))
+        lookup_records.append({"rows": count, "evidence": capture(compiled, root, f"looked-record-groups-{count}")})
+    return {"cases": records, "looked_reshaped_groups": lookup_records, "integer_exact": True, "two_reduction_axes": True,
             "invalid_outputs_untouched": True, "evidence": capture(first, root, "masked-record-contract")}
 
 

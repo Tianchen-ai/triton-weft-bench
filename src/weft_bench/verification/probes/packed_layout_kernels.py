@@ -281,6 +281,22 @@ def masked_record_contract(X: tl.View[NaturalLE, (L,)], Z: tl.View[NaturalLE, (P
             tl.store(Y + 4, total)
 
 
+@triton.jit(model="weft", alias_groups={"Y": "output"})
+def looked_record_groups(X: tl.View[NaturalLE, (M, K)],
+                         Table: tl.View[tl.i8, (16,)], Y: tl.View[tl.i32, (M,)],
+                         K: tl.constexpr):
+    lane = tl.arange(0, 8, dtype=tl.u16, axis="lane")
+    with tl.level.rows(M, group=4) as rows:
+        saved = tl.load(X[rows])
+        indices = tl.u4(saved.q[:, lane])
+        looked = tl.lookup(tl.load(Table), indices, bounds="in_bounds")
+        left = tl.reshape(looked, (4, 2, 4), axes=("row", "piece", "member"), order=("M", "lane"))
+        right = tl.reshape(tl.i8(saved.s), (4, 2, 4), axes=("row", "piece", "member"), order=("M", "K"))
+        groups = tl.mac_groups(left, right, n=4, into=tl.i32)
+        total = tl.reduce(tl.reduce(groups, axis="member"), axis="piece")
+        tl.store(Y[rows], tl.reshape(total, (4,), axes=("M",), order=("row",)))
+
+
 @triton.encoding
 class LayeredJoined:
     layout = (tl.bitorder.lsb_first, tl.byteorder.little)
