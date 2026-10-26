@@ -2,21 +2,43 @@
 import statistics
 import time
 import ctypes
+from types import SimpleNamespace
+
+
+def compatible_native_abi(compiled, reference):
+    current, previous = compiled.metadata.kernel_abi, reference.metadata.kernel_abi
+    # Restrict/alias proofs and minimum alignment are validated by each loaded
+    # artifact's SDK. They do not change the typed native argument slots.
+    fields = ("name", "kind", "dtype", "access", "strided", "encoding", "shape",
+              "storage_bytes", "record_elements", "interleave_rows", "writable")
+    slots = lambda abi: [[argument[key] for key in fields] for argument in abi["arguments"]]
+    if slots(current) != slots(previous):
+        raise ValueError("same-storage comparison requires matching native argument types, shapes and effects")
+    if current["shape_parameters"] != previous["shape_parameters"]:
+        raise ValueError("same-storage comparison requires matching native shape parameters")
+
+
+def reference_launcher(compiled, reference):
+    compatible_native_abi(compiled, reference)
+    if reference.metadata.num_cpu_threads != compiled.metadata.num_cpu_threads:
+        raise ValueError("same-storage JIT comparison requires identical thread counts")
+    reference.run  # Load through the product and retain its real SDK/contract.
+    from triton.runtime.weft.native import NativeLauncher
+    # Source-only constexpr names may disappear when a DSL is simplified. The
+    # shared JIT call supplies the current source arguments; the native launcher
+    # still binds and checks the reference artifact's own ABI by argument name.
+    metadata = SimpleNamespace(**reference.metadata._asdict())
+    metadata.launch_args = compiled.metadata.launch_args
+    return NativeLauncher(reference.module, metadata)
 
 
 def paired_jit_calls(invoke, compiled, reference, *, iterations, groups, check):
-    abi = reference.metadata.kernel_abi
-    if (abi["arguments"] != compiled.metadata.kernel_abi["arguments"] or
-            abi["shape_parameters"] != compiled.metadata.kernel_abi["shape_parameters"] or
-            reference.metadata.launch_args != compiled.metadata.launch_args or
-            reference.metadata.num_cpu_threads != compiled.metadata.num_cpu_threads):
-        raise ValueError("same-storage JIT comparison requires identical typed ABI, launch arguments and threads")
     # Both alternatives use the normal JITFunction dispatch and exactly the
     # same storage. Only this instance's loaded native implementation changes.
     launcher = compiled.run
     launches = {
         "candidate": (launcher, compiled.function, compiled.packed_metadata),
-        "reference": (reference.run, reference.function, reference.packed_metadata),
+        "reference": (reference_launcher(compiled, reference), reference.function, reference.packed_metadata),
     }
     selected = launches["candidate"]
 
@@ -144,10 +166,7 @@ def profile_runtime(invoke, compiled, *, iterations, groups, plain_samples, boun
         entries = {"candidate": entry}
         if reference is not None:
             reference.run  # Load and verify the native module through the product.
-            abi = reference.metadata.kernel_abi
-            if (abi["arguments"] != compiled.metadata.kernel_abi["arguments"] or
-                    abi["shape_parameters"] != compiled.metadata.kernel_abi["shape_parameters"]):
-                raise ValueError("same-storage native comparison requires the same typed ABI")
+            compatible_native_abi(compiled, reference)
             status = check_worker(reference.module, error)
             if status:
                 raise RuntimeError(bytes(error.message).decode())
