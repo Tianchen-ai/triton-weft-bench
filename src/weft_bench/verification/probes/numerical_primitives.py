@@ -15,7 +15,7 @@ def wrap_integer(value, bits, signed=True):
 
 
 def mac_oracle(left, right, group, bits, signed):
-    result = np.empty((2, 3, 2, 16//group), dtype=object)
+    result = np.empty((left.shape[0], left.shape[1], right.shape[1], left.shape[2]//group), dtype=object)
     for batch, row, head, g in np.ndindex(result.shape):
         total = sum(int(left[batch, row, k])*int(right[batch, head, k])
                     for k in range(g*group, (g+1)*group))
@@ -277,6 +277,11 @@ def multi_axis_mac(root, options, close):
          [255, 255, 255, 255, 128, 0, 1, 127, 254, 17, 200, 3, 129, 250, 7, 64],
          [255, 255, 255, 255, 1, 128, 254, 0, 127, 3, 201, 9, 250, 64, 128, 17]),
     )
+    cases = list(cases)
+    for mode, group in ((1, 6), (2, 6), (3, 8), (3, 12), (1, 16), (4, 16)):
+        _, _, bits, signed, dtype, a, b = cases[mode]
+        cases.append((mode, group, bits, signed, dtype,
+                      np.resize(a, group * 4), np.resize(b, group * 4)))
     records = []
     for mode, group, bits, signed, dtype, a, b in cases:
         left = np.stack([np.stack([np.roll(a, batch*5+row*3) for row in range(3)])
@@ -287,9 +292,10 @@ def multi_axis_mac(root, options, close):
         expected = mac_oracle(left, right, group, bits, signed).astype(dtype)
         sentinel = -12345 if signed else 65431
         storage, output = guarded(expected.size, dtype, sentinel)
-        name = f"grouped-mac-{mode}"
+        name = f"grouped-mac-{mode}-n{group}"
         save(root, name, left=left, right=right, expected=expected)
-        compiled = grouped_mac[(1,)](left, right, output, MODE=mode, **options)
+        compiled = grouped_mac[(1,)](left, right, output, MODE=mode,
+                                     GROUP_SIZE=4 if mode == 0 else group, **options)
         save(root, name, left=original_left, right=original_right, actual_left=left, actual_right=right,
              expected=expected, actual=output.reshape(expected.shape), output_storage=storage)
         evidence = native_evidence(compiled, root, name, ["mac_groups"])
@@ -552,7 +558,9 @@ def multi_axis_pairs(root, options):
     return {"integer_exact": True, "subcases": records}
 
 
-def partial_groups(root, options):
+def partial_groups(root, options, group_size=None):
+    if group_size is None:
+        return {"subcases": [partial_groups(root, options, group) for group in (4, 8, 16)]}
     from numerical_primitive_kernels import grouped_tail
 
     n = 35
@@ -566,27 +574,28 @@ def partial_groups(root, options):
     count_storage, counts = guarded(4, np.int32)
     counts[:] = 0
     expected_groups, expected_pairs = groups.copy(), pairs.copy()
-    active_groups = [wrap_integer(sum(int(x[k])*int(weights[k]) for k in range(start, min(start+4, n))), 16)
-                     for start in range(0, n, 4)]
+    active_groups = [wrap_integer(sum(int(x[k])*int(weights[k]) for k in range(start, min(start+group_size, n))), 16)
+                     for start in range(0, n, group_size)]
     active_pairs = [sum(int(x[k]) for k in range(start, min(start+2, n))) for start in range(0, n, 2)]
     expected_groups[:len(active_groups)] = active_groups
     expected_pairs[:len(active_pairs)] = active_pairs
     expected_counts = np.zeros(4, dtype=np.int32)
     for value in active_groups: expected_counts[value & 1] += 1
     for value in active_pairs: expected_counts[2+(value & 1)] += 1
-    save(root, "grouped-tail", source=original_x, weights=original_w, expected_groups=expected_groups,
+    name = f"grouped-tail-n{group_size}"
+    save(root, name, source=original_x, weights=original_w, expected_groups=expected_groups,
          expected_pairs=expected_pairs, expected_counts=expected_counts)
-    compiled = grouped_tail[(1,)](x, weights, groups, pairs, counts, **options)
-    save(root, "grouped-tail", source=original_x, actual_source=x_storage, weights=original_w,
+    compiled = grouped_tail[(1,)](x, weights, groups, pairs, counts, GROUP_SIZE=group_size, **options)
+    save(root, name, source=original_x, actual_source=x_storage, weights=original_w,
          actual_weights=w_storage, expected_groups=expected_groups, actual_groups=group_storage,
          expected_pairs=expected_pairs, actual_pairs=pair_storage, expected_counts=expected_counts, actual_counts=count_storage)
-    evidence = native_evidence(compiled, root, "grouped-tail", ["mac_groups", "fold2"])
+    evidence = native_evidence(compiled, root, name, ["mac_groups", "fold2"])
     for actual, expected in ((groups, expected_groups), (pairs, expected_pairs), (counts, expected_counts),
                              (x_storage, original_x), (w_storage, original_w)):
         exact(actual, expected)
     for storage in (group_storage, pair_storage, count_storage):
         assert np.all(storage[[0, 1, -2, -1]] == -12345)
-    return {"N": n, "block": 32, "active_groups": 9, "active_pairs": 18,
+    return {"N": n, "block": 32, "group_size": group_size, "active_groups": len(active_groups), "active_pairs": 18,
             "partial_group_terms": 3, "partial_pair_terms": 1, "inactive_terms": "zero identity",
             "output_activity": "any valid term", "invalid_outputs_preserve_sentinel": True,
             "unmasked_pointer_store_and_atomic": True, "counts": counts.tolist(), "evidence": evidence}

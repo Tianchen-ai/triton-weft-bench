@@ -882,25 +882,26 @@ def array_forward_stage(X: tl.View[tl.f32, (N,)], Y: tl.View[tl.f32, (N,)]):
 
 @triton.jit(model="weft")
 def grouped_mac(A: tl.View[tl.i32, (BATCH, M, K)], B: tl.View[tl.i32, (BATCH, H, K)],
-                Out, MODE: tl.constexpr):
-    width: tl.constexpr = 8 if MODE == 0 else 4
+                Out, MODE: tl.constexpr, GROUP_SIZE: tl.constexpr = 4):
+    TILE: tl.constexpr = GROUP_SIZE * 4
+    width: tl.constexpr = TILE // 2 if MODE == 0 else 4
     with tl.level.rows(BATCH, group=2) as batch:
         with tl.level.rows(M, group=3) as rows:
             with tl.level.cols(H, group=2) as heads:
-                with tl.level.blocks(K, extent=16) as part:
+                with tl.level.blocks(K, extent=TILE) as part:
                     left, right = tl.load(A[batch, rows, part]), tl.load(B[batch, heads, part])
                     if MODE == 0:
                         result = tl.mac_pairs(left.to(tl.int8), right.to(tl.uint8), into=tl.i16)
                     elif MODE == 1:
-                        result = tl.mac_groups(left.to(tl.uint8), right.to(tl.uint8), n=4, into=tl.u16)
+                        result = tl.mac_groups(left.to(tl.uint8), right.to(tl.uint8), n=GROUP_SIZE, into=tl.u16)
                     elif MODE == 2:
-                        result = tl.mac_groups(left.to(tl.int16), right.to(tl.int16), n=4, into=tl.i32)
+                        result = tl.mac_groups(left.to(tl.int16), right.to(tl.int16), n=GROUP_SIZE, into=tl.i32)
                     elif MODE == 3:
-                        result = tl.mac_groups(tl.u8(left), tl.i8(right), n=4, into=tl.i32)
+                        result = tl.mac_groups(tl.u8(left), tl.i8(right), n=GROUP_SIZE, into=tl.i32)
                     elif MODE == 4:
-                        result = tl.mac_groups(tl.i8(left), tl.i8(right), n=4, into=tl.i32)
+                        result = tl.mac_groups(tl.i8(left), tl.i8(right), n=GROUP_SIZE, into=tl.i32)
                     else:
-                        result = tl.mac_groups(tl.u8(left), tl.u8(right), n=4, into=tl.i32)
+                        result = tl.mac_groups(tl.u8(left), tl.u8(right), n=GROUP_SIZE, into=tl.i32)
                     for b in range(2):
                         for m in range(3):
                             for h in range(2):
@@ -1073,15 +1074,16 @@ def fold_pairs(X: tl.View[tl.i32, (BATCH, M, K)], Out, UNSIGNED: tl.constexpr):
 
 
 @triton.jit(model="weft")
-def grouped_tail(X: tl.View[tl.i8, (N,)], Weight: tl.View[tl.u8, (N,)], Groups, Pairs, Counts):
+def grouped_tail(X: tl.View[tl.i8, (N,)], Weight: tl.View[tl.u8, (N,)], Groups, Pairs, Counts,
+                 GROUP_SIZE: tl.constexpr = 4):
     cursor = tl.full((), 0, tl.int32)
     with tl.level.blocks(N, extent=32) as block:
         values, weights = tl.load(X[block]), tl.load(Weight[block])
-        groups = tl.mac_groups(values, weights, n=4, into=tl.i16)
+        groups = tl.mac_groups(values, weights, n=GROUP_SIZE, into=tl.i16)
         pairs = tl.sum_pairs(values)
-        for g in range(8):
+        for g in range(32 // GROUP_SIZE):
             value = groups[g]
-            tl.store(Groups + cursor//4+g, value)
+            tl.store(Groups + cursor//GROUP_SIZE+g, value)
             tl.atomic_add(Counts + (value.to(tl.int32) & 1), 1)
         for g in range(16):
             value = pairs[g]

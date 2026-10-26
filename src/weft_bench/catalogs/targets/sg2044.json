@@ -344,7 +344,8 @@
         "symbol": "dot_s_windowed",
         "signature": {},
         "constexprs": {
-          "GROUPS": 1
+          "GROUPS": 1,
+          "UNROLL_GROUPS": false
         },
         "backend_options": {
           "lmul_eighths": 64,

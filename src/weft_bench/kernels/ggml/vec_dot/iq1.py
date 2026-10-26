@@ -15,7 +15,7 @@ def _scaled_product(activation, weight, delta, scale):
 
 
 @triton.jit
-def compute_s_windowed(W, X, grid, K, GROUPS: tl.constexpr):
+def compute_s_windowed(W, X, grid, K, GROUPS: tl.constexpr, UNROLL_GROUPS: tl.constexpr = True):
     tl.static_assert(GROUPS == 1 or GROUPS == 2 or GROUPS == 4)
     group_lane = tl.arange(0, GROUPS, dtype=tl.u16, axis="group")
     entry = tl.arange(0, 4, dtype=tl.u16, axis="entry")
@@ -24,7 +24,7 @@ def compute_s_windowed(W, X, grid, K, GROUPS: tl.constexpr):
     with tl.level.blocks(K, extent=256) as block:
         w, x = tl.load(W[block]), tl.load(X[block])
         main, correction = tl.i32(0), tl.i32(0)
-        for part in tl.static_range(8 // GROUPS):
+        for part in (tl.static_range if UNROLL_GROUPS else range)(8 // GROUPS):
             group = group_lane + tl.u16(part * GROUPS)
             metadata = tl.u16(w.qh[group])
             scale = tl.i32((metadata >> tl.u16(12) & tl.u16(7)) * tl.u16(2) + tl.u16(1))
@@ -44,8 +44,8 @@ def compute_s_windowed(W, X, grid, K, GROUPS: tl.constexpr):
 @triton.jit(model="weft")
 def dot_s_windowed(W: tl.View[ggml.IQ1_S, (K,)], X: tl.View[ggml.Q8_K, (K,)],
                    grid: tl.View[ggml.I8X8, (2048, 8)], Y: tl.View[tl.f32, (1,)],
-                   *, GROUPS: tl.constexpr = 2):
-    tl.store(Y[0], compute_s_windowed(W, X, grid, K, GROUPS))
+                   *, GROUPS: tl.constexpr = 2, UNROLL_GROUPS: tl.constexpr = True):
+    tl.store(Y[0], compute_s_windowed(W, X, grid, K, GROUPS, UNROLL_GROUPS))
 
 
 @triton.jit(noinline=True)
