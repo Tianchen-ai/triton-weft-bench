@@ -100,6 +100,47 @@ def profile_runtime(invoke, compiled, *, iterations, groups, plain_samples, boun
             if status:
                 raise RuntimeError(bytes(error.message).decode())
             entries["reference"] = ctypes.CFUNCTYPE(None, *plan.ctypes)(reference.module.entry.value)
+            if (reference.metadata.launch_args != compiled.metadata.launch_args or
+                    reference.metadata.num_cpu_threads != compiled.metadata.num_cpu_threads):
+                raise ValueError("same-storage JIT comparison requires identical launch arguments and threads")
+            # Use the existing per-instance launcher hook for both alternatives.
+            # The normal JITFunction dispatch, specialization lookup, ABI binder
+            # and buffer objects remain the same. This compares loaded compiler
+            # outputs under the current runtime; it does not compare runtimes.
+            launches = {
+                "candidate": (launcher, compiled.function, compiled.packed_metadata),
+                "reference": (reference.run, reference.function, reference.packed_metadata),
+            }
+            selected = launches["candidate"]
+
+            def paired_launch(gx, gy, gz, stream, function, metadata, *args):
+                run, entry, packed = selected
+                return run(gx, gy, gz, stream, entry, packed, *args)
+
+            compiled._run = paired_launch
+            hot = {name: [] for name in launches}
+            try:
+                for name in launches:
+                    selected = launches[name]
+                    invoke()
+                    check()
+                for group in range(groups):
+                    order = list(launches) if group % 2 == 0 else list(reversed(launches))
+                    for name in order:
+                        selected = launches[name]
+                        start = time.perf_counter_ns()
+                        for _ in range(iterations):
+                            invoke()
+                        hot[name].append((time.perf_counter_ns() - start) / iterations / 1e6)
+            finally:
+                compiled._run = launcher
+            result["paired_jit_calls"] = {
+                "scope": "same JITFunction and storage; alternating loaded implementations through the current runtime",
+                "hook": "the same per-instance launcher hook on both implementations",
+                "samples_ms": hot,
+                "median_ms": {name: statistics.median(values) for name, values in hot.items()},
+                "runtime_comparison": False,
+            }
         for function in entries.values():
             function(*binding.arguments)
             check()
