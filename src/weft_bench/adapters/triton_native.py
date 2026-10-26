@@ -245,18 +245,15 @@ class TritonAdapter:
                 raise ValueError("invalid exported grid launcher symbol")
             remote["manifest.json"] = worker.write(name + "/grid-manifest.json", json.dumps(grid_manifest))
             launch_details = {"grid": grid, "threads": threads}
-        entry_type = ""
-        pointer_type = "decltype(&" + abi["symbol"] + ")"
-        if entry == "single":
-            declaration = abi["declaration"]
-            prefix = "void " + abi["symbol"] + "("
-            if not declaration.startswith(prefix) or not declaration.endswith(");"):
-                raise ValueError("native artifact has an unsupported typed declaration")
-            # Each loaded artifact owns its symbol namespace. Derive the pointer
-            # type from its ABI instead of declaring competing global C symbols.
-            parameters = re.sub(r"\brestrict\b", "__restrict__", declaration[len(prefix):])
-            entry_type = "using native_entry_type = void (*)(" + parameters
-            pointer_type = "native_entry_type"
+        declaration = abi["declaration"]
+        prefix = "void " + abi["symbol"] + "("
+        if not declaration.startswith(prefix) or not declaration.endswith(");"):
+            raise ValueError("native artifact has an unsupported typed declaration")
+        # Each loaded artifact owns its symbol namespace. Derive both entry
+        # types from their own ABI, including grid kernels with different PIDs.
+        parameters = re.sub(r"\brestrict\b", "__restrict__", declaration[len(prefix):])
+        entry_type = "using native_entry_type = void (*)(" + parameters
+        pointer_type = "native_entry_type"
         setup = (
             entry_type
             + "wb::TritonNative native(" + json.dumps(remote["kernel.so"]) + ","
@@ -265,12 +262,12 @@ class TritonAdapter:
         )
         setup += scratch + packing
         if entry == "grid":
-            setup += "auto native_launcher=native.launcher<decltype(&" + launcher + ")>(" + json.dumps(remote["kernel.so"]) + "," + json.dumps(launcher) + ");"
+            setup += "auto native_launcher=native.launcher<wb::TritonNative::GridLauncher>(" + json.dumps(remote["kernel.so"]) + "," + json.dumps(launcher) + ");"
             grid_workload = replace(workload, buffers=workload.batch_buffers) if call.whole_workload else workload
             setup += grid_arguments(abi, grid_workload, case.shape, aliases)
             call = replace(call, invoke="native.grid(native_launcher,reinterpret_cast<weft_native_entry>(native_entry),launch_arguments,"
                            + ",".join(str(x) for x in grid) + "," + str(threads) + ");")
-        includes = call.includes if entry == "grid" else tuple(h for h in call.includes if h != name + "-kernel.h")
+        includes = tuple(h for h in call.includes if h != name + "-kernel.h")
         call = replace(call, prepare=call.prepare + setup,
                        includes=(*includes, "triton_native.h"))
         framework_weights = any(p["provider"] == "ggml-model-default/AMX" for p in packed_details)

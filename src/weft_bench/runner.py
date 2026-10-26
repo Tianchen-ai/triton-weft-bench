@@ -141,18 +141,18 @@ def run_operator(
                 rows.extend(run_operator(case, [name], target, measurement, output=root,
                                          inputs=inputs, save_outputs=save_outputs))
         return rows
-    # Native Triton artifacts use independently loaded function pointers and
-    # private per-call outputs/workspaces. Share the immutable workload input
-    # preparation, while measuring and checking every candidate separately.
+    # Native Triton instances and grids use independent function pointers and
+    # private workspaces. Each grid completes its team before returning, so
+    # alternating calls reuse the same write-only output and immutable inputs.
     shared_native = all(port.access != "inout" for port in ports(case)) and all(
         mode(n, target) == "ggml" or (
             mode(n, target) == "triton" and
             {**target.implementations[n],
-             **target.implementations[n].get("bindings", {}).get(case.name, {})}.get("entry", "single") == "single"
+             **target.implementations[n].get("bindings", {}).get(case.name, {})}.get("entry", "single") in ("single", "grid")
         ) for n in implementations
     )
     if measurement.sample_order == "alternating" and (not shared_native or len(implementations) < 2):
-        raise ValueError("alternating samples require at least two single-instance native implementations with immutable inputs")
+        raise ValueError("alternating samples require at least two prepared native implementations with immutable inputs")
     if sum(mode(n, target) != "ggml" for n in implementations) > 1 and not shared_native:
         return [
             r

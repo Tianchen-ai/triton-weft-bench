@@ -83,8 +83,11 @@ step belongs to the measured invocation. Native calls keep their typed call boun
 there is no extra dispatch inside the timer. With `cache=reuse`, one untimed call
 refreshes each implementation before its sample. Per-sample frequencies are
 diagnostics, never a correction to wall-clock scores. Alternating order requires
-immutable workload inputs and single-instance native entries; JIT and model calls
-retain their own measurement paths. Serial order remains the default.
+immutable workload inputs and prepared native entries. Both single instances and
+synchronous grid launchers are supported; a grid sample includes its OpenMP
+launch and worker checks. The next candidate starts only after the current team
+has completed. JIT and model calls retain their own measurement paths. Serial
+order remains the default.
 
 ## llama.cpp replacement
 

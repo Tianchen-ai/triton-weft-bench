@@ -17,6 +17,8 @@ class TritonNative {
     if(status!=WEFT_OK)throw std::runtime_error(std::string(weft_status_name(status))+": "+error.message);
   }
 public:
+  using GridLauncher = int (*)(weft_native_entry,void *const *,size_t,size_t,size_t,int,
+                              const void *,decltype(&weft_kernel_check_worker),char *,size_t);
   TritonNative(const char *library,const char *manifest) {
     std::ifstream stream(manifest);
     if(!stream)throw std::runtime_error("cannot open native artifact manifest");
