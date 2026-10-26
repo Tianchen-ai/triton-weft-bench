@@ -16,8 +16,10 @@ def called_noinline_functions(source, language):
                 called.append(symbol)
         return called
     if language == "intrinsic-c":
-        definitions = re.findall(r"static\s+__attribute__\(\(noinline\)\)\s+void\s+(\w+)\s*\(", source)
-        return [name for name in definitions if re.search(r"^\s*" + re.escape(name) + r"\(", source, re.MULTILINE)]
+        definitions = re.findall(
+            r"static\s+__attribute__\(\(noinline\)\)\s+[A-Za-z_][\w \t*]*?\s+(\w+)\s*\(", source)
+        return [name for name in definitions if re.search(
+            r"^\s*(?:\w+\s*=\s*)?" + re.escape(name) + r"\(", source, re.MULTILINE)]
     raise ValueError("unknown helper native source language " + language)
 
 
