@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 from ...blocks.quantize import q8_k as quant_q8_k
 import triton
 import triton.language as tl
@@ -27,15 +27,15 @@ def project(W, X, Xq, Y, M, N, DOT: tl.constexpr, LANES: tl.constexpr, ROWS: tl.
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "workspace", "Y": "output"})
-def q4_k(W: tl.View[ggml.Q4_K, (N, K)], X: tl.View[tl.f32, (M, K)],
-         Xq: tl.View[ggml.Q8_K, (M, K)], Y: tl.View[tl.f32, (M, N)],
+def q4_k(W: tl.View[ggml_formats.Q4_K, (N, K)], X: tl.View[tl.f32, (M, K)],
+         Xq: tl.View[ggml_formats.Q8_K, (M, K)], Y: tl.View[tl.f32, (M, N)],
          *, LANES: tl.constexpr, ROWS: tl.constexpr = 0):
     project(W, X, Xq, Y, M, N, dot_q4_k, LANES, ROWS)
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "workspace", "Y": "output"})
-def q6_k(W: tl.View[ggml.Q6_K, (N, K)], X: tl.View[tl.f32, (M, K)],
-         Xq: tl.View[ggml.Q8_K, (M, K)], Y: tl.View[tl.f32, (M, N)],
+def q6_k(W: tl.View[ggml_formats.Q6_K, (N, K)], X: tl.View[tl.f32, (M, K)],
+         Xq: tl.View[ggml_formats.Q8_K, (M, K)], Y: tl.View[tl.f32, (M, N)],
          *, LANES: tl.constexpr, ROWS: tl.constexpr = 0):
     project(W, X, Xq, Y, M, N, dot_q6_k, LANES, ROWS)
 
@@ -49,38 +49,38 @@ def project_grouped(W, X, Xq, Y, M, N, DOT: tl.constexpr):
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "workspace", "Y": "output"})
-def q2_k(W: tl.View[ggml.Q2_K, (N, K)], X: tl.View[tl.f32, (M, K)],
-         Xq: tl.View[ggml.Q8_K, (M, K)], Y: tl.View[tl.f32, (M, N)]):
+def q2_k(W: tl.View[ggml_formats.Q2_K, (N, K)], X: tl.View[tl.f32, (M, K)],
+         Xq: tl.View[ggml_formats.Q8_K, (M, K)], Y: tl.View[tl.f32, (M, N)]):
     project_grouped(W, X, Xq, Y, M, N, compute_q2)
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "workspace", "Y": "output"})
-def q3_k(W: tl.View[ggml.Q3_K, (N, K)], X: tl.View[tl.f32, (M, K)],
-         Xq: tl.View[ggml.Q8_K, (M, K)], Y: tl.View[tl.f32, (M, N)]):
+def q3_k(W: tl.View[ggml_formats.Q3_K, (N, K)], X: tl.View[tl.f32, (M, K)],
+         Xq: tl.View[ggml_formats.Q8_K, (M, K)], Y: tl.View[tl.f32, (M, N)]):
     project_grouped(W, X, Xq, Y, M, N, compute_q3)
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "workspace", "Y": "output"})
-def q5_k(W: tl.View[ggml.Q5_K, (N, K)], X: tl.View[tl.f32, (M, K)],
-         Xq: tl.View[ggml.Q8_K, (M, K)], Y: tl.View[tl.f32, (M, N)]):
+def q5_k(W: tl.View[ggml_formats.Q5_K, (N, K)], X: tl.View[tl.f32, (M, K)],
+         Xq: tl.View[ggml_formats.Q8_K, (M, K)], Y: tl.View[tl.f32, (M, N)]):
     project_grouped(W, X, Xq, Y, M, N, compute_q5)
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "workspace", "Y": "output"})
-def q2_k_specialized(W: tl.View[ggml.Q2_K, (N, K)], X: tl.View[tl.f32, (M, K)],
-                     Xq: tl.View[ggml.Q8_K, (M, K)], Y: tl.View[tl.f32, (M, N)], *, K: tl.constexpr):
+def q2_k_specialized(W: tl.View[ggml_formats.Q2_K, (N, K)], X: tl.View[tl.f32, (M, K)],
+                     Xq: tl.View[ggml_formats.Q8_K, (M, K)], Y: tl.View[tl.f32, (M, N)], *, K: tl.constexpr):
     project_grouped(W, X, Xq, Y, M, N, compute_q2)
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "workspace", "Y": "output"})
-def q5_k_specialized(W: tl.View[ggml.Q5_K, (N, K)], X: tl.View[tl.f32, (M, K)],
-                     Xq: tl.View[ggml.Q8_K, (M, K)], Y: tl.View[tl.f32, (M, N)], *, K: tl.constexpr):
+def q5_k_specialized(W: tl.View[ggml_formats.Q5_K, (N, K)], X: tl.View[tl.f32, (M, K)],
+                     Xq: tl.View[ggml_formats.Q8_K, (M, K)], Y: tl.View[tl.f32, (M, N)], *, K: tl.constexpr):
     project_grouped(W, X, Xq, Y, M, N, compute_q5)
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "workspace", "Y": "output"})
-def iq1_m(W: tl.View[ggml.IQ1_M, (N, K)], X: tl.View[tl.f32, (M, K)],
-          Xq: tl.View[ggml.Q8_K, (M, K)], grid: tl.View[ggml.I8X8, (2048, 8)],
+def iq1_m(W: tl.View[ggml_formats.IQ1_M, (N, K)], X: tl.View[tl.f32, (M, K)],
+          Xq: tl.View[ggml_formats.Q8_K, (M, K)], grid: tl.View[ggml_formats.I8X8, (2048, 8)],
           f16_bits: tl.View[tl.f32, (65536,)], Y: tl.View[tl.f32, (M, N)]):
     quant_q8_k.quantize_matrix(X, Xq)
     for row in range(M):
@@ -89,8 +89,8 @@ def iq1_m(W: tl.View[ggml.IQ1_M, (N, K)], X: tl.View[tl.f32, (M, K)],
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "workspace", "Y": "output"})
-def tq2_0(W: tl.View[ggml.TQ2_0, (N, K)], X: tl.View[tl.f32, (M, K)],
-          Xq: tl.View[ggml.Q8_K, (M, K)], Y: tl.View[tl.f32, (M, N)]):
+def tq2_0(W: tl.View[ggml_formats.TQ2_0, (N, K)], X: tl.View[tl.f32, (M, K)],
+          Xq: tl.View[ggml_formats.Q8_K, (M, K)], Y: tl.View[tl.f32, (M, N)]):
     quant_q8_k.quantize_matrix(X, Xq)
     for row in range(M):
         for column in range(N):
@@ -98,8 +98,8 @@ def tq2_0(W: tl.View[ggml.TQ2_0, (N, K)], X: tl.View[tl.f32, (M, K)],
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "workspace", "Y": "output"})
-def iq1_s(W: tl.View[ggml.IQ1_S, (N, K)], X: tl.View[tl.f32, (M, K)],
-          Xq: tl.View[ggml.Q8_K, (M, K)], grid: tl.View[ggml.I8X8, (2048, 8)],
+def iq1_s(W: tl.View[ggml_formats.IQ1_S, (N, K)], X: tl.View[tl.f32, (M, K)],
+          Xq: tl.View[ggml_formats.Q8_K, (M, K)], grid: tl.View[ggml_formats.I8X8, (2048, 8)],
           Y: tl.View[tl.f32, (M, N)]):
     quant_q8_k.quantize_matrix(X, Xq)
     for row in range(M):
@@ -108,8 +108,8 @@ def iq1_s(W: tl.View[ggml.IQ1_S, (N, K)], X: tl.View[tl.f32, (M, K)],
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "workspace", "Y": "output"})
-def iq2_xxs(W: tl.View[ggml.IQ2_XXS, (N, K)], X: tl.View[tl.f32, (M, K)],
-           Xq: tl.View[ggml.Q8_K, (M, K)], grid: tl.View[ggml.I8X8, (256, 8)],
+def iq2_xxs(W: tl.View[ggml_formats.IQ2_XXS, (N, K)], X: tl.View[tl.f32, (M, K)],
+           Xq: tl.View[ggml_formats.Q8_K, (M, K)], grid: tl.View[ggml_formats.I8X8, (256, 8)],
            Y: tl.View[tl.f32, (M, N)], *, K: tl.constexpr):
     quant_q8_k.quantize_matrix(X, Xq)
     for row in range(M):
@@ -118,8 +118,8 @@ def iq2_xxs(W: tl.View[ggml.IQ2_XXS, (N, K)], X: tl.View[tl.f32, (M, K)],
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "workspace", "Y": "output"})
-def iq2_xs(W: tl.View[ggml.IQ2_XS, (N, K)], X: tl.View[tl.f32, (M, K)],
-           Xq: tl.View[ggml.Q8_K, (M, K)], grid: tl.View[ggml.I8X8, (512, 8)],
+def iq2_xs(W: tl.View[ggml_formats.IQ2_XS, (N, K)], X: tl.View[tl.f32, (M, K)],
+           Xq: tl.View[ggml_formats.Q8_K, (M, K)], grid: tl.View[ggml_formats.I8X8, (512, 8)],
            Y: tl.View[tl.f32, (M, N)], *, K: tl.constexpr):
     quant_q8_k.quantize_matrix(X, Xq)
     for row in range(M):

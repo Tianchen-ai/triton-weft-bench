@@ -1,19 +1,19 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 import triton
-import triton.language as wl
+import triton.language as tl
 
 
 @triton.jit(model="weft")
-def compute(W: wl.View[ggml.Q5_1, (K,)], X: wl.View[ggml.Q8_1, (K,)]):
-    result = wl.f32(0.0)
-    with wl.level.blocks(K, extent=32) as kb:
-        w = wl.load(W[kb])
-        x = wl.load(X[kb])
-        q = wl.u8(w.q) | wl.u8(w.qh) << wl.u8(4)
-        integer = wl.reduce_dot(q, x.q, over="k", acc_dtype=wl.i32)
-        result += wl.f32(w.d) * wl.f32(x.d) * wl.f32(integer) + wl.f32(w.m) * wl.f32(
+def compute(W: tl.View[ggml_formats.Q5_1, (K,)], X: tl.View[ggml_formats.Q8_1, (K,)]):
+    result = tl.f32(0.0)
+    with tl.level.blocks(K, extent=32) as kb:
+        w = tl.load(W[kb])
+        x = tl.load(X[kb])
+        q = tl.u8(w.q) | tl.u8(w.qh) << tl.u8(4)
+        integer = tl.reduce_dot(q, x.q, over="k", acc_dtype=tl.i32)
+        result += tl.f32(w.d) * tl.f32(x.d) * tl.f32(integer) + tl.f32(w.m) * tl.f32(
             x.s
         )
     return result
@@ -21,6 +21,6 @@ def compute(W: wl.View[ggml.Q5_1, (K,)], X: wl.View[ggml.Q8_1, (K,)]):
 
 @triton.jit(model="weft")
 def quantized_vec_dot_q5_1_q8_1(
-    W: wl.View[ggml.Q5_1, (K,)], X: wl.View[ggml.Q8_1, (K,)], Y: wl.View[wl.f32, (1,)]
+    W: tl.View[ggml_formats.Q5_1, (K,)], X: tl.View[ggml_formats.Q8_1, (K,)], Y: tl.View[tl.f32, (1,)]
 ):
-    wl.store(Y[0], compute(W, X))
+    tl.store(Y[0], compute(W, X))

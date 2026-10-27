@@ -1,19 +1,10 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 from ...blocks.quantize import q8_k as quant_q8_k
 import triton
 import triton.language as tl
-
-
-@triton.derive
-def Q4KRows(W: tl.View[ggml.Q4_K, (N, K)], *, rows: tl.static[int]) -> tl.View[Q4KRows[rows], (N, K)]:
-    return tl.interleave(W, rows=rows, field_chunks={"d": 2, "dmin": 2, "sc": 1, "m": 1, "q": 4})
-
-
-@triton.derive
-def Q5KRows(W: tl.View[ggml.Q5_K, (N, K)], *, rows: tl.static[int]) -> tl.View[Q5KRows[rows], (N, K)]:
-    return tl.interleave(W, rows=rows, field_chunks={"d": 2, "dmin": 2, "sc": 6, "m": 6, "qh": 4, "q": 4})
+from weft_bench.kernels.ggml.layouts.affine_rows import Q4KRows, Q5KRows, IQ4XSRows, Q2KRows
 
 
 @triton.jit
@@ -62,21 +53,16 @@ def project(W, X, Xq, Y, M, N, K, ROWS: tl.constexpr, HIGH: tl.constexpr,
 
 @triton.jit(model="weft", alias_groups={"Xq": "workspace", "Y": "output"})
 def q4_k(W: tl.View[Q4KRows[ROWS], (N, K)], X: tl.View[tl.f32, (M, K)],
-         Xq: tl.View[ggml.Q8_K, (M, K)], Y: tl.View[tl.f32, (M, N)],
+         Xq: tl.View[ggml_formats.Q8_K, (M, K)], Y: tl.View[tl.f32, (M, N)],
          ROWS: tl.constexpr = 8):
     project(W, X, Xq, Y, M, N, K, ROWS, False, affine_metadata)
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "workspace", "Y": "output"})
 def q5_k(W: tl.View[Q5KRows[ROWS], (N, K)], X: tl.View[tl.f32, (M, K)],
-         Xq: tl.View[ggml.Q8_K, (M, K)], Y: tl.View[tl.f32, (M, N)],
+         Xq: tl.View[ggml_formats.Q8_K, (M, K)], Y: tl.View[tl.f32, (M, N)],
          ROWS: tl.constexpr = 8):
     project(W, X, Xq, Y, M, N, K, ROWS, True, affine_metadata)
-
-
-@triton.derive
-def IQ4XSRows(W: tl.View[ggml.IQ4_XS, (N, K)], *, rows: tl.static[int]) -> tl.View[IQ4XSRows[rows], (N, K)]:
-    return tl.interleave(W, rows=rows, field_chunks={"d": 2, "scales_h": 2, "scales_l": 4, "q": 4})
 
 
 @triton.jit
@@ -96,15 +82,10 @@ def lookup(q, table):
 
 @triton.jit(model="weft", alias_groups={"Xq": "workspace", "Y": "output"})
 def iq4_xs(W: tl.View[IQ4XSRows[ROWS], (N, K)], X: tl.View[tl.f32, (M, K)],
-            Xq: tl.View[ggml.Q8_K, (M, K)], codebook: tl.View[tl.i8, (16,)],
+            Xq: tl.View[ggml_formats.Q8_K, (M, K)], codebook: tl.View[tl.i8, (16,)],
             Y: tl.View[tl.f32, (M, N)], ROWS: tl.constexpr = 16):
     table = tl.u8(tl.load(codebook)) + tl.u8(128)
     project(W, X, Xq, Y, M, N, K, ROWS, False, iq4_metadata, lookup, table, True)
-
-
-@triton.derive
-def Q2KRows(W: tl.View[ggml.Q2_K, (N, K)], *, rows: tl.static[int]) -> tl.View[Q2KRows[rows], (N, K)]:
-    return tl.interleave(W, rows=rows, field_chunks={"d": 2, "dmin": 2, "scales": 4, "q": 4})
 
 
 @triton.jit
@@ -115,5 +96,5 @@ def q2_metadata(w):
 
 @triton.jit(model="weft", alias_groups={"Xq": "workspace", "Y": "output"})
 def q2_k(W: tl.View[Q2KRows[ROWS], (N, K)], X: tl.View[tl.f32, (M, K)],
-         Xq: tl.View[ggml.Q8_K, (M, K)], Y: tl.View[tl.f32, (M, N)], ROWS: tl.constexpr = 16):
+         Xq: tl.View[ggml_formats.Q8_K, (M, K)], Y: tl.View[tl.f32, (M, N)], ROWS: tl.constexpr = 16):
     project(W, X, Xq, Y, M, N, K, ROWS, False, q2_metadata, TERMS=16)

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 import triton
 import triton.language as tl
 
@@ -9,7 +9,7 @@ SHORT_PAIRS = tl.constexpr(8)
 
 
 @triton.jit
-def compute_q1_0(W, X: tl.View[ggml.Q8_0, (K,)]):
+def compute_q1_0(W, X: tl.View[ggml_formats.Q8_0, (K,)]):
     first = tl.state(tl.f32, [PAIRS], init=0)
     second = tl.state(tl.f32, [PAIRS], init=0)
     lane = tl.arange(0, 32, dtype=tl.u32, axis="k")
@@ -30,7 +30,7 @@ def compute_q1_0(W, X: tl.View[ggml.Q8_0, (K,)]):
 
 
 @triton.jit
-def compute_nvfp4(W, X: tl.View[ggml.Q8_0, (K,)], codebook, scale):
+def compute_nvfp4(W, X: tl.View[ggml_formats.Q8_0, (K,)], codebook, scale):
     table = tl.u8(tl.load(codebook)) + tl.u8(128)
     first = tl.state(tl.f32, [SHORT_PAIRS], init=0)
     second = tl.state(tl.f32, [SHORT_PAIRS], init=0)
@@ -57,7 +57,7 @@ def compute_nvfp4(W, X: tl.View[ggml.Q8_0, (K,)], codebook, scale):
 
 
 @triton.jit
-def compute_q1_factored(W, X: tl.View[ggml.Q8_0, (K,)]):
+def compute_q1_factored(W, X: tl.View[ggml_formats.Q8_0, (K,)]):
     result = tl.state(tl.f32, [PAIRS], init=0)
     lane = tl.arange(0, 32, dtype=tl.u32, axis="k")
     with tl.level.blocks(K, extent=128) as block:
@@ -75,30 +75,30 @@ def compute_q1_factored(W, X: tl.View[ggml.Q8_0, (K,)]):
 
 
 @triton.jit(model="weft")
-def q1_0_factored(W: tl.View[ggml.Q1_0, (K,)], X: tl.View[ggml.Q8_0, (K,)],
+def q1_0_factored(W: tl.View[ggml_formats.Q1_0, (K,)], X: tl.View[ggml_formats.Q8_0, (K,)],
                   Y: tl.View[tl.f32, (1,)], *, K: tl.constexpr):
     tl.store(Y[0], compute_q1_factored(W, X))
 
 
 @triton.jit(model="weft")
-def q1_0(W: tl.View[ggml.Q1_0, (K,)], X: tl.View[ggml.Q8_0, (K,)], Y: tl.View[tl.f32, (1,)]):
+def q1_0(W: tl.View[ggml_formats.Q1_0, (K,)], X: tl.View[ggml_formats.Q8_0, (K,)], Y: tl.View[tl.f32, (1,)]):
     tl.store(Y[0], compute_q1_0(W, X))
 
 
 @triton.jit(model="weft")
-def q1_0_specialized(W: tl.View[ggml.Q1_0, (K,)], X: tl.View[ggml.Q8_0, (K,)],
+def q1_0_specialized(W: tl.View[ggml_formats.Q1_0, (K,)], X: tl.View[ggml_formats.Q8_0, (K,)],
                      Y: tl.View[tl.f32, (1,)], *, K: tl.constexpr):
     tl.store(Y[0], compute_q1_0(W, X))
 
 
 @triton.jit(model="weft")
-def nvfp4(W: tl.View[ggml.NVFP4, (K,)], X: tl.View[ggml.Q8_0, (K,)],
+def nvfp4(W: tl.View[ggml_formats.NVFP4, (K,)], X: tl.View[ggml_formats.Q8_0, (K,)],
            codebook: tl.View[tl.i8, (16,)], scale: tl.View[tl.f32, (256,)], Y: tl.View[tl.f32, (1,)]):
     tl.store(Y[0], compute_nvfp4(W, X, codebook, scale))
 
 
 @triton.jit(model="weft")
-def nvfp4_specialized(W: tl.View[ggml.NVFP4, (K,)], X: tl.View[ggml.Q8_0, (K,)],
+def nvfp4_specialized(W: tl.View[ggml_formats.NVFP4, (K,)], X: tl.View[ggml_formats.Q8_0, (K,)],
                       codebook: tl.View[tl.i8, (16,)], scale: tl.View[tl.f32, (256,)],
                       Y: tl.View[tl.f32, (1,)], *, K: tl.constexpr):
     tl.store(Y[0], compute_nvfp4(W, X, codebook, scale))

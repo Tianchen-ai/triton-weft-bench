@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 import triton
-import triton.language as wl
+import triton.language as tl
 
 
 @triton.jit(model="weft")
-def row_dequantize_q6_k(W: wl.View[ggml.Q6_K, (K,)], Y: wl.View[wl.f32, (K,)]):
-    with wl.level.blocks(K, extent=256) as kb:
-        w = wl.load(W[kb])
-        with wl.level.subtiles(kb, extent=16) as sub:
-            q = wl.i32(w.ql[sub]) | wl.i32(w.qh[sub]) << wl.u32(4)
-            q -= wl.i32(32)
-            wl.store(Y[kb][sub], wl.f32(w.d) * wl.f32(w.scales[sub]) * wl.f32(q))
+def row_dequantize_q6_k(W: tl.View[ggml_formats.Q6_K, (K,)], Y: tl.View[tl.f32, (K,)]):
+    with tl.level.blocks(K, extent=256) as kb:
+        w = tl.load(W[kb])
+        with tl.level.subtiles(kb, extent=16) as sub:
+            q = tl.i32(w.ql[sub]) | tl.i32(w.qh[sub]) << tl.u32(4)
+            q -= tl.i32(32)
+            tl.store(Y[kb][sub], tl.f32(w.d) * tl.f32(w.scales[sub]) * tl.f32(q))

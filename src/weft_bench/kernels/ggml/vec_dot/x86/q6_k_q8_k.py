@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 import triton
 import triton.language as tl
 from .fields import select
 
 
 @triton.jit
-def compute(W, X: tl.View[ggml.Q8_K, (K,)], LANES: tl.constexpr, ROWS: tl.constexpr = 0, point=None):
+def compute(W, X: tl.View[ggml_formats.Q8_K, (K,)], LANES: tl.constexpr, ROWS: tl.constexpr = 0, point=None):
     """Six-bit pairs and block-sum correction, with an explicit grouped row point."""
     if ROWS:
         acc = tl.state(tl.f32, [ROWS, LANES], init=0)
@@ -41,6 +41,6 @@ def compute(W, X: tl.View[ggml.Q8_K, (K,)], LANES: tl.constexpr, ROWS: tl.conste
 
 
 @triton.jit(model="weft")
-def dot(W: tl.View[ggml.Q6_K, (K,)], X: tl.View[ggml.Q8_K, (K,)], Y: tl.View[tl.f32, (1,)],
+def dot(W: tl.View[ggml_formats.Q6_K, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)], Y: tl.View[tl.f32, (1,)],
         *, LANES: tl.constexpr):
     tl.store(Y[0], compute(W, X, LANES))

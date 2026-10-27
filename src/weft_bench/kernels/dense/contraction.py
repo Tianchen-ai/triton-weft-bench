@@ -1,180 +1,180 @@
 from __future__ import annotations
 
 import triton
-import triton.language as wl
+import triton.language as tl
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def tiled_i8(X: wl.View[wl.i8, (M, K)], W: wl.View[wl.i8, (N, K)],
-             Y: wl.View[wl.i32, (M, N)], *, MR: wl.constexpr,
-             NR: wl.constexpr, KB: wl.constexpr):
-    with wl.level.rows(M, group=MR) as rows:
-        with wl.level.cols(N, group=NR) as columns:
-            acc = wl.state(wl.i32, [MR, NR], init=0)
-            with wl.level.blocks(K, extent=KB) as block:
-                acc += wl.dot(wl.load(X[rows, block]), wl.load(W[columns, block]),
-                              over="k", acc_dtype=wl.i32)
-            wl.store(Y[rows, columns], acc)
+def tiled_i8(X: tl.View[tl.i8, (M, K)], W: tl.View[tl.i8, (N, K)],
+             Y: tl.View[tl.i32, (M, N)], *, MR: tl.constexpr,
+             NR: tl.constexpr, KB: tl.constexpr):
+    with tl.level.rows(M, group=MR) as rows:
+        with tl.level.cols(N, group=NR) as columns:
+            acc = tl.state(tl.i32, [MR, NR], init=0)
+            with tl.level.blocks(K, extent=KB) as block:
+                acc += tl.dot(tl.load(X[rows, block]), tl.load(W[columns, block]),
+                              over="k", acc_dtype=tl.i32)
+            tl.store(Y[rows, columns], acc)
 
 
 @triton.jit(model="weft", strided=("X", "Weight", "Y"),
              alias_groups={"X": "input", "Weight": "input", "Y": "output"})
-def dense_projection(X: wl.View[wl.f32, (M, K)], Weight: wl.View[wl.f32, (N, K)],
-                     Y: wl.View[wl.f32, (M, N)]):
-    wl.store(Y, wl.dot(wl.load(X), wl.load(Weight), over="k"))
+def dense_projection(X: tl.View[tl.f32, (M, K)], Weight: tl.View[tl.f32, (N, K)],
+                     Y: tl.View[tl.f32, (M, N)]):
+    tl.store(Y, tl.dot(tl.load(X), tl.load(Weight), over="k"))
 
 
 @triton.jit(model="weft", strided=("X", "Weight", "Bias", "Y"),
              alias_groups={"X": "input", "Weight": "input", "Bias": "input", "Y": "output"})
-def dense_projection_bias(X: wl.View[wl.f32, (M, K)], Weight: wl.View[wl.f32, (N, K)],
-                          Bias: wl.View[wl.f32, (N,)], Y: wl.View[wl.f32, (M, N)], scale: wl.f32):
-    value = wl.dot(wl.load(X), wl.load(Weight), over="k")
-    wl.store(Y, value * scale + wl.load(Bias))
+def dense_projection_bias(X: tl.View[tl.f32, (M, K)], Weight: tl.View[tl.f32, (N, K)],
+                          Bias: tl.View[tl.f32, (N,)], Y: tl.View[tl.f32, (M, N)], scale: tl.f32):
+    value = tl.dot(tl.load(X), tl.load(Weight), over="k")
+    tl.store(Y, value * scale + tl.load(Bias))
 
 
 @triton.jit(model="weft", strided=("X", "Weight", "Y"),
              alias_groups={"X": "input", "Weight": "input", "Y": "output"})
-def renamed_projection(X: wl.View[wl.f32, (M, K)], Weight: wl.View[wl.f32, (N, K)],
-                       Y: wl.View[wl.f32, (M, N)]):
-    left = wl.reshape(wl.load(X), shape=(M, K), axes=("m", "feature"), order=("m", "k"))
-    right = wl.reshape(wl.load(Weight), shape=(N, K), axes=("n", "feature"), order=("n", "k"))
-    wl.store(Y, wl.dot(left, right, over="feature"))
+def renamed_projection(X: tl.View[tl.f32, (M, K)], Weight: tl.View[tl.f32, (N, K)],
+                       Y: tl.View[tl.f32, (M, N)]):
+    left = tl.reshape(tl.load(X), shape=(M, K), axes=("m", "feature"), order=("m", "k"))
+    right = tl.reshape(tl.load(Weight), shape=(N, K), axes=("n", "feature"), order=("n", "k"))
+    tl.store(Y, tl.dot(left, right, over="feature"))
 
 
 @triton.jit(model="weft", strided=("X", "Weight", "Y"),
              alias_groups={"X": "input", "Weight": "input", "Y": "output"})
-def row_major_matmul(X: wl.View[wl.f32, (M, K)], Weight: wl.View[wl.f32, (K, N)],
-                     Y: wl.View[wl.f32, (M, N)], *, MR: wl.constexpr, NR: wl.constexpr):
-    with wl.level.rows(M, group=wl.auto("MR")) as row:
-        with wl.level.cols(N, group=wl.auto("NR")) as column:
-            wl.store(Y[row, column], wl.dot(wl.load(X[row]), wl.load(Weight[:, column]), over="k"))
+def row_major_matmul(X: tl.View[tl.f32, (M, K)], Weight: tl.View[tl.f32, (K, N)],
+                     Y: tl.View[tl.f32, (M, N)], *, MR: tl.constexpr, NR: tl.constexpr):
+    with tl.level.rows(M, group=tl.auto("MR")) as row:
+        with tl.level.cols(N, group=tl.auto("NR")) as column:
+            tl.store(Y[row, column], tl.dot(tl.load(X[row]), tl.load(Weight[:, column]), over="k"))
 
 
 @triton.jit(model="weft", strided=("X", "Weight", "Y"),
              alias_groups={"X": "input", "Weight": "input", "Y": "output"})
-def row_major_matmul_f16(X: wl.View[wl.f16, (M, K)], Weight: wl.View[wl.f16, (K, N)],
-                         Y: wl.View[wl.f32, (M, N)], *, MR: wl.constexpr, NR: wl.constexpr):
-    with wl.level.rows(M, group=wl.auto("MR")) as row:
-        with wl.level.cols(N, group=wl.auto("NR")) as column:
-            wl.store(Y[row, column], wl.dot(wl.load(X[row]), wl.load(Weight[:, column]), over="k", acc_dtype=wl.f32))
+def row_major_matmul_f16(X: tl.View[tl.f16, (M, K)], Weight: tl.View[tl.f16, (K, N)],
+                         Y: tl.View[tl.f32, (M, N)], *, MR: tl.constexpr, NR: tl.constexpr):
+    with tl.level.rows(M, group=tl.auto("MR")) as row:
+        with tl.level.cols(N, group=tl.auto("NR")) as column:
+            tl.store(Y[row, column], tl.dot(tl.load(X[row]), tl.load(Weight[:, column]), over="k", acc_dtype=tl.f32))
 
 
 @triton.jit(model="weft", strided=("X", "Weight", "Y"),
              alias_groups={"X": "input", "Weight": "input", "Y": "output"})
-def batched_inner_product(X: wl.View[wl.f32, (B, P, K)],
-                          Weight: wl.View[wl.f32, (B, P, K)], Y: wl.View[wl.f32, (B,)], *, ROWS: wl.constexpr):
-    with wl.level.blocks(B, extent=wl.auto("ROWS")) as batch:
-        value = wl.reduce_dot(wl.load(X[batch]), wl.load(Weight[batch]), over=("p", "k"))
-        wl.store(Y[batch], value)
+def batched_inner_product(X: tl.View[tl.f32, (B, P, K)],
+                          Weight: tl.View[tl.f32, (B, P, K)], Y: tl.View[tl.f32, (B,)], *, ROWS: tl.constexpr):
+    with tl.level.blocks(B, extent=tl.auto("ROWS")) as batch:
+        value = tl.reduce_dot(tl.load(X[batch]), tl.load(Weight[batch]), over=("p", "k"))
+        tl.store(Y[batch], value)
 
 
 @triton.jit(model="weft", strided=("X", "Weight", "Y"),
              alias_groups={"X": "input", "Weight": "input", "Y": "output"})
-def pairwise_inner_product(X: wl.View[wl.f32, (M, P, K)],
-                           Weight: wl.View[wl.f32, (N, P, K)], Y: wl.View[wl.f32, (M, N)], *, MR: wl.constexpr, NR: wl.constexpr):
-    with wl.level.rows(M, group=wl.auto("MR")) as row:
-        with wl.level.cols(N, group=wl.auto("NR")) as column:
-            value = wl.reduce_dot(wl.load(X[row]), wl.load(Weight[column]), over=("p", "k"))
-            wl.store(Y[row, column], value)
+def pairwise_inner_product(X: tl.View[tl.f32, (M, P, K)],
+                           Weight: tl.View[tl.f32, (N, P, K)], Y: tl.View[tl.f32, (M, N)], *, MR: tl.constexpr, NR: tl.constexpr):
+    with tl.level.rows(M, group=tl.auto("MR")) as row:
+        with tl.level.cols(N, group=tl.auto("NR")) as column:
+            value = tl.reduce_dot(tl.load(X[row]), tl.load(Weight[column]), over=("p", "k"))
+            tl.store(Y[row, column], value)
 
 
 @triton.jit(model="weft", strided=("X", "Weight", "Y"),
              alias_groups={"X": "input", "Weight": "input", "Y": "output"})
-def dot_f64(X: wl.View[wl.f64, (K,)], Weight: wl.View[wl.f64, (K,)],
-             Y: wl.View[wl.f64, (1,)]):
-    wl.store(Y[0], wl.reduce_dot(wl.load(X), wl.load(Weight), over="k"))
+def dot_f64(X: tl.View[tl.f64, (K,)], Weight: tl.View[tl.f64, (K,)],
+             Y: tl.View[tl.f64, (1,)]):
+    tl.store(Y[0], tl.reduce_dot(tl.load(X), tl.load(Weight), over="k"))
 
 
 @triton.jit(model="weft", strided=("X", "Weight", "Y"),
              alias_groups={"X": "input", "Weight": "weight", "Y": "output"})
-def snapshot_matmul(X: wl.View[wl.f32, (M, K)], Weight: wl.View[wl.f32, (K, N)],
-                    Y: wl.View[wl.f32, (M, N)], *, M: wl.constexpr, N: wl.constexpr):
-    with wl.level.rows(M, group=wl.auto("M")) as row:
-        with wl.level.cols(N, group=wl.auto("N")) as column:
-            saved = wl.stage(wl.load(Weight[:, column]))
-            wl.store(Weight[:, column], saved * 0.0)
-            wl.store(Y[row, column], wl.dot(wl.load(X[row]), saved, over="k"))
+def snapshot_matmul(X: tl.View[tl.f32, (M, K)], Weight: tl.View[tl.f32, (K, N)],
+                    Y: tl.View[tl.f32, (M, N)], *, M: tl.constexpr, N: tl.constexpr):
+    with tl.level.rows(M, group=tl.auto("M")) as row:
+        with tl.level.cols(N, group=tl.auto("N")) as column:
+            saved = tl.stage(tl.load(Weight[:, column]))
+            tl.store(Weight[:, column], saved * 0.0)
+            tl.store(Y[row, column], tl.dot(tl.load(X[row]), saved, over="k"))
 
 
 @triton.jit(model="weft", strided=("X", "Weight", "Y"),
              alias_groups={"X": "input", "Weight": "input", "Y": "output"})
-def dynamic_matmul(X: wl.View[wl.f32, (M, K)], Weight: wl.View[wl.f32, (K, N)],
-                   Y: wl.View[wl.f32, (M, N)]):
-    wl.store(Y, wl.dot(wl.load(X), wl.load(Weight), over="k"))
+def dynamic_matmul(X: tl.View[tl.f32, (M, K)], Weight: tl.View[tl.f32, (K, N)],
+                   Y: tl.View[tl.f32, (M, N)]):
+    tl.store(Y, tl.dot(tl.load(X), tl.load(Weight), over="k"))
 
 
 @triton.jit(model="weft", strided=("X", "Weight", "Y"),
              alias_groups={"X": "input", "Weight": "input", "Y": "output"})
-def lhs_lane_matmul(X: wl.View[wl.f32, (K, M)], Weight: wl.View[wl.f32, (N, K)],
-                    Y: wl.View[wl.f32, (M, N)]):
-    wl.store(Y, wl.dot(wl.load(X), wl.load(Weight), over="k"))
+def lhs_lane_matmul(X: tl.View[tl.f32, (K, M)], Weight: tl.View[tl.f32, (N, K)],
+                    Y: tl.View[tl.f32, (M, N)]):
+    tl.store(Y, tl.dot(tl.load(X), tl.load(Weight), over="k"))
 
 
 @triton.jit(model="weft", strided=("X", "Weight", "Y"),
              alias_groups={"X": "input", "Weight": "input", "Y": "output"})
-def output_lane_f64(X: wl.View[wl.f64, (M, K)], Weight: wl.View[wl.f64, (K, N)],
-                    Y: wl.View[wl.f64, (M, N)]):
-    wl.store(Y, wl.dot(wl.load(X), wl.load(Weight), over="k"))
+def output_lane_f64(X: tl.View[tl.f64, (M, K)], Weight: tl.View[tl.f64, (K, N)],
+                    Y: tl.View[tl.f64, (M, N)]):
+    tl.store(Y, tl.dot(tl.load(X), tl.load(Weight), over="k"))
 
 
 @triton.jit(model="weft", strided=("X", "Weight", "Y"),
              alias_groups={"X": "input", "Weight": "input", "Y": "output"})
-def matmul_cast(X: wl.View[wl.f32, (M, K)], Weight: wl.View[wl.f32, (K, N)],
-                Y: wl.View[wl.f64, (M, N)], *, MR: wl.constexpr, NR: wl.constexpr):
-    with wl.level.rows(M, group=wl.auto("MR")) as row:
-        with wl.level.cols(N, group=wl.auto("NR")) as column:
-            value = wl.dot(wl.load(X[row]), wl.load(Weight[:, column]), over="k")
-            wl.store(Y[row, column], wl.f64(value))
+def matmul_cast(X: tl.View[tl.f32, (M, K)], Weight: tl.View[tl.f32, (K, N)],
+                Y: tl.View[tl.f64, (M, N)], *, MR: tl.constexpr, NR: tl.constexpr):
+    with tl.level.rows(M, group=tl.auto("MR")) as row:
+        with tl.level.cols(N, group=tl.auto("NR")) as column:
+            value = tl.dot(tl.load(X[row]), tl.load(Weight[:, column]), over="k")
+            tl.store(Y[row, column], tl.f64(value))
 
 
 @triton.jit(model="weft", strided=("X", "Weight", "Y", "Norm"),
              alias_groups={"X": "input", "Weight": "input", "Y": "output", "Norm": "norm"})
-def matmul_observers(X: wl.View[wl.f32, (M, K)], Weight: wl.View[wl.f32, (K, N)],
-                     Y: wl.View[wl.f32, (M, N)], Norm: wl.View[wl.f32, (M,)], *, M: wl.constexpr, N: wl.constexpr):
-    with wl.level.rows(M, group=wl.auto("M")) as row:
-        with wl.level.cols(N, group=wl.auto("N")) as column:
-            value = wl.dot(wl.load(X[row]), wl.load(Weight[:, column]), over="k")
-            wl.store(Y[row, column], value)
-            wl.store(Norm[row], wl.reduce(value * value, op="add", axis="n"))
+def matmul_observers(X: tl.View[tl.f32, (M, K)], Weight: tl.View[tl.f32, (K, N)],
+                     Y: tl.View[tl.f32, (M, N)], Norm: tl.View[tl.f32, (M,)], *, M: tl.constexpr, N: tl.constexpr):
+    with tl.level.rows(M, group=tl.auto("M")) as row:
+        with tl.level.cols(N, group=tl.auto("N")) as column:
+            value = tl.dot(tl.load(X[row]), tl.load(Weight[:, column]), over="k")
+            tl.store(Y[row, column], value)
+            tl.store(Norm[row], tl.reduce(value * value, op="add", axis="n"))
 
 
 @triton.jit(model="weft", strided=("X", "Weight", "Y"),
              alias_groups={"X": "input", "Weight": "input", "Y": "output"})
-def batched_matmul(X: wl.View[wl.f32, (B, M, K)], Weight: wl.View[wl.f32, (B, K, N)],
-                   Y: wl.View[wl.f32, (B, M, N)]):
-    wl.store(Y, wl.reduce_dot(wl.load(X), wl.load(Weight), over="k"))
+def batched_matmul(X: tl.View[tl.f32, (B, M, K)], Weight: tl.View[tl.f32, (B, K, N)],
+                   Y: tl.View[tl.f32, (B, M, N)]):
+    tl.store(Y, tl.reduce_dot(tl.load(X), tl.load(Weight), over="k"))
 
 
 @triton.jit(model="weft", strided=("X", "Weight", "Y"),
              alias_groups={"X": "input", "Weight": "input", "Y": "output"})
-def batched_lhs_lane(X: wl.View[wl.f32, (B, K, M)], Weight: wl.View[wl.f32, (B, N, K)],
-                     Y: wl.View[wl.f32, (B, M, N)]):
-    wl.store(Y, wl.reduce_dot(wl.load(X), wl.load(Weight), over="k"))
+def batched_lhs_lane(X: tl.View[tl.f32, (B, K, M)], Weight: tl.View[tl.f32, (B, N, K)],
+                     Y: tl.View[tl.f32, (B, M, N)]):
+    tl.store(Y, tl.reduce_dot(tl.load(X), tl.load(Weight), over="k"))
 
 
 @triton.jit(model="weft", strided=("X", "Weight", "Bias", "Gate", "Y"),
              alias_groups={"X": "input", "Weight": "input", "Bias": "input", "Gate": "input", "Y": "output"})
-def matmul_epilogue(X: wl.View[wl.f32, (M, K)], Weight: wl.View[wl.f32, (K, N)],
-                    Bias: wl.View[wl.f32, (N,)], Gate: wl.View[wl.f32, (M,)],
-                    Y: wl.View[wl.f32, (M, N)], scale: wl.f32, *, MR: wl.constexpr, NR: wl.constexpr):
-    with wl.level.rows(M, group=wl.auto("MR")) as row:
-        with wl.level.cols(N, group=wl.auto("NR")) as column:
-            value = wl.dot(wl.load(X[row]), wl.load(Weight[:, column]), over="k")
-            left = value + wl.load(Bias[column])
-            right = value * wl.load(Gate[row])
-            wl.store(Y[row, column], left * right * scale)
+def matmul_epilogue(X: tl.View[tl.f32, (M, K)], Weight: tl.View[tl.f32, (K, N)],
+                    Bias: tl.View[tl.f32, (N,)], Gate: tl.View[tl.f32, (M,)],
+                    Y: tl.View[tl.f32, (M, N)], scale: tl.f32, *, MR: tl.constexpr, NR: tl.constexpr):
+    with tl.level.rows(M, group=tl.auto("MR")) as row:
+        with tl.level.cols(N, group=tl.auto("NR")) as column:
+            value = tl.dot(tl.load(X[row]), tl.load(Weight[:, column]), over="k")
+            left = value + tl.load(Bias[column])
+            right = value * tl.load(Gate[row])
+            tl.store(Y[row, column], left * right * scale)
 
 
 @triton.jit(model="weft", strided=("X", "Weight0", "Weight1", "Bias0", "Bias1", "Y0", "Y1"),
              alias_groups={"X": "input", "Weight0": "input", "Weight1": "input",
                            "Bias0": "input", "Bias1": "input", "Y0": "first", "Y1": "second"})
-def paired_projections(X: wl.View[wl.f32, (M, K)], Weight0: wl.View[wl.f32, (K, N)],
-                       Weight1: wl.View[wl.f32, (K, N)], Bias0: wl.View[wl.f32, (N,)],
-                       Bias1: wl.View[wl.f32, (N,)], Y0: wl.View[wl.f32, (M, N)],
-                       Y1: wl.View[wl.f32, (M, N)], *, MR: wl.constexpr, NR: wl.constexpr):
-    with wl.level.rows(M, group=wl.auto("MR")) as row:
-        with wl.level.cols(N, group=wl.auto("NR")) as column:
-            first = wl.dot(wl.load(X[row]), wl.load(Weight0[:, column]), over="k")
-            wl.store(Y0[row, column], first + wl.load(Bias0[column]))
-            second = wl.dot(wl.load(X[row]), wl.load(Weight1[:, column]), over="k")
-            wl.store(Y1[row, column], second + wl.load(Bias1[column]))
+def paired_projections(X: tl.View[tl.f32, (M, K)], Weight0: tl.View[tl.f32, (K, N)],
+                       Weight1: tl.View[tl.f32, (K, N)], Bias0: tl.View[tl.f32, (N,)],
+                       Bias1: tl.View[tl.f32, (N,)], Y0: tl.View[tl.f32, (M, N)],
+                       Y1: tl.View[tl.f32, (M, N)], *, MR: tl.constexpr, NR: tl.constexpr):
+    with tl.level.rows(M, group=tl.auto("MR")) as row:
+        with tl.level.cols(N, group=tl.auto("NR")) as column:
+            first = tl.dot(tl.load(X[row]), tl.load(Weight0[:, column]), over="k")
+            tl.store(Y0[row, column], first + tl.load(Bias0[column]))
+            second = tl.dot(tl.load(X[row]), tl.load(Weight1[:, column]), over="k")
+            tl.store(Y1[row, column], second + tl.load(Bias1[column]))

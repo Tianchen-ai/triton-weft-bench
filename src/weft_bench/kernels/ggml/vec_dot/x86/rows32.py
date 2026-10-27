@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 import triton
 import triton.language as tl
 
@@ -37,30 +37,30 @@ def compute(W, X, Y, rows, K, CENTER: tl.constexpr, HIGH: tl.constexpr,
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def q4_0(W: tl.View[ggml.Q4_0, (rows, K)], X: tl.View[ggml.Q8_0, (K,)],
+def q4_0(W: tl.View[ggml_formats.Q4_0, (rows, K)], X: tl.View[ggml_formats.Q8_0, (K,)],
          Y: tl.View[tl.f32, (rows,)], ROWS: tl.constexpr = 4):
     compute(W, X, Y, rows, K, 8, False, False, False, ROWS)
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def q4_1(W: tl.View[ggml.Q4_1, (rows, K)], X: tl.View[ggml.Q8_1, (K,)],
+def q4_1(W: tl.View[ggml_formats.Q4_1, (rows, K)], X: tl.View[ggml_formats.Q8_1, (K,)],
          Y: tl.View[tl.f32, (rows,)], ROWS: tl.constexpr = 4):
     compute(W, X, Y, rows, K, 0, False, True, False, ROWS)
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def q5_0(W: tl.View[ggml.Q5_0, (rows, K)], X: tl.View[ggml.Q8_0, (K,)],
+def q5_0(W: tl.View[ggml_formats.Q5_0, (rows, K)], X: tl.View[ggml_formats.Q8_0, (K,)],
          Y: tl.View[tl.f32, (rows,)], ROWS: tl.constexpr = 4):
     compute(W, X, Y, rows, K, 16, True, False, False, ROWS)
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def q5_1(W: tl.View[ggml.Q5_1, (rows, K)], X: tl.View[ggml.Q8_1, (K,)],
+def q5_1(W: tl.View[ggml_formats.Q5_1, (rows, K)], X: tl.View[ggml_formats.Q8_1, (K,)],
          Y: tl.View[tl.f32, (rows,)], ROWS: tl.constexpr = 4):
     compute(W, X, Y, rows, K, 0, True, True, False, ROWS)
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def q8_0(W: tl.View[ggml.Q8_0, (rows, K)], X: tl.View[ggml.Q8_0, (K,)],
+def q8_0(W: tl.View[ggml_formats.Q8_0, (rows, K)], X: tl.View[ggml_formats.Q8_0, (K,)],
          Y: tl.View[tl.f32, (rows,)], ROWS: tl.constexpr = 4):
     compute(W, X, Y, rows, K, 0, False, False, True, ROWS)

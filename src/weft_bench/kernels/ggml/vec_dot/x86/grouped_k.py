@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 import triton
 import triton.language as tl
 from .q4_k_q8_k import compute as compute_affine
@@ -22,7 +22,7 @@ def scaled_quarters(q, x, scales, TERMS: tl.constexpr):
 
 
 @triton.jit
-def compute_q2(W, X: tl.View[ggml.Q8_K, (K,)]):
+def compute_q2(W, X: tl.View[ggml_formats.Q8_K, (K,)]):
     result = tl.state(tl.f32, [G16], init=0)
     minimum_result = tl.state(tl.f32, [G16], init=0)
     with tl.level.blocks(K, extent=256) as kb:
@@ -38,7 +38,7 @@ def compute_q2(W, X: tl.View[ggml.Q8_K, (K,)]):
 
 
 @triton.jit
-def compute_q3(W, X: tl.View[ggml.Q8_K, (K,)]):
+def compute_q3(W, X: tl.View[ggml_formats.Q8_K, (K,)]):
     result = tl.state(tl.f32, [G16], init=0)
     with tl.level.blocks(K, extent=256) as kb:
         w, x = tl.load(W[kb]), tl.load(X[kb])
@@ -53,21 +53,21 @@ def compute_q3(W, X: tl.View[ggml.Q8_K, (K,)]):
 
 
 @triton.jit
-def compute_q5(W, X: tl.View[ggml.Q8_K, (K,)], LANES: tl.constexpr = 8):
+def compute_q5(W, X: tl.View[ggml_formats.Q8_K, (K,)], LANES: tl.constexpr = 8):
     return compute_affine(W, X, LANES, HIGH=True)
 
 
 @triton.jit(model="weft")
-def q2_k(W: tl.View[ggml.Q2_K, (K,)], X: tl.View[ggml.Q8_K, (K,)], Y: tl.View[tl.f32, (1,)]):
+def q2_k(W: tl.View[ggml_formats.Q2_K, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)], Y: tl.View[tl.f32, (1,)]):
     tl.store(Y[0], compute_q2(W, X))
 
 
 @triton.jit(model="weft")
-def q3_k(W: tl.View[ggml.Q3_K, (K,)], X: tl.View[ggml.Q8_K, (K,)], Y: tl.View[tl.f32, (1,)]):
+def q3_k(W: tl.View[ggml_formats.Q3_K, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)], Y: tl.View[tl.f32, (1,)]):
     tl.store(Y[0], compute_q3(W, X))
 
 
 @triton.jit(model="weft")
-def q5_k(W: tl.View[ggml.Q5_K, (K,)], X: tl.View[ggml.Q8_K, (K,)], Y: tl.View[tl.f32, (1,)],
+def q5_k(W: tl.View[ggml_formats.Q5_K, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)], Y: tl.View[tl.f32, (1,)],
          LANES: tl.constexpr = 8):
     tl.store(Y[0], compute_q5(W, X, LANES))

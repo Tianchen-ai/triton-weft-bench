@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 import triton
 import triton.language as tl
 
@@ -42,15 +42,15 @@ def compute_s_windowed(W, X, grid, K, GROUPS: tl.constexpr, UNROLL_GROUPS: tl.co
 
 
 @triton.jit(model="weft")
-def dot_s_windowed(W: tl.View[ggml.IQ1_S, (K,)], X: tl.View[ggml.Q8_K, (K,)],
-                   grid: tl.View[ggml.I8X8, (2048, 8)], Y: tl.View[tl.f32, (1,)],
+def dot_s_windowed(W: tl.View[ggml_formats.IQ1_S, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)],
+                   grid: tl.View[ggml_formats.I8X8, (2048, 8)], Y: tl.View[tl.f32, (1,)],
                    *, GROUPS: tl.constexpr = 2, UNROLL_GROUPS: tl.constexpr = True):
     tl.store(Y[0], compute_s_windowed(W, X, grid, K, GROUPS, UNROLL_GROUPS))
 
 
 @triton.jit(noinline=True)
-def compute_m(W: tl.View[ggml.IQ1_M, (K,)], X: tl.View[ggml.Q8_K, (K,)],
-              grid: tl.View[ggml.I8X8, (2048, 8)]):
+def compute_m(W: tl.View[ggml_formats.IQ1_M, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)],
+              grid: tl.View[ggml_formats.I8X8, (2048, 8)]):
     """Use the GGML IQ1 codebook and one scaled integer reduction per block."""
     entry = tl.arange(0, 32, dtype=tl.u16, axis="entry")
     payload = tl.arange(0, 8, dtype=tl.u16, axis="payload")
@@ -85,14 +85,14 @@ def compute_m(W: tl.View[ggml.IQ1_M, (K,)], X: tl.View[ggml.Q8_K, (K,)],
 
 
 @triton.jit(model="weft")
-def dot_m(W: tl.View[ggml.IQ1_M, (K,)], X: tl.View[ggml.Q8_K, (K,)],
-          grid: tl.View[ggml.I8X8, (2048, 8)], Y: tl.View[tl.f32, (1,)]):
+def dot_m(W: tl.View[ggml_formats.IQ1_M, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)],
+          grid: tl.View[ggml_formats.I8X8, (2048, 8)], Y: tl.View[tl.f32, (1,)]):
     tl.store(Y[0], compute_m(W, X, grid))
 
 
 @triton.jit(noinline=True)
-def compute_m_windowed(W: tl.View[ggml.IQ1_M, (K,)], X: tl.View[ggml.Q8_K, (K,)],
-                       grid: tl.View[ggml.I8X8, (2048, 8)], ENTRIES: tl.constexpr):
+def compute_m_windowed(W: tl.View[ggml_formats.IQ1_M, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)],
+                       grid: tl.View[ggml_formats.I8X8, (2048, 8)], ENTRIES: tl.constexpr):
     tl.static_assert(ENTRIES == 4 or ENTRIES == 8 or ENTRIES == 16)
     entry_lane = tl.arange(0, ENTRIES, dtype=tl.u16, axis="entry")
     payload = tl.arange(0, 8, dtype=tl.u16, axis="payload")
@@ -135,6 +135,6 @@ def compute_m_windowed(W: tl.View[ggml.IQ1_M, (K,)], X: tl.View[ggml.Q8_K, (K,)]
 
 
 @triton.jit(model="weft")
-def dot_m_windowed(W: tl.View[ggml.IQ1_M, (K,)], X: tl.View[ggml.Q8_K, (K,)],
-                   grid: tl.View[ggml.I8X8, (2048, 8)], Y: tl.View[tl.f32, (1,)], *, ENTRIES: tl.constexpr = 16):
+def dot_m_windowed(W: tl.View[ggml_formats.IQ1_M, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)],
+                   grid: tl.View[ggml_formats.I8X8, (2048, 8)], Y: tl.View[tl.f32, (1,)], *, ENTRIES: tl.constexpr = 16):
     tl.store(Y[0], compute_m_windowed(W, X, grid, ENTRIES))

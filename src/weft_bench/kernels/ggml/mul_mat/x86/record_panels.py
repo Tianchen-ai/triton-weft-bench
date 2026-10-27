@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 from ...blocks.quantize import q8_k as quant_q8_k
 import triton
 import triton.language as tl
@@ -12,7 +12,7 @@ from .scaled_records import (
 
 
 @triton.jit
-def project(W, X, Xq: tl.View[ggml.Q8_K, (M, K)], Y, Panel, Activation, D, M, N, K,
+def project(W, X, Xq: tl.View[ggml_formats.Q8_K, (M, K)], Y, Panel, Activation, D, M, N, K,
             BM: tl.constexpr, BN: tl.constexpr, RK: tl.constexpr,
             DECODE: tl.constexpr, STORAGE: tl.constexpr, grid=None, auxiliary=None,
             MINIMUM: tl.constexpr = None, Minima=None, Dmin=None, BIAS: tl.constexpr = 0,
@@ -109,8 +109,8 @@ def project(W, X, Xq: tl.View[ggml.Q8_K, (M, K)], Y, Panel, Activation, D, M, N,
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "quantized", "Panel": "weights", "Activation": "activation", "D": "scale", "Y": "output", "Minima": "minima", "Dmin": "minimum_scale"})
-def q2_k(W: tl.View[ggml.Q2_K, (N, K)], X: tl.View[tl.f32, (M, K)],
-         Xq: tl.View[ggml.Q8_K, (M, K)], Y: tl.View[tl.f32, (M, N)],
+def q2_k(W: tl.View[ggml_formats.Q2_K, (N, K)], X: tl.View[tl.f32, (M, K)],
+         Xq: tl.View[ggml_formats.Q8_K, (M, K)], Y: tl.View[tl.f32, (M, N)],
          Panel: tl.View[tl.u8, (BN, RK)], Activation: tl.View[tl.i8, (M, RK)],
          D: tl.View[tl.f32, (BN,)], Minima: tl.View[tl.i16, (BN, GROUPS)], Dmin: tl.View[tl.f32, (BN,)],
          BM: tl.constexpr = 16, BN: tl.constexpr = 16, RK: tl.constexpr = 256, GROUPS: tl.constexpr = 16):
@@ -121,8 +121,8 @@ def q2_k(W: tl.View[ggml.Q2_K, (N, K)], X: tl.View[tl.f32, (M, K)],
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "quantized", "Panel": "weights", "Activation": "activation", "D": "scale", "Y": "output"})
-def q3_k(W: tl.View[ggml.Q3_K, (N, K)], X: tl.View[tl.f32, (M, K)],
-         Xq: tl.View[ggml.Q8_K, (M, K)], Y: tl.View[tl.f32, (M, N)],
+def q3_k(W: tl.View[ggml_formats.Q3_K, (N, K)], X: tl.View[tl.f32, (M, K)],
+         Xq: tl.View[ggml_formats.Q8_K, (M, K)], Y: tl.View[tl.f32, (M, N)],
          Panel: tl.View[tl.u8, (BN, RK)], Activation: tl.View[tl.i8, (M, RK)], D: tl.View[tl.f32, (BN,)],
          BM: tl.constexpr = 16, BN: tl.constexpr = 16, RK: tl.constexpr = 256):
     # Signed 3-bit values times signed 6-bit scales lie in [-124,128].
@@ -131,8 +131,8 @@ def q3_k(W: tl.View[ggml.Q3_K, (N, K)], X: tl.View[tl.f32, (M, K)],
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "quantized", "Panel": "weights", "Activation": "activation", "D": "scale", "Y": "output"})
-def q6_k(W: tl.View[ggml.Q6_K, (N, K)], X: tl.View[tl.f32, (M, K)],
-         Xq: tl.View[ggml.Q8_K, (M, K)], Y: tl.View[tl.f32, (M, N)],
+def q6_k(W: tl.View[ggml_formats.Q6_K, (N, K)], X: tl.View[tl.f32, (M, K)],
+         Xq: tl.View[ggml_formats.Q8_K, (M, K)], Y: tl.View[tl.f32, (M, N)],
          Panel: tl.View[tl.i16, (BN, RK)], Activation: tl.View[tl.i8, (M, RK)], D: tl.View[tl.f32, (BN,)],
          BM: tl.constexpr = 16, BN: tl.constexpr = 16, RK: tl.constexpr = 256):
     project(W, X, Xq, Y, Panel, Activation, D, M, N, K, BM, BN, RK, decode_q6, tl.i16)
@@ -155,8 +155,8 @@ def decode_iq1_m_byte(w, grid, auxiliary):
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "quantized", "Panel": "weights", "Activation": "activation", "D": "scale", "Y": "output", "Minima": "correction", "Sums": "group_sums"})
-def iq1_s(W: tl.View[ggml.IQ1_S, (N, K)], X: tl.View[tl.f32, (M, K)], Xq: tl.View[ggml.Q8_K, (M, K)],
-          grid: tl.View[ggml.I8X8, (2048, 8)], Y: tl.View[tl.f32, (M, N)],
+def iq1_s(W: tl.View[ggml_formats.IQ1_S, (N, K)], X: tl.View[tl.f32, (M, K)], Xq: tl.View[ggml_formats.Q8_K, (M, K)],
+          grid: tl.View[ggml_formats.I8X8, (2048, 8)], Y: tl.View[tl.f32, (M, N)],
           Panel: tl.View[tl.i8, (BN, RK)], Activation: tl.View[tl.i8, (M, RK)], D: tl.View[tl.f32, (BN,)],
           Minima: tl.View[tl.i8, (BN, GROUPS)], Sums: tl.View[tl.i16, (M, GROUPS)], BM: tl.constexpr = 16, BN: tl.constexpr = 16,
           RK: tl.constexpr = 256, GROUPS: tl.constexpr = 8):
@@ -166,8 +166,8 @@ def iq1_s(W: tl.View[ggml.IQ1_S, (N, K)], X: tl.View[tl.f32, (M, K)], Xq: tl.Vie
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "quantized", "Panel": "weights", "Activation": "activation", "D": "scale", "Y": "output", "Minima": "correction", "Sums": "group_sums"})
-def iq1_m(W: tl.View[ggml.IQ1_M, (N, K)], X: tl.View[tl.f32, (M, K)], Xq: tl.View[ggml.Q8_K, (M, K)],
-          grid: tl.View[ggml.I8X8, (2048, 8)], f16_bits: tl.View[tl.f32, (65536,)], Y: tl.View[tl.f32, (M, N)],
+def iq1_m(W: tl.View[ggml_formats.IQ1_M, (N, K)], X: tl.View[tl.f32, (M, K)], Xq: tl.View[ggml_formats.Q8_K, (M, K)],
+          grid: tl.View[ggml_formats.I8X8, (2048, 8)], f16_bits: tl.View[tl.f32, (65536,)], Y: tl.View[tl.f32, (M, N)],
           Panel: tl.View[tl.i8, (BN, RK)], Activation: tl.View[tl.i8, (M, RK)], D: tl.View[tl.f32, (BN,)],
           Minima: tl.View[tl.i8, (BN, GROUPS)], Sums: tl.View[tl.i16, (M, GROUPS)],
           BM: tl.constexpr = 16, BN: tl.constexpr = 16, RK: tl.constexpr = 256, GROUPS: tl.constexpr = 32):
@@ -178,23 +178,23 @@ def iq1_m(W: tl.View[ggml.IQ1_M, (N, K)], X: tl.View[tl.f32, (M, K)], Xq: tl.Vie
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "quantized", "Panel": "weights", "Activation": "activation", "D": "scale", "Y": "output"})
-def iq2_xs(W: tl.View[ggml.IQ2_XS, (N, K)], X: tl.View[tl.f32, (M, K)], Xq: tl.View[ggml.Q8_K, (M, K)],
-           grid: tl.View[ggml.I8X8, (512, 8)], signs: tl.View[ggml.I8X8, (128, 8)], Y: tl.View[tl.f32, (M, N)],
+def iq2_xs(W: tl.View[ggml_formats.IQ2_XS, (N, K)], X: tl.View[tl.f32, (M, K)], Xq: tl.View[ggml_formats.Q8_K, (M, K)],
+           grid: tl.View[ggml_formats.I8X8, (512, 8)], signs: tl.View[ggml_formats.I8X8, (128, 8)], Y: tl.View[tl.f32, (M, N)],
            Panel: tl.View[tl.i16, (BN, RK)], Activation: tl.View[tl.i8, (M, RK)], D: tl.View[tl.f32, (BN,)],
            BM: tl.constexpr = 16, BN: tl.constexpr = 16, RK: tl.constexpr = 256):
     project(W, X, Xq, Y, Panel, Activation, D, M, N, K, BM, BN, RK, decode_iq2_xs, tl.i16, grid, signs)
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "quantized", "Panel": "weights", "Activation": "activation", "D": "scale", "Y": "output"})
-def iq2_xxs(W: tl.View[ggml.IQ2_XXS, (N, K)], X: tl.View[tl.f32, (M, K)], Xq: tl.View[ggml.Q8_K, (M, K)],
-            grid: tl.View[ggml.I8X8, (256, 8)], signs: tl.View[ggml.I8X8, (128, 8)], Y: tl.View[tl.f32, (M, N)],
+def iq2_xxs(W: tl.View[ggml_formats.IQ2_XXS, (N, K)], X: tl.View[tl.f32, (M, K)], Xq: tl.View[ggml_formats.Q8_K, (M, K)],
+            grid: tl.View[ggml_formats.I8X8, (256, 8)], signs: tl.View[ggml_formats.I8X8, (128, 8)], Y: tl.View[tl.f32, (M, N)],
             Panel: tl.View[tl.i16, (BN, RK)], Activation: tl.View[tl.i8, (M, RK)], D: tl.View[tl.f32, (BN,)],
             BM: tl.constexpr = 16, BN: tl.constexpr = 16, RK: tl.constexpr = 256):
     project(W, X, Xq, Y, Panel, Activation, D, M, N, K, BM, BN, RK, decode_iq2_xxs, tl.i16, grid, signs)
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "quantized", "Panel": "weights", "Activation": "activation", "D": "scale", "Y": "output"})
-def iq4_xs(W: tl.View[ggml.IQ4_XS, (N, K)], X: tl.View[tl.f32, (M, K)], Xq: tl.View[ggml.Q8_K, (M, K)],
+def iq4_xs(W: tl.View[ggml_formats.IQ4_XS, (N, K)], X: tl.View[tl.f32, (M, K)], Xq: tl.View[ggml_formats.Q8_K, (M, K)],
            codebook: tl.View[tl.i8, (16,)], Y: tl.View[tl.f32, (M, N)],
            Panel: tl.View[tl.i16, (BN, RK)], Activation: tl.View[tl.i8, (M, RK)], D: tl.View[tl.f32, (BN,)],
            BM: tl.constexpr = 16, BN: tl.constexpr = 16, RK: tl.constexpr = 256):
@@ -221,7 +221,7 @@ def minimum_q45(w):
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "quantized", "Panel": "weights", "Activation": "activation", "D": "scale", "Y": "output", "Minima": "minima", "Dmin": "minimum_scale"})
-def q4_k(W: tl.View[ggml.Q4_K, (N, K)], X: tl.View[tl.f32, (M, K)], Xq: tl.View[ggml.Q8_K, (M, K)],
+def q4_k(W: tl.View[ggml_formats.Q4_K, (N, K)], X: tl.View[tl.f32, (M, K)], Xq: tl.View[ggml_formats.Q8_K, (M, K)],
          Y: tl.View[tl.f32, (M, N)], Panel: tl.View[tl.i16, (BN, RK)], Activation: tl.View[tl.i8, (M, RK)],
          D: tl.View[tl.f32, (BN,)], Minima: tl.View[tl.i16, (BN, GROUPS)], Dmin: tl.View[tl.f32, (BN,)],
          BM: tl.constexpr = 16, BN: tl.constexpr = 16, RK: tl.constexpr = 256, GROUPS: tl.constexpr = 16):
@@ -231,7 +231,7 @@ def q4_k(W: tl.View[ggml.Q4_K, (N, K)], X: tl.View[tl.f32, (M, K)], Xq: tl.View[
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "quantized", "Panel": "weights", "Activation": "activation", "D": "scale", "Y": "output", "Minima": "minima", "Dmin": "minimum_scale"})
-def q5_k(W: tl.View[ggml.Q5_K, (N, K)], X: tl.View[tl.f32, (M, K)], Xq: tl.View[ggml.Q8_K, (M, K)],
+def q5_k(W: tl.View[ggml_formats.Q5_K, (N, K)], X: tl.View[tl.f32, (M, K)], Xq: tl.View[ggml_formats.Q8_K, (M, K)],
          Y: tl.View[tl.f32, (M, N)], Panel: tl.View[tl.i16, (BN, RK)], Activation: tl.View[tl.i8, (M, RK)],
          D: tl.View[tl.f32, (BN,)], Minima: tl.View[tl.i16, (BN, GROUPS)], Dmin: tl.View[tl.f32, (BN,)],
          BM: tl.constexpr = 16, BN: tl.constexpr = 16, RK: tl.constexpr = 256, GROUPS: tl.constexpr = 16):
@@ -279,32 +279,32 @@ def decode_iq2_xxs_parity(w, grid, auxiliary):
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "quantized", "Panel": "weights", "Activation": "activation", "D": "scale", "Y": "output"})
-def iq2_s(W: tl.View[ggml.IQ2_S, (N, K)], X: tl.View[tl.f32, (M, K)], Xq: tl.View[ggml.Q8_K, (M, K)],
-          grid: tl.View[ggml.I8X8, (1024, 8)], Y: tl.View[tl.f32, (M, N)],
+def iq2_s(W: tl.View[ggml_formats.IQ2_S, (N, K)], X: tl.View[tl.f32, (M, K)], Xq: tl.View[ggml_formats.Q8_K, (M, K)],
+          grid: tl.View[ggml_formats.I8X8, (1024, 8)], Y: tl.View[tl.f32, (M, N)],
           Panel: tl.View[tl.i16, (BN, RK)], Activation: tl.View[tl.i8, (M, RK)], D: tl.View[tl.f32, (BN,)],
           BM: tl.constexpr = 16, BN: tl.constexpr = 16, RK: tl.constexpr = 256):
     project(W, X, Xq, Y, Panel, Activation, D, M, N, K, BM, BN, RK, decode_iq2_s_record, tl.i16, grid)
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "quantized", "Panel": "weights", "Activation": "activation", "D": "scale", "Y": "output"})
-def iq3_s(W: tl.View[ggml.IQ3_S, (N, K)], X: tl.View[tl.f32, (M, K)], Xq: tl.View[ggml.Q8_K, (M, K)],
-          grid: tl.View[ggml.I8X4, (512, 4)], Y: tl.View[tl.f32, (M, N)],
+def iq3_s(W: tl.View[ggml_formats.IQ3_S, (N, K)], X: tl.View[tl.f32, (M, K)], Xq: tl.View[ggml_formats.Q8_K, (M, K)],
+          grid: tl.View[ggml_formats.I8X4, (512, 4)], Y: tl.View[tl.f32, (M, N)],
           Panel: tl.View[tl.i16, (BN, RK)], Activation: tl.View[tl.i8, (M, RK)], D: tl.View[tl.f32, (BN,)],
           BM: tl.constexpr = 16, BN: tl.constexpr = 16, RK: tl.constexpr = 256):
     project(W, X, Xq, Y, Panel, Activation, D, M, N, K, BM, BN, RK, decode_iq3_s_record, tl.i16, grid)
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "quantized", "Panel": "weights", "Activation": "activation", "D": "scale", "Y": "output"})
-def iq2_xs_parity(W: tl.View[ggml.IQ2_XS, (N, K)], X: tl.View[tl.f32, (M, K)], Xq: tl.View[ggml.Q8_K, (M, K)],
-                  grid: tl.View[ggml.I8X8, (512, 8)], Y: tl.View[tl.f32, (M, N)],
+def iq2_xs_parity(W: tl.View[ggml_formats.IQ2_XS, (N, K)], X: tl.View[tl.f32, (M, K)], Xq: tl.View[ggml_formats.Q8_K, (M, K)],
+                  grid: tl.View[ggml_formats.I8X8, (512, 8)], Y: tl.View[tl.f32, (M, N)],
                   Panel: tl.View[tl.i16, (BN, RK)], Activation: tl.View[tl.i8, (M, RK)], D: tl.View[tl.f32, (BN,)],
                   BM: tl.constexpr = 16, BN: tl.constexpr = 16, RK: tl.constexpr = 256):
     project(W, X, Xq, Y, Panel, Activation, D, M, N, K, BM, BN, RK, decode_iq2_xs_parity, tl.i16, grid)
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "quantized", "Panel": "weights", "Activation": "activation", "D": "scale", "Y": "output"})
-def iq2_xxs_parity(W: tl.View[ggml.IQ2_XXS, (N, K)], X: tl.View[tl.f32, (M, K)], Xq: tl.View[ggml.Q8_K, (M, K)],
-                   grid: tl.View[ggml.I8X8, (256, 8)], Y: tl.View[tl.f32, (M, N)],
+def iq2_xxs_parity(W: tl.View[ggml_formats.IQ2_XXS, (N, K)], X: tl.View[tl.f32, (M, K)], Xq: tl.View[ggml_formats.Q8_K, (M, K)],
+                   grid: tl.View[ggml_formats.I8X8, (256, 8)], Y: tl.View[tl.f32, (M, N)],
                    Panel: tl.View[tl.i16, (BN, RK)], Activation: tl.View[tl.i8, (M, RK)], D: tl.View[tl.f32, (BN,)],
                    BM: tl.constexpr = 16, BN: tl.constexpr = 16, RK: tl.constexpr = 256):
     project(W, X, Xq, Y, Panel, Activation, D, M, N, K, BM, BN, RK, decode_iq2_xxs_parity, tl.i16, grid)

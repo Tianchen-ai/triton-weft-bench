@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 import triton
 import triton.language as tl
 
@@ -17,7 +17,7 @@ def pairs32(q, x, table):
 
 
 @triton.jit
-def compute_iq4_nl(W, X: tl.View[ggml.Q8_0, (K,)], codebook):
+def compute_iq4_nl(W, X: tl.View[ggml_formats.Q8_0, (K,)], codebook):
     table = tl.load(codebook)
     first = tl.state(tl.f32, [PAIRS], init=0)
     second = tl.state(tl.f32, [PAIRS], init=0)
@@ -36,7 +36,7 @@ def compute_iq4_nl(W, X: tl.View[ggml.Q8_0, (K,)], codebook):
 
 
 @triton.jit
-def compute_mxfp4(W, X: tl.View[ggml.Q8_0, (K,)], codebook, scale):
+def compute_mxfp4(W, X: tl.View[ggml_formats.Q8_0, (K,)], codebook, scale):
     table = tl.load(codebook)
     first = tl.state(tl.f32, [PAIRS], init=0)
     second = tl.state(tl.f32, [PAIRS], init=0)
@@ -55,7 +55,7 @@ def compute_mxfp4(W, X: tl.View[ggml.Q8_0, (K,)], codebook, scale):
 
 
 @triton.jit
-def compute_iq4_xs(W, X: tl.View[ggml.Q8_K, (K,)], codebook, PARTIALS: tl.constexpr = 16):
+def compute_iq4_xs(W, X: tl.View[ggml_formats.Q8_K, (K,)], codebook, PARTIALS: tl.constexpr = 16):
     tl.static_assert(PARTIALS == 8 or PARTIALS == 16)
     table = tl.u8(tl.load(codebook)) + tl.u8(128)
     first = tl.state(tl.f32, [PARTIALS], init=0)
@@ -93,32 +93,32 @@ def iq4_xs_block(w, x, table, PARTIALS: tl.constexpr):
 
 
 @triton.jit(model="weft")
-def iq4_nl(W: tl.View[ggml.IQ4_NL, (K,)], X: tl.View[ggml.Q8_0, (K,)],
+def iq4_nl(W: tl.View[ggml_formats.IQ4_NL, (K,)], X: tl.View[ggml_formats.Q8_0, (K,)],
            codebook: tl.View[tl.i8, (16,)], Y: tl.View[tl.f32, (1,)]):
     tl.store(Y[0], compute_iq4_nl(W, X, codebook))
 
 
 @triton.jit(model="weft")
-def iq4_nl_specialized(W: tl.View[ggml.IQ4_NL, (K,)], X: tl.View[ggml.Q8_0, (K,)],
+def iq4_nl_specialized(W: tl.View[ggml_formats.IQ4_NL, (K,)], X: tl.View[ggml_formats.Q8_0, (K,)],
                        codebook: tl.View[tl.i8, (16,)], Y: tl.View[tl.f32, (1,)], *, K: tl.constexpr):
     tl.store(Y[0], compute_iq4_nl(W, X, codebook))
 
 
 @triton.jit(model="weft")
-def mxfp4(W: tl.View[ggml.MXFP4, (K,)], X: tl.View[ggml.Q8_0, (K,)],
+def mxfp4(W: tl.View[ggml_formats.MXFP4, (K,)], X: tl.View[ggml_formats.Q8_0, (K,)],
           codebook: tl.View[tl.i8, (16,)], scale: tl.View[tl.f32, (256,)],
           Y: tl.View[tl.f32, (1,)]):
     tl.store(Y[0], compute_mxfp4(W, X, codebook, scale))
 
 
 @triton.jit(model="weft")
-def iq4_xs(W: tl.View[ggml.IQ4_XS, (K,)], X: tl.View[ggml.Q8_K, (K,)],
+def iq4_xs(W: tl.View[ggml_formats.IQ4_XS, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)],
            codebook: tl.View[tl.i8, (16,)], Y: tl.View[tl.f32, (1,)]):
     tl.store(Y[0], compute_iq4_xs(W, X, codebook))
 
 
 @triton.jit(model="weft")
-def iq4_xs_specialized(W: tl.View[ggml.IQ4_XS, (K,)], X: tl.View[ggml.Q8_K, (K,)],
+def iq4_xs_specialized(W: tl.View[ggml_formats.IQ4_XS, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)],
                       codebook: tl.View[tl.i8, (16,)], Y: tl.View[tl.f32, (1,)], *, K: tl.constexpr,
                       PARTIALS: tl.constexpr = 16):
     tl.store(Y[0], compute_iq4_xs(W, X, codebook, PARTIALS))

@@ -1,122 +1,122 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 from ....functions import quantization as qf
 from ..quantize import q8_k as quant_q8_k
 import triton
-import triton.language as wl
+import triton.language as tl
 
 
 @triton.jit(model="weft")
 def production_mul_mat_iq1_m(
-    W: wl.View[ggml.IQ1_M, (N, K)],
-    X: wl.View[wl.f32, (M, K)],
-    Xq: wl.View[ggml.Q8_K, (M, K)],
-    grid: wl.View[ggml.I8X8, (2048, 8)],
-    f16_bits: wl.View[wl.f32, (65536,)],
-    Y: wl.View[wl.f32, (M, N)],
- *, MC: wl.constexpr, MR: wl.constexpr, NC: wl.constexpr, NR: wl.constexpr):
+    W: tl.View[ggml_formats.IQ1_M, (N, K)],
+    X: tl.View[tl.f32, (M, K)],
+    Xq: tl.View[ggml_formats.Q8_K, (M, K)],
+    grid: tl.View[ggml_formats.I8X8, (2048, 8)],
+    f16_bits: tl.View[tl.f32, (65536,)],
+    Y: tl.View[tl.f32, (M, N)],
+ *, MC: tl.constexpr, MR: tl.constexpr, NC: tl.constexpr, NR: tl.constexpr):
     quant_q8_k.quantize_matrix(X, Xq)
     grid_values = grid.values
-    with wl.level.tiles(N, extent=wl.auto("NC")) as nc:
-        wp = wl.stage(wl.load(W[nc]))
-        with wl.level.tiles(M, extent=wl.auto("MC")) as mc:
-            xp = wl.stage(wl.load(Xq[mc]))
-            with wl.level.cols(nc, group=wl.auto("NR")) as nb:
-                with wl.level.rows(mc, group=wl.auto("MR")) as mb:
-                    acc = wl.state(wl.f32, [MR, NR], init=wl.f32(0.0))
-                    with wl.level.blocks(K, extent=256) as kb:
+    with tl.level.tiles(N, extent=tl.auto("NC")) as nc:
+        wp = tl.stage(tl.load(W[nc]))
+        with tl.level.tiles(M, extent=tl.auto("MC")) as mc:
+            xp = tl.stage(tl.load(Xq[mc]))
+            with tl.level.cols(nc, group=tl.auto("NR")) as nb:
+                with tl.level.rows(mc, group=tl.auto("MR")) as mb:
+                    acc = tl.state(tl.f32, [MR, NR], init=tl.f32(0.0))
+                    with tl.level.blocks(K, extent=256) as kb:
                         w = wp[nb, kb]
                         x = xp[mb, kb]
 
-                        sc0 = wl.u32(w.scales[:, 0]) | wl.u32(w.scales[:, 1]) << wl.u32(8)
-                        sc1 = wl.u32(w.scales[:, 2]) | wl.u32(w.scales[:, 3]) << wl.u32(8)
-                        sc2 = wl.u32(w.scales[:, 4]) | wl.u32(w.scales[:, 5]) << wl.u32(8)
-                        sc3 = wl.u32(w.scales[:, 6]) | wl.u32(w.scales[:, 7]) << wl.u32(8)
-                        scale_bits = sc0 >> wl.u32(12) | sc1 >> wl.u32(8) & wl.u32(240)
-                        scale_bits = scale_bits | sc2 >> wl.u32(4) & wl.u32(3840)
-                        scale_bits = scale_bits | sc3 & wl.u32(61440)
+                        sc0 = tl.u32(w.scales[:, 0]) | tl.u32(w.scales[:, 1]) << tl.u32(8)
+                        sc1 = tl.u32(w.scales[:, 2]) | tl.u32(w.scales[:, 3]) << tl.u32(8)
+                        sc2 = tl.u32(w.scales[:, 4]) | tl.u32(w.scales[:, 5]) << tl.u32(8)
+                        sc3 = tl.u32(w.scales[:, 6]) | tl.u32(w.scales[:, 7]) << tl.u32(8)
+                        scale_bits = sc0 >> tl.u32(12) | sc1 >> tl.u32(8) & tl.u32(240)
+                        scale_bits = scale_bits | sc2 >> tl.u32(4) & tl.u32(3840)
+                        scale_bits = scale_bits | sc3 & tl.u32(61440)
                         block_scale = qf.nonlinear_lookup(f16_bits, scale_bits)
 
-                        group = wl.arange(0, 8, dtype=wl.u32, axis="group")
-                        scale_part = wl.arange(0, 2, dtype=wl.u32, axis="scale_part")
-                        entry = wl.arange(0, 2, dtype=wl.u32, axis="entry")
-                        payload = wl.arange(0, 8, dtype=wl.u32, axis="payload")
-                        qh = wl.widen(w.qh[:, group * wl.u32(2) + scale_part], wl.u32)
-                        grid_index = wl.widen(
+                        group = tl.arange(0, 8, dtype=tl.u32, axis="group")
+                        scale_part = tl.arange(0, 2, dtype=tl.u32, axis="scale_part")
+                        entry = tl.arange(0, 2, dtype=tl.u32, axis="entry")
+                        payload = tl.arange(0, 8, dtype=tl.u32, axis="payload")
+                        qh = tl.widen(w.qh[:, group * tl.u32(2) + scale_part], tl.u32)
+                        grid_index = tl.widen(
                             w.q[
                                 :,
-                                group * wl.u32(4)
-                                + scale_part * wl.u32(2)
+                                group * tl.u32(4)
+                                + scale_part * tl.u32(2)
                                 + entry,
                             ],
-                            wl.u32,
-                        ) | (qh >> entry * wl.u32(4) & wl.u32(7)) << wl.u32(8)
-                        weight = wl.lookup(
+                            tl.u32,
+                        ) | (qh >> entry * tl.u32(4) & tl.u32(7)) << tl.u32(8)
+                        weight = tl.lookup(
                             grid_values,
-                            grid_index * wl.u32(8) + payload,
+                            grid_index * tl.u32(8) + payload,
                             bounds="in_bounds",
                         )
                         activation = x.q[
                             :,
-                            group * wl.u32(32)
-                            + scale_part * wl.u32(16)
-                            + entry * wl.u32(8)
+                            group * tl.u32(32)
+                            + scale_part * tl.u32(16)
+                            + entry * tl.u32(8)
                             + payload,
                         ]
-                        dot = wl.reduce_dot(activation, weight, over=("entry", "payload"), acc_dtype=wl.i32)
-                        scale_word = wl.widen(
-                            w.scales[:, group // wl.u32(2) * wl.u32(2)], wl.u32
-                        ) | wl.widen(
+                        dot = tl.reduce_dot(activation, weight, over=("entry", "payload"), acc_dtype=tl.i32)
+                        scale_word = tl.widen(
+                            w.scales[:, group // tl.u32(2) * tl.u32(2)], tl.u32
+                        ) | tl.widen(
                             w.scales[
                                 :,
-                                group // wl.u32(2) * wl.u32(2) + wl.u32(1),
+                                group // tl.u32(2) * tl.u32(2) + tl.u32(1),
                             ],
-                            wl.u32,
-                        ) << wl.u32(8)
-                        scale_shift = group % wl.u32(2) * wl.u32(6) + scale_part * wl.u32(3)
-                        scale = wl.i32(
-                            (scale_word >> scale_shift & wl.u32(7)) * wl.u32(2)
-                            + wl.u32(1)
+                            tl.u32,
+                        ) << tl.u32(8)
+                        scale_shift = group % tl.u32(2) * tl.u32(6) + scale_part * tl.u32(3)
+                        scale = tl.i32(
+                            (scale_word >> scale_shift & tl.u32(7)) * tl.u32(2)
+                            + tl.u32(1)
                         )
-                        main = wl.reduce(
-                            wl.reduce(dot * scale, axis="scale_part"), axis="group"
+                        main = tl.reduce(
+                            tl.reduce(dot * scale, axis="scale_part"), axis="group"
                         )
 
-                        delta_shift = wl.u32(3) + entry * wl.u32(4)
-                        delta_bit_u16 = wl.narrow(
-                            qh >> delta_shift & wl.u32(1),
-                            wl.u16,
+                        delta_shift = tl.u32(3) + entry * tl.u32(4)
+                        delta_bit_u16 = tl.narrow(
+                            qh >> delta_shift & tl.u32(1),
+                            tl.u16,
                             rounding="rtz",
                             saturation=False,
                         )
-                        delta_bit = wl.narrow(
+                        delta_bit = tl.narrow(
                             delta_bit_u16,
-                            wl.u8,
+                            tl.u8,
                             rounding="rtz",
                             saturation=False,
                         )
-                        delta = wl.i8(1) - wl.i8(delta_bit) * wl.i8(2)
-                        payload_u16 = wl.narrow(
-                            payload, wl.u16, rounding="rtz", saturation=False
+                        delta = tl.i8(1) - tl.i8(delta_bit) * tl.i8(2)
+                        payload_u16 = tl.narrow(
+                            payload, tl.u16, rounding="rtz", saturation=False
                         )
-                        payload_u8 = wl.narrow(
+                        payload_u8 = tl.narrow(
                             payload_u16,
-                            wl.u8,
+                            tl.u8,
                             rounding="rtz",
                             saturation=False,
                         )
-                        delta = delta + wl.i8(payload_u8) * wl.i8(0)
-                        correction_part = wl.reduce_dot(
+                        delta = delta + tl.i8(payload_u8) * tl.i8(0)
+                        correction_part = tl.reduce_dot(
                             activation,
                             delta,
                             over=("entry", "payload"),
-                            acc_dtype=wl.i32,
+                            acc_dtype=tl.i32,
                         )
-                        correction = wl.reduce(
-                            wl.reduce(correction_part * scale, axis="scale_part"),
+                        correction = tl.reduce(
+                            tl.reduce(correction_part * scale, axis="scale_part"),
                             axis="group",
                         )
-                        combined = wl.f32(main) + wl.f32(0.125) * wl.f32(correction)
-                        acc += wl.f32(block_scale) * wl.f32(x.ds) * combined
-                    wl.store(Y[mb, nb], acc)
+                        combined = tl.f32(main) + tl.f32(0.125) * tl.f32(correction)
+                        acc += tl.f32(block_scale) * tl.f32(x.ds) * combined
+                    tl.store(Y[mb, nb], acc)

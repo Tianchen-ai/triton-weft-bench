@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 import triton
 import triton.language as tl
 from ...quantize.x86.blocks32 import quantize
@@ -42,14 +42,14 @@ def project(W, X, Xq, Y, M, N, K, BN: tl.constexpr, BITS: tl.constexpr,
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "workspace", "Y": "output"})
-def q1_0(W: tl.View[ggml.Q1_0, (N, K)], X: tl.View[tl.f32, (M, K)],
-          Xq: tl.View[ggml.Q8_0, (M, K)], Y: tl.View[tl.f32, (M, N)], BN: tl.constexpr = 8):
+def q1_0(W: tl.View[ggml_formats.Q1_0, (N, K)], X: tl.View[tl.f32, (M, K)],
+          Xq: tl.View[ggml_formats.Q8_0, (M, K)], Y: tl.View[tl.f32, (M, N)], BN: tl.constexpr = 8):
     project(W, X, Xq, Y, M, N, K, BN, True)
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "workspace", "Y": "output"})
-def nvfp4(W: tl.View[ggml.NVFP4, (N, K)], X: tl.View[tl.f32, (M, K)],
-           Xq: tl.View[ggml.Q8_0, (M, K)], codebook: tl.View[tl.i8, (16,)],
+def nvfp4(W: tl.View[ggml_formats.NVFP4, (N, K)], X: tl.View[tl.f32, (M, K)],
+           Xq: tl.View[ggml_formats.Q8_0, (M, K)], codebook: tl.View[tl.i8, (16,)],
            scale: tl.View[tl.f32, (256,)], Y: tl.View[tl.f32, (M, N)], BN: tl.constexpr = 8):
     table = tl.load(codebook)
     project(W, X, Xq, Y, M, N, K, BN, False, table, scale)

@@ -1,66 +1,66 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 from ..quantize import q8_k as quant_q8_k
 import triton
-import triton.language as wl
+import triton.language as tl
 
 
 @triton.jit(model="weft")
 def production_mul_mat_q3_k_predecoded_scales(
-    W: wl.View[ggml.Q3_K, (N, K)],
-    X: wl.View[wl.f32, (M, K)],
-    Xq: wl.View[ggml.Q8_K, (M, K)],
-    Y: wl.View[wl.f32, (M, N)],
- *, MC: wl.constexpr, MR: wl.constexpr, NC: wl.constexpr, NR: wl.constexpr):
+    W: tl.View[ggml_formats.Q3_K, (N, K)],
+    X: tl.View[tl.f32, (M, K)],
+    Xq: tl.View[ggml_formats.Q8_K, (M, K)],
+    Y: tl.View[tl.f32, (M, N)],
+ *, MC: tl.constexpr, MR: tl.constexpr, NC: tl.constexpr, NR: tl.constexpr):
     quant_q8_k.quantize_matrix(X, Xq)
-    with wl.level.tiles(N, extent=wl.auto("NC")) as nc:
-        wp = wl.stage(wl.load(W[nc]))
-        with wl.level.tiles(M, extent=wl.auto("MC")) as mc:
-            xp = wl.stage(wl.load(Xq[mc]))
-            with wl.level.cols(nc, group=wl.auto("NR")) as nb:
-                with wl.level.rows(mc, group=wl.auto("MR")) as mb:
-                    acc = wl.state(wl.f32, [MR, NR], init=wl.f32(0.0))
-                    with wl.level.blocks(K, extent=256) as kb:
+    with tl.level.tiles(N, extent=tl.auto("NC")) as nc:
+        wp = tl.stage(tl.load(W[nc]))
+        with tl.level.tiles(M, extent=tl.auto("MC")) as mc:
+            xp = tl.stage(tl.load(Xq[mc]))
+            with tl.level.cols(nc, group=tl.auto("NR")) as nb:
+                with tl.level.rows(mc, group=tl.auto("MR")) as mb:
+                    acc = tl.state(tl.f32, [MR, NR], init=tl.f32(0.0))
+                    with tl.level.blocks(K, extent=256) as kb:
                         w = wp[nb, kb]
                         x = xp[mb, kb]
-                        decoded_scales = wl.stage(
-                            wl.i8(
+                        decoded_scales = tl.stage(
+                            tl.i8(
                                 (
-                                    wl.u8(wp[nb, kb].scale_low)
-                                    | wl.u8(wp[nb, kb].scale_high) << wl.u8(4)
+                                    tl.u8(wp[nb, kb].scale_low)
+                                    | tl.u8(wp[nb, kb].scale_high) << tl.u8(4)
                                 )
-                                - wl.u8(32)
+                                - tl.u8(32)
                             )
                         )
-                        integer_acc = wl.state(wl.i32, [MR, NR], init=wl.i32(0))
-                        half_index = wl.index(0)
-                        with wl.level.subtiles(kb, extent=128) as half:
-                            plane = wl.arange(0, 4, dtype=wl.u8)
-                            scale_part = wl.arange(0, 2, dtype=wl.u8)
-                            lane = wl.arange(0, 16, dtype=wl.u8, axis="k")
+                        integer_acc = tl.state(tl.i32, [MR, NR], init=tl.i32(0))
+                        half_index = tl.index(0)
+                        with tl.level.subtiles(kb, extent=128) as half:
+                            plane = tl.arange(0, 4, dtype=tl.u8)
+                            scale_part = tl.arange(0, 2, dtype=tl.u8)
+                            lane = tl.arange(0, 16, dtype=tl.u8, axis="k")
                             coordinate = (
-                                wl.u8(half_index) * wl.u8(128)
-                                + plane * wl.u8(32)
-                                + scale_part * wl.u8(16)
+                                tl.u8(half_index) * tl.u8(128)
+                                + plane * tl.u8(32)
+                                + scale_part * tl.u8(16)
                                 + lane
                             )
-                            q = wl.i8(
-                                wl.u8(w.q[:, coordinate])
-                                | wl.u8(w.hmask[:, coordinate]) << wl.u8(2)
-                            ) - wl.i8(4)
-                            products = wl.reduce_dot(x.q[:, coordinate], q, over="k", acc_dtype=wl.i32)
+                            q = tl.i8(
+                                tl.u8(w.q[:, coordinate])
+                                | tl.u8(w.hmask[:, coordinate]) << tl.u8(2)
+                            ) - tl.i8(4)
+                            products = tl.reduce_dot(x.q[:, coordinate], q, over="k", acc_dtype=tl.i32)
                             scale_coordinate = (
-                                wl.u8(half_index) * wl.u8(8)
-                                + plane * wl.u8(2)
+                                tl.u8(half_index) * tl.u8(8)
+                                + plane * tl.u8(2)
                                 + scale_part
                             )
-                            scale = wl.i32(decoded_scales[:, scale_coordinate])
-                            integer_acc += wl.reduce(
-                                wl.reduce(products * scale, axis=1), axis=1
+                            scale = tl.i32(decoded_scales[:, scale_coordinate])
+                            integer_acc += tl.reduce(
+                                tl.reduce(products * scale, axis=1), axis=1
                             )
-                            half_index += wl.index(1)
+                            half_index += tl.index(1)
                         acc += (
-                            wl.f32(x.ds) * wl.f32(w.d) * wl.widen(integer_acc, wl.f32)
+                            tl.f32(x.ds) * tl.f32(w.d) * tl.widen(integer_acc, tl.f32)
                         )
-                    wl.store(Y[mb, nb], acc)
+                    tl.store(Y[mb, nb], acc)

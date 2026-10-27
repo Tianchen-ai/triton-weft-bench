@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 import triton
 import triton.language as tl
 
@@ -22,22 +22,22 @@ def decode_records(W, Y, K, RECORDS: tl.constexpr, CENTER: tl.constexpr,
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def q4_0_records(W: tl.View[ggml.Q4_0, (K,)], Y: tl.View[tl.f32, (K,)], RECORDS: tl.constexpr = 4):
+def q4_0_records(W: tl.View[ggml_formats.Q4_0, (K,)], Y: tl.View[tl.f32, (K,)], RECORDS: tl.constexpr = 4):
     decode_records(W, Y, K, RECORDS, 8, False, False)
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def q4_1_records(W: tl.View[ggml.Q4_1, (K,)], Y: tl.View[tl.f32, (K,)], RECORDS: tl.constexpr = 4):
+def q4_1_records(W: tl.View[ggml_formats.Q4_1, (K,)], Y: tl.View[tl.f32, (K,)], RECORDS: tl.constexpr = 4):
     decode_records(W, Y, K, RECORDS, 0, False, True)
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def q5_0_records(W: tl.View[ggml.Q5_0, (K,)], Y: tl.View[tl.f32, (K,)], RECORDS: tl.constexpr = 4):
+def q5_0_records(W: tl.View[ggml_formats.Q5_0, (K,)], Y: tl.View[tl.f32, (K,)], RECORDS: tl.constexpr = 4):
     decode_records(W, Y, K, RECORDS, 16, True, False)
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def q5_1_records(W: tl.View[ggml.Q5_1, (K,)], Y: tl.View[tl.f32, (K,)], RECORDS: tl.constexpr = 4):
+def q5_1_records(W: tl.View[ggml_formats.Q5_1, (K,)], Y: tl.View[tl.f32, (K,)], RECORDS: tl.constexpr = 4):
     decode_records(W, Y, K, RECORDS, 0, True, True)
 
 
@@ -58,19 +58,19 @@ def decode_codebook_records(W, codebook, scales, Y, K,
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def iq4_nl_records(W: tl.View[ggml.IQ4_NL, (K,)], codebook: tl.View[tl.i8, (16,)],
+def iq4_nl_records(W: tl.View[ggml_formats.IQ4_NL, (K,)], codebook: tl.View[tl.i8, (16,)],
                    Y: tl.View[tl.f32, (K,)], RECORDS: tl.constexpr = 2):
     decode_codebook_records(W, codebook, None, Y, K, RECORDS, False)
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def mxfp4_records(W: tl.View[ggml.MXFP4, (K,)], codebook: tl.View[tl.i8, (16,)],
+def mxfp4_records(W: tl.View[ggml_formats.MXFP4, (K,)], codebook: tl.View[tl.i8, (16,)],
                   scale: tl.View[tl.f32, (256,)], Y: tl.View[tl.f32, (K,)], RECORDS: tl.constexpr = 2):
     decode_codebook_records(W, codebook, scale, Y, K, RECORDS, True)
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def q8_0(W: tl.View[ggml.Q8_0, (K,)], Y: tl.View[tl.f32, (K,)], LANES: tl.constexpr = 8,
+def q8_0(W: tl.View[ggml_formats.Q8_0, (K,)], Y: tl.View[tl.f32, (K,)], LANES: tl.constexpr = 8,
          CACHE: tl.constexpr = ""):
     tl.static_assert(LANES == 4 or LANES == 8 or LANES == 16)
     with tl.level.blocks(K, extent=32) as block:
@@ -84,7 +84,7 @@ def q8_0(W: tl.View[ggml.Q8_0, (K,)], Y: tl.View[tl.f32, (K,)], LANES: tl.conste
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def iq1_s(W: tl.View[ggml.IQ1_S, (K,)], grid: tl.View[tl.i8, (16384,)],
+def iq1_s(W: tl.View[ggml_formats.IQ1_S, (K,)], grid: tl.View[tl.i8, (16384,)],
           Y: tl.View[tl.f32, (K,)], ENTRIES: tl.constexpr = 8, CACHE: tl.constexpr = ""):
     """Decode bounded entry tiles from one immutable record snapshot."""
     tl.static_assert(ENTRIES == 4 or ENTRIES == 8 or ENTRIES == 16)
@@ -107,7 +107,7 @@ def iq1_s(W: tl.View[ggml.IQ1_S, (K,)], grid: tl.View[tl.i8, (16384,)],
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def tq2_0(W: tl.View[ggml.TQ2_0, (K,)], Y: tl.View[tl.f32, (K,)], LANES: tl.constexpr = 32):
+def tq2_0(W: tl.View[ggml_formats.TQ2_0, (K,)], Y: tl.View[tl.f32, (K,)], LANES: tl.constexpr = 32):
     tl.static_assert(LANES == 16 or LANES == 32 or LANES == 64)
     lane = tl.arange(0, LANES, dtype=tl.u16, axis="k")
     with tl.level.blocks(K, extent=256) as block:
@@ -118,7 +118,7 @@ def tq2_0(W: tl.View[ggml.TQ2_0, (K,)], Y: tl.View[tl.f32, (K,)], LANES: tl.cons
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def q2_k(W: tl.View[ggml.Q2_K, (K,)], Y: tl.View[tl.f32, (K,)], GROUPS: tl.constexpr = 2,
+def q2_k(W: tl.View[ggml_formats.Q2_K, (K,)], Y: tl.View[tl.f32, (K,)], GROUPS: tl.constexpr = 2,
          CACHE: tl.constexpr = ""):
     tl.static_assert(GROUPS == 2 or GROUPS == 4 or GROUPS == 8)
     group = tl.arange(0, GROUPS, dtype=tl.u32, axis="group")

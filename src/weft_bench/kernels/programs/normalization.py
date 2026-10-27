@@ -1,108 +1,108 @@
 from __future__ import annotations
 
 import triton
-import triton.language as wl
+import triton.language as tl
 
 
 @triton.jit(model="weft", strided=("X", "Weight", "Y"),
              alias_groups={"X": "activation", "Y": "activation", "Weight": "parameters"})
-def rms_norm(X: wl.View[wl.f32, (M, N)], Weight: wl.View[wl.f32, (N,)],
-             Y: wl.View[wl.f32, (M, N)], epsilon: wl.f32 = 1e-5, *, BLOCK: wl.constexpr):
+def rms_norm(X: tl.View[tl.f32, (M, N)], Weight: tl.View[tl.f32, (N,)],
+             Y: tl.View[tl.f32, (M, N)], epsilon: tl.f32 = 1e-5, *, BLOCK: tl.constexpr):
     for row in range(M):
-        row_value = wl.load(X[row])
-        squares = wl.reduce(row_value * row_value, op="add", axis="n")
-        inverse = wl.rsqrt(squares / wl.f32(N) + epsilon)
-        with wl.level.blocks(N, extent=wl.auto("BLOCK")) as part:
-            value = wl.load(X[row, part])
-            weight = wl.load(Weight[part])
-            wl.store(Y[row, part], value * inverse * weight)
+        row_value = tl.load(X[row])
+        squares = tl.reduce(row_value * row_value, op="add", axis="n")
+        inverse = tl.rsqrt(squares / tl.f32(N) + epsilon)
+        with tl.level.blocks(N, extent=tl.auto("BLOCK")) as part:
+            value = tl.load(X[row, part])
+            weight = tl.load(Weight[part])
+            tl.store(Y[row, part], value * inverse * weight)
 
 
 @triton.jit(model="weft", strided=("X", "Weight", "Bias", "Y"),
              alias_groups={"X": "activation", "Y": "activation",
                            "Weight": "parameters", "Bias": "parameters"})
-def layer_norm(X: wl.View[wl.f32, (M, N)], Weight: wl.View[wl.f32, (N,)],
-               Bias: wl.View[wl.f32, (N,)], Y: wl.View[wl.f32, (M, N)],
-               epsilon: wl.f32 = 1e-5, *, BLOCK: wl.constexpr):
+def layer_norm(X: tl.View[tl.f32, (M, N)], Weight: tl.View[tl.f32, (N,)],
+               Bias: tl.View[tl.f32, (N,)], Y: tl.View[tl.f32, (M, N)],
+               epsilon: tl.f32 = 1e-5, *, BLOCK: tl.constexpr):
     for row in range(M):
-        total = wl.reduce(wl.load(X[row]), op="add", axis="n")
-        mean = total / wl.f32(N)
-        centered = wl.load(X[row]) - mean
-        squares = wl.reduce(centered * centered, op="add", axis="n")
-        inverse = wl.rsqrt(squares / wl.f32(N) + epsilon)
-        with wl.level.blocks(N, extent=wl.auto("BLOCK")) as part:
-            value = wl.load(X[row, part])
-            weight = wl.load(Weight[part])
-            bias = wl.load(Bias[part])
-            wl.store(Y[row, part], (value - mean) * inverse * weight + bias)
+        total = tl.reduce(tl.load(X[row]), op="add", axis="n")
+        mean = total / tl.f32(N)
+        centered = tl.load(X[row]) - mean
+        squares = tl.reduce(centered * centered, op="add", axis="n")
+        inverse = tl.rsqrt(squares / tl.f32(N) + epsilon)
+        with tl.level.blocks(N, extent=tl.auto("BLOCK")) as part:
+            value = tl.load(X[row, part])
+            weight = tl.load(Weight[part])
+            bias = tl.load(Bias[part])
+            tl.store(Y[row, part], (value - mean) * inverse * weight + bias)
 
 
 @triton.jit(model="weft", strided=("X", "Residual", "Weight", "Y"),
              alias_groups={"X": "activation", "Residual": "activation",
                            "Y": "activation", "Weight": "parameters"})
-def residual_rms_norm(X: wl.View[wl.f32, (M, N)], Residual: wl.View[wl.f32, (M, N)],
-                      Weight: wl.View[wl.f32, (N,)], Y: wl.View[wl.f32, (M, N)],
-                      epsilon: wl.f32 = 1e-5, *, BLOCK: wl.constexpr):
+def residual_rms_norm(X: tl.View[tl.f32, (M, N)], Residual: tl.View[tl.f32, (M, N)],
+                      Weight: tl.View[tl.f32, (N,)], Y: tl.View[tl.f32, (M, N)],
+                      epsilon: tl.f32 = 1e-5, *, BLOCK: tl.constexpr):
     for row in range(M):
-        row_value = wl.load(X[row]) + wl.load(Residual[row])
-        squares = wl.reduce(row_value * row_value, op="add", axis="n")
-        inverse = wl.rsqrt(squares / wl.f32(N) + epsilon)
-        with wl.level.blocks(N, extent=wl.auto("BLOCK")) as part:
-            value = wl.load(X[row, part]) + wl.load(Residual[row, part])
-            wl.store(Y[row, part], value * inverse * wl.load(Weight[part]))
+        row_value = tl.load(X[row]) + tl.load(Residual[row])
+        squares = tl.reduce(row_value * row_value, op="add", axis="n")
+        inverse = tl.rsqrt(squares / tl.f32(N) + epsilon)
+        with tl.level.blocks(N, extent=tl.auto("BLOCK")) as part:
+            value = tl.load(X[row, part]) + tl.load(Residual[row, part])
+            tl.store(Y[row, part], value * inverse * tl.load(Weight[part]))
 
 
 @triton.jit(model="weft", strided=("X", "Weight", "Y"),
              alias_groups={"X": "activation", "Y": "activation", "Weight": "parameters"})
-def rms_norm_row(X: wl.View[wl.f32, (M, N)], Weight: wl.View[wl.f32, (N,)],
-                 Y: wl.View[wl.f32, (M, N)], epsilon: wl.f32 = 1e-5, *, N: wl.constexpr):
+def rms_norm_row(X: tl.View[tl.f32, (M, N)], Weight: tl.View[tl.f32, (N,)],
+                 Y: tl.View[tl.f32, (M, N)], epsilon: tl.f32 = 1e-5, *, N: tl.constexpr):
     for row in range(M):
-        with wl.level.blocks(N, extent=wl.auto("N")) as columns:
-            value = wl.load(X[row, columns])
-            squares = wl.reduce(value * value, op="add", axis="n")
-            inverse = wl.rsqrt(squares / wl.f32(N) + epsilon)
-            wl.store(Y[row, columns], value * inverse * wl.load(Weight[columns]))
+        with tl.level.blocks(N, extent=tl.auto("N")) as columns:
+            value = tl.load(X[row, columns])
+            squares = tl.reduce(value * value, op="add", axis="n")
+            inverse = tl.rsqrt(squares / tl.f32(N) + epsilon)
+            tl.store(Y[row, columns], value * inverse * tl.load(Weight[columns]))
 
 
 @triton.jit(model="weft", strided=("X", "Weight", "Bias", "Y"),
              alias_groups={"X": "activation", "Y": "activation",
                            "Weight": "parameters", "Bias": "parameters"})
-def layer_norm_row(X: wl.View[wl.f32, (M, N)], Weight: wl.View[wl.f32, (N,)],
-                   Bias: wl.View[wl.f32, (N,)], Y: wl.View[wl.f32, (M, N)],
-                   epsilon: wl.f32 = 1e-5, *, N: wl.constexpr):
+def layer_norm_row(X: tl.View[tl.f32, (M, N)], Weight: tl.View[tl.f32, (N,)],
+                   Bias: tl.View[tl.f32, (N,)], Y: tl.View[tl.f32, (M, N)],
+                   epsilon: tl.f32 = 1e-5, *, N: tl.constexpr):
     for row in range(M):
-        with wl.level.blocks(N, extent=wl.auto("N")) as columns:
-            value = wl.load(X[row, columns])
-            mean = wl.reduce(value, op="add", axis="n") / wl.f32(N)
+        with tl.level.blocks(N, extent=tl.auto("N")) as columns:
+            value = tl.load(X[row, columns])
+            mean = tl.reduce(value, op="add", axis="n") / tl.f32(N)
             centered = value - mean
-            squares = wl.reduce(centered * centered, op="add", axis="n")
-            inverse = wl.rsqrt(squares / wl.f32(N) + epsilon)
-            wl.store(Y[row, columns], centered * inverse * wl.load(Weight[columns]) + wl.load(Bias[columns]))
+            squares = tl.reduce(centered * centered, op="add", axis="n")
+            inverse = tl.rsqrt(squares / tl.f32(N) + epsilon)
+            tl.store(Y[row, columns], centered * inverse * tl.load(Weight[columns]) + tl.load(Bias[columns]))
 
 
 @triton.jit(model="weft", strided=("X", "Weight", "Y"),
              alias_groups={"X": "activation", "Y": "activation", "Weight": "parameters"})
-def rms_norm_tile(X: wl.View[wl.f32, (M, N)], Weight: wl.View[wl.f32, (N,)],
-                  Y: wl.View[wl.f32, (M, N)], epsilon: wl.f32 = 1e-5, *, N: wl.constexpr, ROWS: wl.constexpr):
-    with wl.level.blocks(M, extent=wl.auto("ROWS")) as rows:
-        with wl.level.blocks(N, extent=wl.auto("N")) as columns:
-            value = wl.load(X[rows, columns])
-            squares = wl.reduce(value * value, op="add", axis="n")
-            inverse = wl.rsqrt(squares / wl.f32(N) + epsilon)
-            wl.store(Y[rows, columns], value * inverse * wl.load(Weight[columns]))
+def rms_norm_tile(X: tl.View[tl.f32, (M, N)], Weight: tl.View[tl.f32, (N,)],
+                  Y: tl.View[tl.f32, (M, N)], epsilon: tl.f32 = 1e-5, *, N: tl.constexpr, ROWS: tl.constexpr):
+    with tl.level.blocks(M, extent=tl.auto("ROWS")) as rows:
+        with tl.level.blocks(N, extent=tl.auto("N")) as columns:
+            value = tl.load(X[rows, columns])
+            squares = tl.reduce(value * value, op="add", axis="n")
+            inverse = tl.rsqrt(squares / tl.f32(N) + epsilon)
+            tl.store(Y[rows, columns], value * inverse * tl.load(Weight[columns]))
 
 
 @triton.jit(model="weft", strided=("X", "Weight", "Bias", "Y"),
              alias_groups={"X": "activation", "Y": "activation",
                            "Weight": "parameters", "Bias": "parameters"})
-def layer_norm_tile(X: wl.View[wl.f32, (M, N)], Weight: wl.View[wl.f32, (N,)],
-                    Bias: wl.View[wl.f32, (N,)], Y: wl.View[wl.f32, (M, N)],
-                    epsilon: wl.f32 = 1e-5, *, N: wl.constexpr, ROWS: wl.constexpr):
-    with wl.level.blocks(M, extent=wl.auto("ROWS")) as rows:
-        with wl.level.blocks(N, extent=wl.auto("N")) as columns:
-            value = wl.load(X[rows, columns])
-            mean = wl.reduce(value, op="add", axis="n") / wl.f32(N)
+def layer_norm_tile(X: tl.View[tl.f32, (M, N)], Weight: tl.View[tl.f32, (N,)],
+                    Bias: tl.View[tl.f32, (N,)], Y: tl.View[tl.f32, (M, N)],
+                    epsilon: tl.f32 = 1e-5, *, N: tl.constexpr, ROWS: tl.constexpr):
+    with tl.level.blocks(M, extent=tl.auto("ROWS")) as rows:
+        with tl.level.blocks(N, extent=tl.auto("N")) as columns:
+            value = tl.load(X[rows, columns])
+            mean = tl.reduce(value, op="add", axis="n") / tl.f32(N)
             centered = value - mean
-            squares = wl.reduce(centered * centered, op="add", axis="n")
-            inverse = wl.rsqrt(squares / wl.f32(N) + epsilon)
-            wl.store(Y[rows, columns], centered * inverse * wl.load(Weight[columns]) + wl.load(Bias[columns]))
+            squares = tl.reduce(centered * centered, op="add", axis="n")
+            inverse = tl.rsqrt(squares / tl.f32(N) + epsilon)
+            tl.store(Y[rows, columns], centered * inverse * tl.load(Weight[columns]) + tl.load(Bias[columns]))

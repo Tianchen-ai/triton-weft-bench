@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 import triton
 import triton.language as tl
 
@@ -135,21 +135,21 @@ def compute_iq2_xxs(W, X, grid, signs, K, PAIR_ACCUM: tl.constexpr = False):
 
 
 @triton.jit(model="weft")
-def iq1_s(W: tl.View[ggml.IQ1_S, (K,)], X: tl.View[ggml.Q8_K, (K,)],
-          grid: tl.View[ggml.I8X8, (2048, 8)], Y: tl.View[tl.f32, (1,)]):
+def iq1_s(W: tl.View[ggml_formats.IQ1_S, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)],
+          grid: tl.View[ggml_formats.I8X8, (2048, 8)], Y: tl.View[tl.f32, (1,)]):
     tl.store(Y[0], compute_iq1_s(W, X, grid, K))
 
 
 @triton.jit(model="weft")
-def iq1_m(W: tl.View[ggml.IQ1_M, (K,)], X: tl.View[ggml.Q8_K, (K,)],
-          grid: tl.View[ggml.I8X8, (2048, 8)], Y: tl.View[tl.f32, (1,)],
+def iq1_m(W: tl.View[ggml_formats.IQ1_M, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)],
+          grid: tl.View[ggml_formats.I8X8, (2048, 8)], Y: tl.View[tl.f32, (1,)],
           *, DEFERRED: tl.constexpr = False):
     tl.store(Y[0], compute_iq1_m(W, X, grid, K, DEFERRED))
 
 
 @triton.jit(model="weft")
-def iq2_xxs(W: tl.View[ggml.IQ2_XXS, (K,)], X: tl.View[ggml.Q8_K, (K,)],
-            grid: tl.View[ggml.I8X8, (256, 8)], signs: tl.View[ggml.I8X8, (128, 8)],
+def iq2_xxs(W: tl.View[ggml_formats.IQ2_XXS, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)],
+            grid: tl.View[ggml_formats.I8X8, (256, 8)], signs: tl.View[ggml_formats.I8X8, (128, 8)],
             Y: tl.View[tl.f32, (1,)], *, PAIR_ACCUM: tl.constexpr = False):
     tl.store(Y[0], compute_iq2_xxs(W, X, grid, signs, K, PAIR_ACCUM))
 
@@ -177,31 +177,31 @@ def compute_iq2_xs(W, X, grid, signs, K):
 
 
 @triton.jit(model="weft")
-def iq2_xs(W: tl.View[ggml.IQ2_XS, (K,)], X: tl.View[ggml.Q8_K, (K,)],
-           grid: tl.View[ggml.I8X8, (512, 8)], signs: tl.View[ggml.I8X8, (128, 8)],
+def iq2_xs(W: tl.View[ggml_formats.IQ2_XS, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)],
+           grid: tl.View[ggml_formats.I8X8, (512, 8)], signs: tl.View[ggml_formats.I8X8, (128, 8)],
            Y: tl.View[tl.f32, (1,)]):
     tl.store(Y[0], compute_iq2_xs(W, X, grid, signs, K))
 
 
 @triton.jit(model="weft")
-def iq1_s_grid(W: tl.View[ggml.IQ1_S, (rows, K)], X: tl.View[ggml.Q8_K, (K,)],
-              grid: tl.View[ggml.I8X8, (2048, 8)], Y: tl.View[tl.f32, (rows,)]):
+def iq1_s_grid(W: tl.View[ggml_formats.IQ1_S, (rows, K)], X: tl.View[ggml_formats.Q8_K, (K,)],
+              grid: tl.View[ggml_formats.I8X8, (2048, 8)], Y: tl.View[tl.f32, (rows,)]):
     row = tl.program_id(0)
     if row < rows:
         tl.store(Y[row], compute_iq1_s(W[row], X, grid, K))
 
 
 @triton.jit(model="weft")
-def iq1_m_grid(W: tl.View[ggml.IQ1_M, (rows, K)], X: tl.View[ggml.Q8_K, (K,)],
-              grid: tl.View[ggml.I8X8, (2048, 8)], Y: tl.View[tl.f32, (rows,)]):
+def iq1_m_grid(W: tl.View[ggml_formats.IQ1_M, (rows, K)], X: tl.View[ggml_formats.Q8_K, (K,)],
+              grid: tl.View[ggml_formats.I8X8, (2048, 8)], Y: tl.View[tl.f32, (rows,)]):
     row = tl.program_id(0)
     if row < rows:
         tl.store(Y[row], compute_iq1_m(W[row], X, grid, K))
 
 
 @triton.jit(model="weft")
-def iq2_xxs_grid(W: tl.View[ggml.IQ2_XXS, (rows, K)], X: tl.View[ggml.Q8_K, (K,)],
-                grid: tl.View[ggml.I8X8, (256, 8)], signs: tl.View[ggml.I8X8, (128, 8)],
+def iq2_xxs_grid(W: tl.View[ggml_formats.IQ2_XXS, (rows, K)], X: tl.View[ggml_formats.Q8_K, (K,)],
+                grid: tl.View[ggml_formats.I8X8, (256, 8)], signs: tl.View[ggml_formats.I8X8, (128, 8)],
                 Y: tl.View[tl.f32, (rows,)]):
     row = tl.program_id(0)
     if row < rows:
@@ -209,8 +209,8 @@ def iq2_xxs_grid(W: tl.View[ggml.IQ2_XXS, (rows, K)], X: tl.View[ggml.Q8_K, (K,)
 
 
 @triton.jit(model="weft")
-def iq2_xs_grid(W: tl.View[ggml.IQ2_XS, (rows, K)], X: tl.View[ggml.Q8_K, (K,)],
-               grid: tl.View[ggml.I8X8, (512, 8)], signs: tl.View[ggml.I8X8, (128, 8)],
+def iq2_xs_grid(W: tl.View[ggml_formats.IQ2_XS, (rows, K)], X: tl.View[ggml_formats.Q8_K, (K,)],
+               grid: tl.View[ggml_formats.I8X8, (512, 8)], signs: tl.View[ggml_formats.I8X8, (128, 8)],
                Y: tl.View[tl.f32, (rows,)]):
     row = tl.program_id(0)
     if row < rows:

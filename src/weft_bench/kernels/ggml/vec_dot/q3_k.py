@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 import triton
 import triton.language as tl
 
@@ -12,7 +12,7 @@ def scale_at(w, index: tl.constexpr):
 
 
 @triton.jit(noinline=True)
-def compute_lanes(W: tl.View[ggml.Q3_K, (K,)], X: tl.View[ggml.Q8_K, (K,)],
+def compute_lanes(W: tl.View[ggml_formats.Q3_K, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)],
                   *, LANES: tl.constexpr = 32):
     """Keep group-scaled integer products and block-scaled float lanes live."""
     tl.static_assert(LANES == 16 or LANES == 32)
@@ -38,6 +38,6 @@ def compute_lanes(W: tl.View[ggml.Q3_K, (K,)], X: tl.View[ggml.Q8_K, (K,)],
 
 
 @triton.jit(model="weft")
-def dot_lanes(W: tl.View[ggml.Q3_K, (K,)], X: tl.View[ggml.Q8_K, (K,)],
+def dot_lanes(W: tl.View[ggml_formats.Q3_K, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)],
               Y: tl.View[tl.f32, (1,)], *, LANES: tl.constexpr = 32):
     tl.store(Y[0], compute_lanes(W, X, LANES=LANES))

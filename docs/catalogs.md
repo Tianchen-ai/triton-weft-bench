@@ -18,10 +18,32 @@ artifact records actual extension requirements. Conditional paths without a
 counter remain `not_observed`; a source filename, a GEMM workload or an AMX
 buffer name is not instruction-execution evidence.
 
-The four operator catalogs contain SG2044 133, K1 137, K3 A100 133 plus two IME2,
-and x86 146 entries. Unmatched reference cases remain unmatched. `full` suites
+The four operator catalogs contain SG2044 133, K1 137, K3 A100 136 (including two IME2),
+and x86 147 entries. Unmatched reference cases remain unmatched. `full` suites
 explicitly list their members; `show` and a single-case `op` use the same selected
 shape. User `--shape` overrides it explicitly.
+
+## Author programs and Encoding declarations
+
+Every kernel uses `import triton.language as tl`. A GGML workload's numerical
+program is independent of its reference adapter: `ggml_formats.Q4_K` denotes a
+storage Encoding, while the `ggml` implementation in a catalog is a native
+reference library.
+
+| Source location | Responsibility |
+|---|---|
+| Product `triton.integrations.ggml_formats` | Shared GGML base records, fields and byte layout contracts |
+| `weft_bench.kernels.ggml.layouts` | Author-owned IME1/IME2, AMX and row-interleaved Encodings and derive builders |
+| `weft_bench.kernels.ggml.blocks` | Encoded block arithmetic and composed full projections |
+| `weft_bench.kernels.ggml.vec_dot`, `mul_mat`, `quantize` | Explicit candidate algorithms and target-oriented source variants |
+| `weft_bench.kernels.programs` | Normalization, attention, MoE, Mamba and other ordered model programs |
+| `weft_bench.libraries` and `adapters` | Native reference and candidate invocation contracts |
+
+Each layout consumer imports its declaration from `kernels.ggml.layouts`.
+The layout package does not re-export computation kernels. Importing an Encoding
+does not pack inputs; a catalog's persistent preparation or explicit kernel
+produces the storage before it is used. The small `dense/low_bit_contraction.py`
+example retains its two self-contained declarations beside its author program.
 
 ## Local configuration
 

@@ -1,97 +1,97 @@
 from __future__ import annotations
 
 import triton
-import triton.language as wl
+import triton.language as tl
 
 
 @triton.jit(model="weft")
 def symmetric_integer(q, d, zero: int = 0):
-    return wl.f32(wl.i32(q) - wl.i32(zero)) * wl.f32(d)
+    return tl.f32(tl.i32(q) - tl.i32(zero)) * tl.f32(d)
 
 
 @triton.jit(model="weft")
 def min_affine(q, d, minimum):
-    return wl.f32(wl.i32(q)) * wl.f32(d) + wl.f32(minimum)
+    return tl.f32(tl.i32(q)) * tl.f32(d) + tl.f32(minimum)
 
 
 @triton.jit(model="weft")
 def k_superblock(q, scale, d, minimum, dmin):
-    scaled = wl.f32(d) * wl.f32(wl.i32(scale))
-    minimum_scaled = wl.f32(dmin) * wl.f32(wl.i32(minimum))
-    return scaled * wl.f32(wl.i32(q)) - minimum_scaled
+    scaled = tl.f32(d) * tl.f32(tl.i32(scale))
+    minimum_scaled = tl.f32(dmin) * tl.f32(tl.i32(minimum))
+    return scaled * tl.f32(tl.i32(q)) - minimum_scaled
 
 
 @triton.jit(model="weft")
 def ternary_radix(q, d):
-    return wl.f32(wl.i32(q)) * wl.f32(d)
+    return tl.f32(tl.i32(q)) * tl.f32(d)
 
 
 @triton.jit(model="weft")
 def iq_codebook(q, scale):
-    return wl.f32(q) * wl.f32(scale)
+    return tl.f32(q) * tl.f32(scale)
 
 
 @triton.jit(model="weft")
 def fp4_codebook(q, scale):
-    return wl.f32(wl.i32(q)) * wl.f32(scale)
+    return tl.f32(tl.i32(q)) * tl.f32(scale)
 
 
 @triton.jit(model="weft")
 def extract_bits(value, shift, width: int = 1):
     mask = (1 << width) - 1
-    return wl.u32(value) >> wl.u32(shift) & wl.u32(mask)
+    return tl.u32(value) >> tl.u32(shift) & tl.u32(mask)
 
 
 @triton.jit(model="weft")
 def nonlinear_lookup(codebook, code):
-    return wl.lookup(codebook, wl.u32(code), bounds="in_bounds")
+    return tl.lookup(codebook, tl.u32(code), bounds="in_bounds")
 
 
 @triton.jit(model="weft")
 def small_nonlinear_lookup(codebook, code):
-    return wl.lookup(codebook, wl.u8(code), bounds="in_bounds")
+    return tl.lookup(codebook, tl.u8(code), bounds="in_bounds")
 
 
 @triton.jit(model="weft")
 def exponent_scale(table, raw):
-    return wl.lookup(table, wl.u32(raw), bounds="in_bounds")
+    return tl.lookup(table, tl.u32(raw), bounds="in_bounds")
 
 
 @triton.jit(model="weft")
 def radix3_digit_i8(powers, packed, digit):
-    power16 = wl.narrow(
-        wl.lookup(powers, wl.u32(digit), bounds="in_bounds"),
-        wl.u16,
+    power16 = tl.narrow(
+        tl.lookup(powers, tl.u32(digit), bounds="in_bounds"),
+        tl.u16,
         rounding="rtz",
         saturation=False,
     )
-    power = wl.narrow(power16, wl.u8, rounding="rtz", saturation=False)
-    wrapped = power * wl.u8(packed)
-    decoded = wl.narrow(
-        wl.widen(wrapped, wl.u16) * wl.u16(3) >> wl.u16(8),
-        wl.u8,
+    power = tl.narrow(power16, tl.u8, rounding="rtz", saturation=False)
+    wrapped = power * tl.u8(packed)
+    decoded = tl.narrow(
+        tl.widen(wrapped, tl.u16) * tl.u16(3) >> tl.u16(8),
+        tl.u8,
         rounding="rtz",
         saturation=False,
     )
-    return wl.i8(decoded) - wl.i8(1)
+    return tl.i8(decoded) - tl.i8(1)
 
 
 @triton.jit(model="weft")
 def dot_codebook32(q, x, codebook):
-    return wl.reduce_dot(small_nonlinear_lookup(codebook, q), x, over="k", acc_dtype=wl.i32)
+    return tl.reduce_dot(small_nonlinear_lookup(codebook, q), x, over="k", acc_dtype=tl.i32)
 
 
 @triton.jit(model="weft")
 def iq2_xs_entry_reduce(code, metadata, activation, grid, signs, scale_group, payload):
-    code_bits = wl.u16(code)
-    grid_index = code_bits & wl.u16(511)
-    sign_index = code_bits >> wl.u16(9)
-    weight = wl.lookup(grid, grid_index * wl.u16(8) + payload, bounds="in_bounds")
-    sign = wl.lookup(signs, sign_index * wl.u16(8) + payload, bounds="in_bounds")
-    partial = wl.reduce_dot(activation, weight * sign, over=("entry", "payload"), acc_dtype=wl.i32)
-    scale = wl.i32(
-        (wl.widen(metadata, wl.u32) >> scale_group % wl.u32(2) * wl.u32(4) & wl.u32(15))
-        * wl.u32(2)
-        + wl.u32(1)
+    code_bits = tl.u16(code)
+    grid_index = code_bits & tl.u16(511)
+    sign_index = code_bits >> tl.u16(9)
+    weight = tl.lookup(grid, grid_index * tl.u16(8) + payload, bounds="in_bounds")
+    sign = tl.lookup(signs, sign_index * tl.u16(8) + payload, bounds="in_bounds")
+    partial = tl.reduce_dot(activation, weight * sign, over=("entry", "payload"), acc_dtype=tl.i32)
+    scale = tl.i32(
+        (tl.widen(metadata, tl.u32) >> scale_group % tl.u32(2) * tl.u32(4) & tl.u32(15))
+        * tl.u32(2)
+        + tl.u32(1)
     )
-    return wl.reduce(partial * scale, axis="scale_group")
+    return tl.reduce(partial * scale, axis="scale_group")

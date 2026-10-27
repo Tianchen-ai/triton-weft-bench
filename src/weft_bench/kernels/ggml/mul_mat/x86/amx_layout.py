@@ -1,36 +1,11 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 import triton
 import triton.language as tl
-from ...quantize.x86.blocks32 import quantize, BlockSum32
-
-
-@triton.encoding
-class AMXQ4_0:
-    layout = (tl.bitorder.lsb_first, tl.byteorder.little)
-    alignment = 2
-    elements = 32
-    q: tl.u4[32] @ tl.grouped(elements=8) @ tl.bit_layers(elements=4, order=tl.lo_first)
-    d: tl.f16
-
-
-@triton.derive
-def AMXQ4_0Rows(W: tl.View[AMXQ4_0, (N, K)], *, rows: tl.static[int]) -> tl.View[AMXQ4_0Rows[rows], (N, K)]:
-    return tl.interleave(W, rows=rows, field_chunks={"q": 4, "d": 2})
-
-
-@triton.encoding
-class BlockScale32:
-    layout = (tl.bitorder.lsb_first, tl.byteorder.little)
-    alignment = 4
-    elements = 32
-    value: tl.f32
-
-
-@triton.derive
-def BlockScale32Rows(S: tl.View[BlockScale32, (M, K)], *, rows: tl.static[int]) -> tl.View[BlockScale32Rows[rows], (M, K)]:
-    return tl.interleave(S, rows=rows, field_chunks={"value": 4})
+from weft_bench.kernels.ggml.layouts.amx_q4_0 import AMXQ4_0, AMXQ4_0Rows, BlockScale32, BlockScale32Rows
+from weft_bench.kernels.ggml.layouts.activation_sums import BlockSum32
+from ...quantize.x86.blocks32 import quantize
 
 
 @triton.jit
@@ -51,7 +26,7 @@ def compute(W, Xq, Y, N, K, BN: tl.constexpr, Sums=None):
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def q4_0_decode(W: tl.View[AMXQ4_0Rows[16], (N, K)], Xq: tl.View[ggml.Q8_0, (K,)],
+def q4_0_decode(W: tl.View[AMXQ4_0Rows[16], (N, K)], Xq: tl.View[ggml_formats.Q8_0, (K,)],
                 Y: tl.View[tl.f32, (N,)], BN: tl.constexpr = 32, PARTS: tl.constexpr = 1):
     """Consume the CPU backend's existing packed weights and quantized row."""
     tl.static_assert(PARTS == 1 or PARTS == 2)
@@ -69,14 +44,14 @@ def activation_sums(Xq, Sums, K):
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output", "Sums": "scratch"})
-def q4_0_decode_reuse(W: tl.View[AMXQ4_0Rows[16], (N, K)], Xq: tl.View[ggml.Q8_0, (K,)],
+def q4_0_decode_reuse(W: tl.View[AMXQ4_0Rows[16], (N, K)], Xq: tl.View[ggml_formats.Q8_0, (K,)],
                       Y: tl.View[tl.f32, (N,)], Sums: tl.View[BlockSum32, (K,)], BN: tl.constexpr = 64):
     activation_sums(Xq, Sums, K)
     compute(W, Xq, Y, N, K, BN, Sums)
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output", "Sums": "scratch"})
-def q4_0_decode_tile_reuse(W: tl.View[AMXQ4_0Rows[16], (N, K)], Xq: tl.View[ggml.Q8_0, (M, K)],
+def q4_0_decode_tile_reuse(W: tl.View[AMXQ4_0Rows[16], (N, K)], Xq: tl.View[ggml_formats.Q8_0, (M, K)],
                            Y: tl.View[tl.f32, (M, N)], Sums: tl.View[BlockSum32, (K,)], BN: tl.constexpr = 64):
     for row in range(M):
         activation_sums(Xq[row], Sums, K)
@@ -84,7 +59,7 @@ def q4_0_decode_tile_reuse(W: tl.View[AMXQ4_0Rows[16], (N, K)], Xq: tl.View[ggml
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def q4_0_decode_tile(W: tl.View[AMXQ4_0Rows[16], (N, K)], Xq: tl.View[ggml.Q8_0, (M, K)],
+def q4_0_decode_tile(W: tl.View[AMXQ4_0Rows[16], (N, K)], Xq: tl.View[ggml_formats.Q8_0, (M, K)],
                      Y: tl.View[tl.f32, (M, N)], BN: tl.constexpr = 64, PARTS: tl.constexpr = 1):
     tl.static_assert(PARTS == 1 or PARTS == 2)
     for row in range(M):
@@ -117,7 +92,7 @@ def compute_pairs(W, Xq, Y, N, K, BN: tl.constexpr):
 
 @triton.jit(model="weft", alias_groups={"Xq": "workspace", "Y": "output"})
 def q4_0_projection(W: tl.View[AMXQ4_0Rows[16], (N, K)], X: tl.View[tl.f32, (M, K)],
-                    Xq: tl.View[ggml.Q8_0, (M, K)], Y: tl.View[tl.f32, (M, N)],
+                    Xq: tl.View[ggml_formats.Q8_0, (M, K)], Y: tl.View[tl.f32, (M, N)],
                     BN: tl.constexpr = 32):
     for row in range(M):
         quantize(X[row], Xq[row], K, False, 4)
@@ -139,13 +114,13 @@ def compute_rows(W, Xq, Y, M, N, K, BM: tl.constexpr, BN: tl.constexpr):
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"}, strided=("Y",))
-def q4_0_prefill(W: tl.View[AMXQ4_0Rows[16], (N, K)], Xq: tl.View[ggml.Q8_0, (M, K)],
+def q4_0_prefill(W: tl.View[AMXQ4_0Rows[16], (N, K)], Xq: tl.View[ggml_formats.Q8_0, (M, K)],
                  Y: tl.View[tl.f32, (M, N)], BM: tl.constexpr = 4, BN: tl.constexpr = 16):
     compute_rows(W, Xq, Y, M, N, K, BM, BN)
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output", "Scales": "workspace"}, strided=("Y",))
-def q4_0_prefill_scales(W: tl.View[AMXQ4_0Rows[16], (N, K)], Xq: tl.View[ggml.Q8_0, (M, K)],
+def q4_0_prefill_scales(W: tl.View[AMXQ4_0Rows[16], (N, K)], Xq: tl.View[ggml_formats.Q8_0, (M, K)],
                        Y: tl.View[tl.f32, (M, N)], Scales: tl.View[BlockScale32Rows[32], (M, K)],
                        BM: tl.constexpr = 32, BN: tl.constexpr = 32):
     """Share exact widened activation scales across output columns inside the call."""
@@ -165,7 +140,7 @@ def q4_0_prefill_scales(W: tl.View[AMXQ4_0Rows[16], (N, K)], Xq: tl.View[ggml.Q8
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"}, strided=("Y",))
-def q4_0_prefill_tile(W: tl.View[AMXQ4_0Rows[16], (N, K)], Xq: tl.View[ggml.Q8_0, (M, K)],
+def q4_0_prefill_tile(W: tl.View[AMXQ4_0Rows[16], (N, K)], Xq: tl.View[ggml_formats.Q8_0, (M, K)],
                       Y: tl.View[tl.f32, (M, N)], BM: tl.constexpr = 32,
                       M: tl.constexpr = 32, N: tl.constexpr = 32, BN: tl.constexpr = 32):
     """Specialize the framework's complete tile; K and output strides stay dynamic."""
@@ -175,7 +150,7 @@ def q4_0_prefill_tile(W: tl.View[AMXQ4_0Rows[16], (N, K)], Xq: tl.View[ggml.Q8_0
 
 @triton.jit(model="weft", alias_groups={"Xq": "workspace", "Y": "output"})
 def q4_0_prefill_projection(W: tl.View[AMXQ4_0Rows[16], (N, K)], X: tl.View[tl.f32, (M, K)],
-                            Xq: tl.View[ggml.Q8_0, (M, K)], Y: tl.View[tl.f32, (M, N)],
+                            Xq: tl.View[ggml_formats.Q8_0, (M, K)], Y: tl.View[tl.f32, (M, N)],
                             BM: tl.constexpr = 4, BN: tl.constexpr = 16):
     for row in range(M):
         quantize(X[row], Xq[row], K, False, 4)
@@ -184,7 +159,7 @@ def q4_0_prefill_projection(W: tl.View[AMXQ4_0Rows[16], (N, K)], X: tl.View[tl.f
 
 @triton.jit(model="weft", alias_groups={"Xq": "workspace", "Y": "output"})
 def q4_0_tile_projection(W: tl.View[AMXQ4_0Rows[16], (N, K)], X: tl.View[tl.f32, (M, K)],
-                         Xq: tl.View[ggml.Q8_0, (M, K)], Y: tl.View[tl.f32, (M, N)],
+                         Xq: tl.View[ggml_formats.Q8_0, (M, K)], Y: tl.View[tl.f32, (M, N)],
                          BM: tl.constexpr = 32, M: tl.constexpr = 32, N: tl.constexpr = 32):
     tl.static_assert(M == 32 and N == 32)
     for row in range(M):

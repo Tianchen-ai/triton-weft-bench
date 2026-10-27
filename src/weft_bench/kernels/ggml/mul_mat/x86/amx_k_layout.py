@@ -1,42 +1,10 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 import triton
 import triton.language as tl
+from weft_bench.kernels.ggml.layouts.amx_k import AMXQ4_K, AMXQ4_KRows, AMXQ6_K, AMXQ6_KRows
 from ...quantize.q8_k_first import q8_k_quantize_first_absolute
-
-
-@triton.encoding
-class AMXQ4_K:
-    layout = (tl.bitorder.lsb_first, tl.byteorder.little)
-    alignment = 2
-    elements = 256
-    q: tl.u4[256] @ tl.grouped(elements=8) @ tl.bit_layers(elements=4, order=tl.lo_first)
-    scales: tl.u8[8]
-    mins: tl.u8[8]
-    d: tl.f16
-    dmin: tl.f16
-
-
-@triton.derive
-def AMXQ4_KRows(W: tl.View[AMXQ4_K, (N, K)], *, rows: tl.static[int]) -> tl.View[AMXQ4_KRows[rows], (N, K)]:
-    return tl.interleave(W, rows=rows, field_chunks={"q": 4, "scales": 1, "mins": 2, "d": 2, "dmin": 2})
-
-
-@triton.encoding
-class AMXQ6_K:
-    layout = (tl.bitorder.lsb_first, tl.byteorder.little)
-    alignment = 2
-    elements = 256
-    low: tl.u4[256] @ tl.grouped(elements=8) @ tl.bit_layers(elements=4, order=tl.lo_first)
-    high: tl.u2[256] @ tl.grouped(elements=16) @ tl.bit_layers(elements=4, order=tl.lo_first)
-    scales: tl.i8[16]
-    d: tl.f16
-
-
-@triton.derive
-def AMXQ6_KRows(W: tl.View[AMXQ6_K, (N, K)], *, rows: tl.static[int]) -> tl.View[AMXQ6_KRows[rows], (N, K)]:
-    return tl.interleave(W, rows=rows, field_chunks={"low": 4, "high": 4, "scales": 1, "d": 2})
 
 
 @triton.jit
@@ -70,13 +38,13 @@ def compute_q4_k(W, Xq, Y, N, K, BN: tl.constexpr, COHORT: tl.constexpr = 32):
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def q4_k_decode(W: tl.View[AMXQ4_KRows[16], (N, K)], Xq: tl.View[ggml.Q8_K, (K,)],
+def q4_k_decode(W: tl.View[AMXQ4_KRows[16], (N, K)], Xq: tl.View[ggml_formats.Q8_K, (K,)],
                 Y: tl.View[tl.f32, (N,)], BN: tl.constexpr = 128, COHORT: tl.constexpr = 32):
     compute_q4_k(W, Xq, Y, N, K, BN, COHORT)
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def q4_k_decode_group_scales(W: tl.View[AMXQ4_KRows[16], (N, K)], Xq: tl.View[ggml.Q8_K, (K,)],
+def q4_k_decode_group_scales(W: tl.View[AMXQ4_KRows[16], (N, K)], Xq: tl.View[ggml_formats.Q8_K, (K,)],
                              Y: tl.View[tl.f32, (N,)], BN: tl.constexpr = 32):
     with tl.level.cols(N, group=BN) as columns:
         result = tl.state(tl.f32, [BN], init=0)
@@ -102,7 +70,7 @@ def q4_k_decode_group_scales(W: tl.View[AMXQ4_KRows[16], (N, K)], Xq: tl.View[gg
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def q4_k_decode_tile(W: tl.View[AMXQ4_KRows[16], (N, K)], Xq: tl.View[ggml.Q8_K, (M, K)],
+def q4_k_decode_tile(W: tl.View[AMXQ4_KRows[16], (N, K)], Xq: tl.View[ggml_formats.Q8_K, (M, K)],
                      Y: tl.View[tl.f32, (M, N)], BN: tl.constexpr = 128):
     for row in range(M):
         compute_q4_k(W, Xq[row], Y[row], N, K, BN)
@@ -110,14 +78,14 @@ def q4_k_decode_tile(W: tl.View[AMXQ4_KRows[16], (N, K)], Xq: tl.View[ggml.Q8_K,
 
 @triton.jit(model="weft", alias_groups={"Xq": "workspace", "Y": "output"})
 def q4_k_projection(W: tl.View[AMXQ4_KRows[16], (N, K)], X: tl.View[tl.f32, (M, K)],
-                     Xq: tl.View[ggml.Q8_K, (M, K)], Y: tl.View[tl.f32, (M, N)], BN: tl.constexpr = 128):
+                     Xq: tl.View[ggml_formats.Q8_K, (M, K)], Y: tl.View[tl.f32, (M, N)], BN: tl.constexpr = 128):
     for row in range(M):
         q8_k_quantize_first_absolute(X[row], Xq[row])
         compute_q4_k(W, Xq[row], Y[row], N, K, BN)
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def q6_k_decode(W: tl.View[AMXQ6_KRows[16], (N, K)], Xq: tl.View[ggml.Q8_K, (K,)],
+def q6_k_decode(W: tl.View[AMXQ6_KRows[16], (N, K)], Xq: tl.View[ggml_formats.Q8_K, (K,)],
                 Y: tl.View[tl.f32, (N,)], BN: tl.constexpr = 64):
     with tl.level.cols(N, group=BN) as columns:
         result = tl.state(tl.f32, [BN], init=0)
@@ -142,7 +110,7 @@ def q6_k_decode(W: tl.View[AMXQ6_KRows[16], (N, K)], Xq: tl.View[ggml.Q8_K, (K,)
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def q6_k_decode_streaming(W: tl.View[AMXQ6_KRows[16], (N, K)], Xq: tl.View[ggml.Q8_K, (K,)],
+def q6_k_decode_streaming(W: tl.View[AMXQ6_KRows[16], (N, K)], Xq: tl.View[ggml_formats.Q8_K, (K,)],
                           Y: tl.View[tl.f32, (N,)], BN: tl.constexpr = 64,
                           GROUPS: tl.constexpr = 1):
     """Keep group traversal compact while consuming each contiguous scale row."""
@@ -168,7 +136,7 @@ def q6_k_decode_streaming(W: tl.View[AMXQ6_KRows[16], (N, K)], Xq: tl.View[ggml.
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"}, strided=("Y",))
-def q4_k_prefill_tile(W: tl.View[AMXQ4_KRows[16], (N, K)], Xq: tl.View[ggml.Q8_K, (M, K)],
+def q4_k_prefill_tile(W: tl.View[AMXQ4_KRows[16], (N, K)], Xq: tl.View[ggml_formats.Q8_K, (M, K)],
                       Y: tl.View[tl.f32, (M, N)], M: tl.constexpr = 32, N: tl.constexpr = 32,
                       BM: tl.constexpr = 16, BN: tl.constexpr = 32):
     tl.static_assert(M > 0 and N == 32)
@@ -197,7 +165,7 @@ def q4_k_prefill_tile(W: tl.View[AMXQ4_KRows[16], (N, K)], Xq: tl.View[ggml.Q8_K
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"}, strided=("Y",))
-def q6_k_prefill_tile(W: tl.View[AMXQ6_KRows[16], (N, K)], Xq: tl.View[ggml.Q8_K, (M, K)],
+def q6_k_prefill_tile(W: tl.View[AMXQ6_KRows[16], (N, K)], Xq: tl.View[ggml_formats.Q8_K, (M, K)],
                       Y: tl.View[tl.f32, (M, N)], M: tl.constexpr = 32, N: tl.constexpr = 32,
                       BM: tl.constexpr = 16, BN: tl.constexpr = 32):
     tl.static_assert(M == 32 and N == 32)
@@ -224,7 +192,7 @@ def q6_k_prefill_tile(W: tl.View[AMXQ6_KRows[16], (N, K)], Xq: tl.View[ggml.Q8_K
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"}, strided=("Y",))
-def q6_k_prefill_scaled(W: tl.View[AMXQ6_KRows[16], (N, K)], Xq: tl.View[ggml.Q8_K, (M, K)],
+def q6_k_prefill_scaled(W: tl.View[AMXQ6_KRows[16], (N, K)], Xq: tl.View[ggml_formats.Q8_K, (M, K)],
                         Y: tl.View[tl.f32, (M, N)], M: tl.constexpr = 32, N: tl.constexpr = 32,
                         BM: tl.constexpr = 32, BN: tl.constexpr = 32, BK: tl.constexpr = 64):
     tl.static_assert(M == 32 and N == 32)

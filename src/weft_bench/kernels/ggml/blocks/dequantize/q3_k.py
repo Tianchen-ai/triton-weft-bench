@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 import triton
-import triton.language as wl
+import triton.language as tl
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def row_dequantize_q3_k(W: wl.View[ggml.Q3_K, (K,)], Y: wl.View[wl.f32, (K,)]):
-    with wl.level.blocks(K, extent=256) as kb:
-        w = wl.load(W[kb])
-        with wl.level.subtiles(kb, extent=16) as sub:
+def row_dequantize_q3_k(W: tl.View[ggml_formats.Q3_K, (K,)], Y: tl.View[tl.f32, (K,)]):
+    with tl.level.blocks(K, extent=256) as kb:
+        w = tl.load(W[kb])
+        with tl.level.subtiles(kb, extent=16) as sub:
             scale = (
-                wl.i32(w.scale_low[sub]) | wl.i32(w.scale_high[sub]) << wl.u32(4)
-            ) - wl.i32(32)
-            q = wl.i32(w.q[sub]) + wl.i32(w.hmask[sub]) * wl.i32(4) - wl.i32(4)
-            wl.store(Y[kb][sub], wl.f32(w.d) * wl.f32(scale) * wl.f32(q))
+                tl.i32(w.scale_low[sub]) | tl.i32(w.scale_high[sub]) << tl.u32(4)
+            ) - tl.i32(32)
+            q = tl.i32(w.q[sub]) + tl.i32(w.hmask[sub]) * tl.i32(4) - tl.i32(4)
+            tl.store(Y[kb][sub], tl.f32(w.d) * tl.f32(scale) * tl.f32(q))

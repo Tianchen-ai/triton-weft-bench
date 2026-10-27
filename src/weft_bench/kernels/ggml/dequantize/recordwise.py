@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 from ...functions import quantization as quantization
 import triton
 import triton.language as tl
 
 
 @triton.jit(model="weft", alias_groups={"W": "weights", "Y": "output"})
-def q8_0(W: tl.View[ggml.Q8_0, (K,)], Y: tl.View[tl.f32, (K,)]):
+def q8_0(W: tl.View[ggml_formats.Q8_0, (K,)], Y: tl.View[tl.f32, (K,)]):
     """Decode disjoint rows, with the same non-alias contract as GGML."""
     with tl.level.blocks(K, extent=32) as block:
         record = tl.load(W[block])
@@ -15,7 +15,7 @@ def q8_0(W: tl.View[ggml.Q8_0, (K,)], Y: tl.View[tl.f32, (K,)]):
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def q2_k(W: tl.View[ggml.Q2_K, (K,)], Y: tl.View[tl.f32, (K,)]):
+def q2_k(W: tl.View[ggml_formats.Q2_K, (K,)], Y: tl.View[tl.f32, (K,)]):
     with tl.level.blocks(K, extent=256) as block:
         record = tl.load(W[block])
         group = tl.arange(0, 16, dtype=tl.u32, axis="group")
@@ -27,7 +27,7 @@ def q2_k(W: tl.View[ggml.Q2_K, (K,)], Y: tl.View[tl.f32, (K,)]):
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def q3_k(W: tl.View[ggml.Q3_K, (K,)], Y: tl.View[tl.f32, (K,)]):
+def q3_k(W: tl.View[ggml_formats.Q3_K, (K,)], Y: tl.View[tl.f32, (K,)]):
     with tl.level.blocks(K, extent=256) as block:
         record = tl.load(W[block])
         lane = tl.arange(0, 256, dtype=tl.u32, axis="k")
@@ -38,7 +38,7 @@ def q3_k(W: tl.View[ggml.Q3_K, (K,)], Y: tl.View[tl.f32, (K,)]):
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def q5_k(W: tl.View[ggml.Q5_K, (K,)], Y: tl.View[tl.f32, (K,)]):
+def q5_k(W: tl.View[ggml_formats.Q5_K, (K,)], Y: tl.View[tl.f32, (K,)]):
     with tl.level.blocks(K, extent=256) as block:
         record = tl.load(W[block])
         lane = tl.arange(0, 256, dtype=tl.u32, axis="k")
@@ -49,7 +49,7 @@ def q5_k(W: tl.View[ggml.Q5_K, (K,)], Y: tl.View[tl.f32, (K,)]):
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def q4_k(W: tl.View[ggml.Q4_K, (K,)], Y: tl.View[tl.f32, (K,)]):
+def q4_k(W: tl.View[ggml_formats.Q4_K, (K,)], Y: tl.View[tl.f32, (K,)]):
     """Decode one independent record as a Value, preserving GGML scale order."""
     with tl.level.blocks(K, extent=256) as block:
         record = tl.load(W[block])
@@ -62,7 +62,7 @@ def q4_k(W: tl.View[ggml.Q4_K, (K,)], Y: tl.View[tl.f32, (K,)]):
 
 
 @triton.jit(model="weft")
-def q6_k(W: tl.View[ggml.Q6_K, (K,)], Y: tl.View[tl.f32, (K,)]):
+def q6_k(W: tl.View[ggml_formats.Q6_K, (K,)], Y: tl.View[tl.f32, (K,)]):
     """Expose independent bitplanes and scales without a dynamic local gather."""
     with tl.level.blocks(K, extent=256) as block:
         record = tl.load(W[block])
@@ -80,7 +80,7 @@ def store_entries(Y, value, ENTRIES: tl.constexpr, PAYLOAD: tl.constexpr):
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def iq1_s(W: tl.View[ggml.IQ1_S, (K,)], grid: tl.View[tl.i8, (16384,)],
+def iq1_s(W: tl.View[ggml_formats.IQ1_S, (K,)], grid: tl.View[tl.i8, (16384,)],
           Y: tl.View[tl.f32, (K,)]):
     entry = tl.arange(0, 32, dtype=tl.u32, axis="entry")
     payload = tl.arange(0, 8, dtype=tl.u32, axis="payload")
@@ -96,7 +96,7 @@ def iq1_s(W: tl.View[ggml.IQ1_S, (K,)], grid: tl.View[tl.i8, (16384,)],
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def iq1_m(W: tl.View[ggml.IQ1_M, (K,)], grid: tl.View[tl.i8, (16384,)],
+def iq1_m(W: tl.View[ggml_formats.IQ1_M, (K,)], grid: tl.View[tl.i8, (16384,)],
           f16_bits: tl.View[tl.f32, (65536,)], Y: tl.View[tl.f32, (K,)]):
     entry = tl.arange(0, 32, dtype=tl.u32, axis="entry")
     payload = tl.arange(0, 8, dtype=tl.u32, axis="payload")
@@ -122,7 +122,7 @@ def iq1_m(W: tl.View[ggml.IQ1_M, (K,)], grid: tl.View[tl.i8, (16384,)],
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def iq2_s(W: tl.View[ggml.IQ2_S, (K,)], grid: tl.View[tl.i8, (8192,)],
+def iq2_s(W: tl.View[ggml_formats.IQ2_S, (K,)], grid: tl.View[tl.i8, (8192,)],
           Y: tl.View[tl.f32, (K,)]):
     entry = tl.arange(0, 32, dtype=tl.u32, axis="entry")
     payload = tl.arange(0, 8, dtype=tl.u32, axis="payload")
@@ -138,7 +138,7 @@ def iq2_s(W: tl.View[ggml.IQ2_S, (K,)], grid: tl.View[tl.i8, (8192,)],
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def iq2_xs(W: tl.View[ggml.IQ2_XS, (K,)], grid: tl.View[tl.i8, (4096,)],
+def iq2_xs(W: tl.View[ggml_formats.IQ2_XS, (K,)], grid: tl.View[tl.i8, (4096,)],
            signs: tl.View[tl.i8, (1024,)], Y: tl.View[tl.f32, (K,)]):
     entry = tl.arange(0, 32, dtype=tl.u32, axis="entry")
     payload = tl.arange(0, 8, dtype=tl.u32, axis="payload")
@@ -153,7 +153,7 @@ def iq2_xs(W: tl.View[ggml.IQ2_XS, (K,)], grid: tl.View[tl.i8, (4096,)],
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def iq2_xxs(W: tl.View[ggml.IQ2_XXS, (K,)], grid: tl.View[tl.i8, (2048,)],
+def iq2_xxs(W: tl.View[ggml_formats.IQ2_XXS, (K,)], grid: tl.View[tl.i8, (2048,)],
             signs: tl.View[tl.i8, (1024,)], Y: tl.View[tl.f32, (K,)]):
     entry = tl.arange(0, 32, dtype=tl.u32, axis="entry")
     payload = tl.arange(0, 8, dtype=tl.u32, axis="payload")
@@ -171,7 +171,7 @@ def iq2_xxs(W: tl.View[ggml.IQ2_XXS, (K,)], grid: tl.View[tl.i8, (2048,)],
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def iq3_s(W: tl.View[ggml.IQ3_S, (K,)], grid: tl.View[tl.i8, (2048,)],
+def iq3_s(W: tl.View[ggml_formats.IQ3_S, (K,)], grid: tl.View[tl.i8, (2048,)],
           Y: tl.View[tl.f32, (K,)]):
     entry = tl.arange(0, 64, dtype=tl.u32, axis="entry")
     payload = tl.arange(0, 4, dtype=tl.u32, axis="payload")
@@ -185,7 +185,7 @@ def iq3_s(W: tl.View[ggml.IQ3_S, (K,)], grid: tl.View[tl.i8, (2048,)],
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def iq3_xxs(W: tl.View[ggml.IQ3_XXS, (K,)], grid: tl.View[tl.i8, (1024,)],
+def iq3_xxs(W: tl.View[ggml_formats.IQ3_XXS, (K,)], grid: tl.View[tl.i8, (1024,)],
             signs: tl.View[tl.i8, (1024,)], Y: tl.View[tl.f32, (K,)]):
     entry = tl.arange(0, 64, dtype=tl.u32, axis="entry")
     payload = tl.arange(0, 4, dtype=tl.u32, axis="payload")

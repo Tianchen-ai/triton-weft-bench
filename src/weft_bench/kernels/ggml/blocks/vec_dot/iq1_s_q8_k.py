@@ -1,59 +1,59 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 import triton
-import triton.language as wl
+import triton.language as tl
 
 
 @triton.jit(model="weft")
 def compute(
-    W: wl.View[ggml.IQ1_S, (K,)],
-    X: wl.View[ggml.Q8_K, (K,)],
-    grid: wl.View[ggml.I8X8, (2048, 8)],
+    W: tl.View[ggml_formats.IQ1_S, (K,)],
+    X: tl.View[ggml_formats.Q8_K, (K,)],
+    grid: tl.View[ggml_formats.I8X8, (2048, 8)],
 ):
-    result = wl.f32(0.0)
+    result = tl.f32(0.0)
     grid_values = grid.values
-    with wl.level.blocks(K, extent=256) as kb:
-        w = wl.load(W[kb])
-        x = wl.load(X[kb])
-        group = wl.arange(0, 8, dtype=wl.u16, axis="group")
-        entry = wl.arange(0, 4, dtype=wl.u16, axis="entry")
-        payload = wl.arange(0, 8, dtype=wl.u16, axis="payload")
+    with tl.level.blocks(K, extent=256) as kb:
+        w = tl.load(W[kb])
+        x = tl.load(X[kb])
+        group = tl.arange(0, 8, dtype=tl.u16, axis="group")
+        entry = tl.arange(0, 4, dtype=tl.u16, axis="entry")
+        payload = tl.arange(0, 8, dtype=tl.u16, axis="payload")
         metadata = w.qh[group]
-        scale = wl.i32(
-            (metadata >> wl.u16(12) & wl.u16(7)) * wl.u16(2) + wl.u16(1)
+        scale = tl.i32(
+            (metadata >> tl.u16(12) & tl.u16(7)) * tl.u16(2) + tl.u16(1)
         )
-        grid_index = wl.widen(w.q[group * wl.u16(4) + entry], wl.u16) | (
-            metadata >> entry * wl.u16(3) & wl.u16(7)
-        ) << wl.u16(8)
-        weight = wl.lookup(
-            grid_values, grid_index * wl.u16(8) + payload, bounds="in_bounds"
+        grid_index = tl.widen(w.q[group * tl.u16(4) + entry], tl.u16) | (
+            metadata >> entry * tl.u16(3) & tl.u16(7)
+        ) << tl.u16(8)
+        weight = tl.lookup(
+            grid_values, grid_index * tl.u16(8) + payload, bounds="in_bounds"
         )
         activation = x.q[
-            group * wl.u16(32) + entry * wl.u16(8) + payload
+            group * tl.u16(32) + entry * tl.u16(8) + payload
         ]
-        group_sum = wl.reduce_dot(activation, weight, over=("entry", "payload"), acc_dtype=wl.i32)
-        delta = wl.i32((wl.i16(metadata) >> wl.i16(15)) | wl.i16(1))
-        main = wl.reduce(scale * group_sum, axis="group")
-        correction = wl.reduce(
+        group_sum = tl.reduce_dot(activation, weight, over=("entry", "payload"), acc_dtype=tl.i32)
+        delta = tl.i32((tl.i16(metadata) >> tl.i16(15)) | tl.i16(1))
+        main = tl.reduce(scale * group_sum, axis="group")
+        correction = tl.reduce(
             scale
             * delta
             * (
-                wl.i32(x.bsum[group * wl.u16(2)])
-                + wl.i32(x.bsum[group * wl.u16(2) + wl.u16(1)])
+                tl.i32(x.bsum[group * tl.u16(2)])
+                + tl.i32(x.bsum[group * tl.u16(2) + tl.u16(1)])
             ),
             axis="group",
         )
-        combined = wl.f32(main) + wl.f32(0.125) * wl.f32(correction)
-        result += wl.f32(w.d) * wl.f32(x.ds) * combined
+        combined = tl.f32(main) + tl.f32(0.125) * tl.f32(correction)
+        result += tl.f32(w.d) * tl.f32(x.ds) * combined
     return result
 
 
 @triton.jit(model="weft")
 def quantized_vec_dot_iq1_s_q8_k(
-    W: wl.View[ggml.IQ1_S, (K,)],
-    X: wl.View[ggml.Q8_K, (K,)],
-    grid: wl.View[ggml.I8X8, (2048, 8)],
-    Y: wl.View[wl.f32, (1,)],
+    W: tl.View[ggml_formats.IQ1_S, (K,)],
+    X: tl.View[ggml_formats.Q8_K, (K,)],
+    grid: tl.View[ggml_formats.I8X8, (2048, 8)],
+    Y: tl.View[tl.f32, (1,)],
 ):
-    wl.store(Y[0], compute(W, X, grid))
+    tl.store(Y[0], compute(W, X, grid))

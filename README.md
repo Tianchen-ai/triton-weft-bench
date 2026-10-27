@@ -42,12 +42,17 @@ local aliases; installing Bench does not install a compiler, GGML or model weigh
 `weft_bench.kernels` package. Public catalogs contain the selected DSL, shape,
 physical parameters, reference provider and retained hardware evidence:
 
+DSL code uses the standard `tl` alias. GGML base Encodings come from the product's
+`triton.integrations.ggml_formats`; explicit candidate layouts are collected in
+`weft_bench.kernels.ggml.layouts`. The [source map](docs/catalogs.md#author-programs-and-encoding-declarations)
+distinguishes declarations, numerical programs, preparation and reference adapters.
+
 | Target catalog | Registered cases |
 |---|---:|
 | SG2044 | 133 |
 | K1 | 137 |
-| K3 A100 | 133 + 2 IME2 |
-| x86 single-thread | 146 |
+| K3 A100 | 136 (including 2 IME2) |
+| x86 single-thread | 147 |
 
 The [catalog guide](docs/catalogs.md) explains these selections and the 9 model
 package recipes. A GEMM name does not imply matrix hardware: author constraints,

@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 import triton
 import triton.language as tl
 
 
 @triton.jit
-def lane_scaled(W, X: tl.View[ggml.Q8_K, (K,)], CHUNK: tl.constexpr):
+def lane_scaled(W, X: tl.View[ggml_formats.Q8_K, (K,)], CHUNK: tl.constexpr):
     """Keep exact signed products and their group scales in the logical lanes."""
     tl.static_assert(CHUNK == 64 or CHUNK == 128 or CHUNK == 256)
     lane = tl.arange(0, CHUNK, dtype=tl.u32, axis="k")
@@ -27,7 +27,7 @@ def lane_scaled(W, X: tl.View[ggml.Q8_K, (K,)], CHUNK: tl.constexpr):
 
 
 @triton.jit(model="weft")
-def dot(W: tl.View[ggml.Q6_K, (K,)], X: tl.View[ggml.Q8_K, (K,)],
+def dot(W: tl.View[ggml_formats.Q6_K, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)],
         Y: tl.View[tl.f32, (1,)], *, CHUNK: tl.constexpr):
     tl.store(Y[0], lane_scaled(W, X, CHUNK))
 
@@ -48,7 +48,7 @@ def plane_partials(w, x, LANES: tl.constexpr, PLANES: tl.constexpr):
 
 
 @triton.jit
-def deferred_planes(W: tl.View[ggml.Q6_K, (K,)], X: tl.View[ggml.Q8_K, (K,)],
+def deferred_planes(W: tl.View[ggml_formats.Q6_K, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)],
                     LANES: tl.constexpr, PLANES: tl.constexpr):
     """Retain float lanes across the blocks of one encoded row."""
     tl.static_assert(LANES == 32 or LANES == 64 or LANES == 128)
@@ -64,7 +64,7 @@ def deferred_planes(W: tl.View[ggml.Q6_K, (K,)], X: tl.View[ggml.Q8_K, (K,)],
 
 
 @triton.jit(model="weft")
-def dot_deferred_planes(W: tl.View[ggml.Q6_K, (K,)], X: tl.View[ggml.Q8_K, (K,)],
+def dot_deferred_planes(W: tl.View[ggml_formats.Q6_K, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)],
                         Y: tl.View[tl.f32, (1,)], *, LANES: tl.constexpr,
                         PLANES: tl.constexpr, K: tl.constexpr):
     """Specialize a projection width while sharing the dynamic-row program."""
@@ -73,7 +73,7 @@ def dot_deferred_planes(W: tl.View[ggml.Q6_K, (K,)], X: tl.View[ggml.Q8_K, (K,)]
 
 
 @triton.jit(model="weft")
-def dot_deferred(W: tl.View[ggml.Q6_K, (K,)], X: tl.View[ggml.Q8_K, (K,)],
+def dot_deferred(W: tl.View[ggml_formats.Q6_K, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)],
                  Y: tl.View[tl.f32, (1,)], *, LANES: tl.constexpr,
                  PLANES: tl.constexpr):
     """Dynamic K entry for framework workers consuming ordinary GGML rows."""
@@ -81,7 +81,7 @@ def dot_deferred(W: tl.View[ggml.Q6_K, (K,)], X: tl.View[ggml.Q8_K, (K,)],
 
 
 @triton.jit
-def block_scaled(W: tl.View[ggml.Q6_K, (K,)], X: tl.View[ggml.Q8_K, (K,)],
+def block_scaled(W: tl.View[ggml_formats.Q6_K, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)],
                  LANES: tl.constexpr, PLANES: tl.constexpr):
     """Finish each integer block before applying its floating-point scale."""
     tl.static_assert(LANES == 32 or LANES == 64 or LANES == 128)
@@ -96,14 +96,14 @@ def block_scaled(W: tl.View[ggml.Q6_K, (K,)], X: tl.View[ggml.Q8_K, (K,)],
 
 
 @triton.jit(model="weft")
-def dot_block_scaled(W: tl.View[ggml.Q6_K, (K,)], X: tl.View[ggml.Q8_K, (K,)],
+def dot_block_scaled(W: tl.View[ggml_formats.Q6_K, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)],
                      Y: tl.View[tl.f32, (1,)], *, LANES: tl.constexpr,
                      PLANES: tl.constexpr):
     tl.store(Y[0], block_scaled(W, X, LANES, PLANES))
 
 
 @triton.jit
-def stream_scale_groups(W: tl.View[ggml.Q6_K, (K,)], X: tl.View[ggml.Q8_K, (K,)],
+def stream_scale_groups(W: tl.View[ggml_formats.Q6_K, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)],
                         GROUPS: tl.constexpr = 1, UPDATE_K: tl.constexpr = 256):
     tl.static_assert(GROUPS == 1 or GROUPS == 2 or GROUPS == 4 or GROUPS == 8)
     tl.static_assert(UPDATE_K == 128 or UPDATE_K == 256)
@@ -127,14 +127,14 @@ def stream_scale_groups(W: tl.View[ggml.Q6_K, (K,)], X: tl.View[ggml.Q8_K, (K,)]
 
 
 @triton.jit(model="weft")
-def dot_stream_scale_groups(W: tl.View[ggml.Q6_K, (K,)], X: tl.View[ggml.Q8_K, (K,)],
+def dot_stream_scale_groups(W: tl.View[ggml_formats.Q6_K, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)],
                             Y: tl.View[tl.f32, (1,)], *, GROUPS: tl.constexpr = 1,
                             UPDATE_K: tl.constexpr = 256):
     tl.store(Y[0], stream_scale_groups(W, X, GROUPS, UPDATE_K))
 
 
 @triton.jit(model="weft")
-def dot_half_scaled_groups(W: tl.View[ggml.Q6_K, (K,)], X: tl.View[ggml.Q8_K, (K,)],
+def dot_half_scaled_groups(W: tl.View[ggml_formats.Q6_K, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)],
                            Y: tl.View[tl.f32, (1,)]):
     """Eight scale groups per numerical update, with explicit group/K axes."""
     group = tl.arange(0, 8, dtype=tl.u8, axis="group")

@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import triton
-import triton.language as wl
+import triton.language as tl
 
-inf = wl.constexpr(float("inf"))
+inf = tl.constexpr(float("inf"))
 
 
 @triton.jit(model="weft")
-def top_k_f32(X: wl.View[wl.f32, (N,)], out: wl.View[wl.i32, (K_,)]):
-    heap = wl.state(wl.f32, [K_], init=-inf)
-    idx = wl.state(wl.i32, [K_], init=-1)
+def top_k_f32(X: tl.View[tl.f32, (N,)], out: tl.View[tl.i32, (K_,)]):
+    heap = tl.state(tl.f32, [K_], init=-inf)
+    idx = tl.state(tl.i32, [K_], init=-1)
     for i in range(N):
         score = X[i]
         if score > heap[K_ - 1]:
@@ -23,5 +23,5 @@ def top_k_f32(X: wl.View[wl.f32, (N,)], out: wl.View[wl.i32, (K_,)]):
                 heap[j] = heap[j - 1]
                 idx[j] = idx[j - 1]
             heap[pos] = score
-            idx[pos] = wl.i32(i)
-    wl.store(out, idx)
+            idx[pos] = tl.i32(i)
+    tl.store(out, idx)

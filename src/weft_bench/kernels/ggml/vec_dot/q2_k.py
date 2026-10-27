@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 import triton
 import triton.language as tl
 
 
 @triton.jit
-def compute(W: tl.View[ggml.Q2_K, (K,)], X: tl.View[ggml.Q8_K, (K,)]):
+def compute(W: tl.View[ggml_formats.Q2_K, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)]):
     lane = tl.arange(0, 16, dtype=tl.u16, axis="k")
     result = tl.f32(0)
     with tl.level.blocks(K, extent=256) as block:
@@ -28,5 +28,5 @@ def compute(W: tl.View[ggml.Q2_K, (K,)], X: tl.View[ggml.Q8_K, (K,)]):
 
 
 @triton.jit(model="weft")
-def dot(W: tl.View[ggml.Q2_K, (K,)], X: tl.View[ggml.Q8_K, (K,)], Y: tl.View[tl.f32, (1,)]):
+def dot(W: tl.View[ggml_formats.Q2_K, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)], Y: tl.View[tl.f32, (1,)]):
     tl.store(Y[0], compute(W, X))

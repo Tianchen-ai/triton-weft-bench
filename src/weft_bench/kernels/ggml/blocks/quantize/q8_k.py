@@ -1,42 +1,42 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 import triton
-import triton.language as wl
+import triton.language as tl
 
 
 @triton.jit(model="weft")
-def quantize_row(X: wl.View[wl.f32, (K,)], Y: wl.View[ggml.Q8_K, (K,)]):
-    with wl.level.blocks(K, extent=256) as kb:
-        block = wl.load(X[kb])
-        maximum = wl.reduce(block, op="max")
-        minimum = wl.reduce(block, op="min")
+def quantize_row(X: tl.View[tl.f32, (K,)], Y: tl.View[ggml_formats.Q8_K, (K,)]):
+    with tl.level.blocks(K, extent=256) as kb:
+        block = tl.load(X[kb])
+        maximum = tl.reduce(block, op="max")
+        minimum = tl.reduce(block, op="min")
         extreme = minimum
-        if wl.abs(maximum) > wl.abs(minimum):
+        if tl.abs(maximum) > tl.abs(minimum):
             extreme = maximum
-        inverse = wl.f32(0.0)
-        d = wl.f32(0.0)
-        if extreme != wl.f32(0.0):
-            inverse = wl.f32(-127.0) / extreme
-            d = wl.f32(1.0) / inverse
-        with wl.level.subtiles(kb, extent=64) as chunk:
-            group_values = wl.load(X[chunk])
-            q = wl.narrow(
-                group_values * inverse, wl.i8, rounding="rne", saturation=True
+        inverse = tl.f32(0.0)
+        d = tl.f32(0.0)
+        if extreme != tl.f32(0.0):
+            inverse = tl.f32(-127.0) / extreme
+            d = tl.f32(1.0) / inverse
+        with tl.level.subtiles(kb, extent=64) as chunk:
+            group_values = tl.load(X[chunk])
+            q = tl.narrow(
+                group_values * inverse, tl.i8, rounding="rne", saturation=True
             )
-            wl.store(Y[kb].q[chunk], q)
-            with wl.level.subtiles(chunk, extent=16) as group:
-                bsum = wl.reduce(wl.widen(q[group], wl.i16), op="add")
-                wl.store(Y[kb].bsum[group], wl.i16(bsum))
-        wl.store(Y[kb].ds, d)
+            tl.store(Y[kb].q[chunk], q)
+            with tl.level.subtiles(chunk, extent=16) as group:
+                bsum = tl.reduce(tl.widen(q[group], tl.i16), op="add")
+                tl.store(Y[kb].bsum[group], tl.i16(bsum))
+        tl.store(Y[kb].ds, d)
 
 
 @triton.jit(model="weft")
-def quantize_matrix(X: wl.View[wl.f32, (M, K)], Y: wl.View[ggml.Q8_K, (M, K)]):
+def quantize_matrix(X: tl.View[tl.f32, (M, K)], Y: tl.View[ggml_formats.Q8_K, (M, K)]):
     for row in range(M):
         quantize_row(X[row], Y[row])
 
 
 @triton.jit(model="weft")
-def q8_K_quantize(X: wl.View[wl.f32, (K,)], Y: wl.View[ggml.Q8_K, (K,)]):
+def q8_K_quantize(X: tl.View[tl.f32, (K,)], Y: tl.View[ggml_formats.Q8_K, (K,)]):
     quantize_row(X, Y)

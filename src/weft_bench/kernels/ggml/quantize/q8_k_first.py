@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 import triton
 import triton.language as tl
 
 
 @triton.jit(model="weft")
 def q8_k_quantize_first_absolute(
-    X: tl.View[tl.f32, (K,)], Y: tl.View[ggml.Q8_K, (K,)]
+    X: tl.View[tl.f32, (K,)], Y: tl.View[ggml_formats.Q8_K, (K,)]
 ):
     """Quantize finite inputs using the first absolute maximum and RNE."""
     with tl.level.blocks(K, extent=256) as kb:

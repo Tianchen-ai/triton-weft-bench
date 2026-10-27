@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 import triton
 import triton.language as tl
 from .fields import select
@@ -9,7 +9,7 @@ MIN_GROUPS = tl.constexpr(8)
 
 
 @triton.jit
-def compute(W, X: tl.View[ggml.Q8_K, (K,)], LANES: tl.constexpr, ROWS: tl.constexpr = 0,
+def compute(W, X: tl.View[ggml_formats.Q8_K, (K,)], LANES: tl.constexpr, ROWS: tl.constexpr = 0,
             point=None, HIGH: tl.constexpr = False):
     """Scaled pair partials; grouped callers pass their row-domain point."""
     tl.static_assert(LANES == 8 or LANES == 16)
@@ -49,6 +49,6 @@ def compute(W, X: tl.View[ggml.Q8_K, (K,)], LANES: tl.constexpr, ROWS: tl.conste
 
 
 @triton.jit(model="weft")
-def dot(W: tl.View[ggml.Q4_K, (K,)], X: tl.View[ggml.Q8_K, (K,)], Y: tl.View[tl.f32, (1,)],
+def dot(W: tl.View[ggml_formats.Q4_K, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)], Y: tl.View[tl.f32, (1,)],
         *, LANES: tl.constexpr):
     tl.store(Y[0], compute(W, X, LANES))

@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 import triton
 import triton.language as tl
 from ...dequantize.radix import ternary_record
 
 
 @triton.jit
-def compute(W, X: tl.View[ggml.Q8_K, (K,)], powers, PACKED_RADIX: tl.constexpr = True,
+def compute(W, X: tl.View[ggml_formats.Q8_K, (K,)], powers, PACKED_RADIX: tl.constexpr = True,
             RECORDS: tl.constexpr = 2):
     PARTIALS: tl.constexpr = 16
     tl.static_assert(RECORDS == 1 or RECORDS == 2 or RECORDS == 4)
@@ -36,11 +36,11 @@ def compute(W, X: tl.View[ggml.Q8_K, (K,)], powers, PACKED_RADIX: tl.constexpr =
 
 
 @triton.jit(model="weft")
-def tq1_0(W: tl.View[ggml.TQ1_0, (K,)], X: tl.View[ggml.Q8_K, (K,)],
+def tq1_0(W: tl.View[ggml_formats.TQ1_0, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)],
           powers: tl.View[tl.u32, (5,)], Y: tl.View[tl.f32, (1,)], *, RECORDS: tl.constexpr = 2):
     tl.store(Y[0], compute(W, X, powers, True, RECORDS))
 
 
 @triton.jit(model="weft")
-def tq2_0(W: tl.View[ggml.TQ2_0, (K,)], X: tl.View[ggml.Q8_K, (K,)], Y: tl.View[tl.f32, (1,)]):
+def tq2_0(W: tl.View[ggml_formats.TQ2_0, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)], Y: tl.View[tl.f32, (1,)]):
     tl.store(Y[0], compute(W, X, None, False))

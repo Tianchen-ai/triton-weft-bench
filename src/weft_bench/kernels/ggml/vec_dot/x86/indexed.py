@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 import triton
 import triton.language as tl
 from .signs import even_parity_signs
@@ -9,7 +9,7 @@ PARTIALS = tl.constexpr(16)
 
 
 @triton.jit
-def compute_paired(W, X: tl.View[ggml.Q8_K, (K,)], grid,
+def compute_paired(W, X: tl.View[ggml_formats.Q8_K, (K,)], grid,
                    IQ2: tl.constexpr):
     """Keep scaled integer groups across blocks before one float sum."""
     acc = tl.state(tl.f32, [PARTIALS], init=0)
@@ -71,12 +71,12 @@ def compute_paired(W, X: tl.View[ggml.Q8_K, (K,)], grid,
 
 
 @triton.jit
-def compute_iq2_s(W, X: tl.View[ggml.Q8_K, (K,)], grid):
+def compute_iq2_s(W, X: tl.View[ggml_formats.Q8_K, (K,)], grid):
     return compute_paired(W, X, grid, True)
 
 
 @triton.jit
-def compute_iq3_s(W, X: tl.View[ggml.Q8_K, (K,)], grid):
+def compute_iq3_s(W, X: tl.View[ggml_formats.Q8_K, (K,)], grid):
     return compute_paired(W, X, grid, False)
 
 
@@ -104,7 +104,7 @@ def decode_iq3_xxs(w, grid, signs, PARITY: tl.constexpr = False):
 
 
 @triton.jit
-def compute_iq3_xxs(W, X: tl.View[ggml.Q8_K, (K,)], grid):
+def compute_iq3_xxs(W, X: tl.View[ggml_formats.Q8_K, (K,)], grid):
     acc = tl.state(tl.f32, [PARTIALS], init=0)
     with tl.level.blocks(K, extent=256) as block:
         w = tl.load(W[block])
@@ -123,33 +123,33 @@ def compute_iq3_xxs(W, X: tl.View[ggml.Q8_K, (K,)], grid):
 
 
 @triton.jit(model="weft")
-def iq2_s(W: tl.View[ggml.IQ2_S, (K,)], X: tl.View[ggml.Q8_K, (K,)],
-          grid: tl.View[ggml.I8X8, (1024, 8)], Y: tl.View[tl.f32, (1,)]):
+def iq2_s(W: tl.View[ggml_formats.IQ2_S, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)],
+          grid: tl.View[ggml_formats.I8X8, (1024, 8)], Y: tl.View[tl.f32, (1,)]):
     tl.store(Y[0], compute_iq2_s(W, X, grid))
 
 
 @triton.jit(model="weft")
-def iq3_s(W: tl.View[ggml.IQ3_S, (K,)], X: tl.View[ggml.Q8_K, (K,)],
-          grid: tl.View[ggml.I8X4, (512, 4)], Y: tl.View[tl.f32, (1,)]):
+def iq3_s(W: tl.View[ggml_formats.IQ3_S, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)],
+          grid: tl.View[ggml_formats.I8X4, (512, 4)], Y: tl.View[tl.f32, (1,)]):
     tl.store(Y[0], compute_iq3_s(W, X, grid))
 
 
 @triton.jit(model="weft")
-def iq3_xxs(W: tl.View[ggml.IQ3_XXS, (K,)], X: tl.View[ggml.Q8_K, (K,)],
-            grid: tl.View[ggml.I8X4, (256, 4)],
+def iq3_xxs(W: tl.View[ggml_formats.IQ3_XXS, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)],
+            grid: tl.View[ggml_formats.I8X4, (256, 4)],
             Y: tl.View[tl.f32, (1,)]):
     tl.store(Y[0], compute_iq3_xxs(W, X, grid))
 
 
 @triton.jit(model="weft")
-def iq3_xxs_specialized(W: tl.View[ggml.IQ3_XXS, (K,)], X: tl.View[ggml.Q8_K, (K,)],
-                       grid: tl.View[ggml.I8X4, (256, 4)],
+def iq3_xxs_specialized(W: tl.View[ggml_formats.IQ3_XXS, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)],
+                       grid: tl.View[ggml_formats.I8X4, (256, 4)],
                        Y: tl.View[tl.f32, (1,)], *, K: tl.constexpr):
     tl.store(Y[0], compute_iq3_xxs(W, X, grid))
 
 
 @triton.jit(model="weft")
-def specialized_iq2_s(W: tl.View[ggml.IQ2_S, (K,)], X: tl.View[ggml.Q8_K, (K,)],
-                      grid: tl.View[ggml.I8X8, (1024, 8)], Y: tl.View[tl.f32, (1,)],
+def specialized_iq2_s(W: tl.View[ggml_formats.IQ2_S, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)],
+                      grid: tl.View[ggml_formats.I8X8, (1024, 8)], Y: tl.View[tl.f32, (1,)],
                       *, K: tl.constexpr):
     tl.store(Y[0], compute_iq2_s(W, X, grid))

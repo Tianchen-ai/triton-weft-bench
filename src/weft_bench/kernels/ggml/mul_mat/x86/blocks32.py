@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 import triton
 import triton.language as tl
 from ...quantize.x86.blocks32 import quantize
@@ -106,30 +106,30 @@ def project_natural(W, X, Xq, Y, M, N, K, CENTER: tl.constexpr,
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "workspace", "Y": "output"})
-def q4_0(W: tl.View[ggml.Q4_0, (N, K)], X: tl.View[tl.f32, (M, K)],
-         Xq: tl.View[ggml.Q8_0, (M, K)], Y: tl.View[tl.f32, (M, N)]):
+def q4_0(W: tl.View[ggml_formats.Q4_0, (N, K)], X: tl.View[tl.f32, (M, K)],
+         Xq: tl.View[ggml_formats.Q8_0, (M, K)], Y: tl.View[tl.f32, (M, N)]):
     project_natural(W, X, Xq, Y, M, N, K, 8, False, False)
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "workspace", "Y": "output"})
-def q4_1(W: tl.View[ggml.Q4_1, (N, K)], X: tl.View[tl.f32, (M, K)],
-         Xq: tl.View[ggml.Q8_1, (M, K)], Y: tl.View[tl.f32, (M, N)]):
+def q4_1(W: tl.View[ggml_formats.Q4_1, (N, K)], X: tl.View[tl.f32, (M, K)],
+         Xq: tl.View[ggml_formats.Q8_1, (M, K)], Y: tl.View[tl.f32, (M, N)]):
     project_natural(W, X, Xq, Y, M, N, K, 0, False, True)
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "workspace", "Y": "output"})
-def q5_0(W: tl.View[ggml.Q5_0, (N, K)], X: tl.View[tl.f32, (M, K)],
-         Xq: tl.View[ggml.Q8_0, (M, K)], Y: tl.View[tl.f32, (M, N)]):
+def q5_0(W: tl.View[ggml_formats.Q5_0, (N, K)], X: tl.View[tl.f32, (M, K)],
+         Xq: tl.View[ggml_formats.Q8_0, (M, K)], Y: tl.View[tl.f32, (M, N)]):
     project_natural(W, X, Xq, Y, M, N, K, 16, True, False)
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "workspace", "Y": "output"})
-def q5_1(W: tl.View[ggml.Q5_1, (N, K)], X: tl.View[tl.f32, (M, K)],
-         Xq: tl.View[ggml.Q8_1, (M, K)], Y: tl.View[tl.f32, (M, N)]):
+def q5_1(W: tl.View[ggml_formats.Q5_1, (N, K)], X: tl.View[tl.f32, (M, K)],
+         Xq: tl.View[ggml_formats.Q8_1, (M, K)], Y: tl.View[tl.f32, (M, N)]):
     project_natural(W, X, Xq, Y, M, N, K, 0, True, True)
 
 
 @triton.jit(model="weft", alias_groups={"Xq": "workspace", "Y": "output"})
-def q8_0(W: tl.View[ggml.Q8_0, (N, K)], X: tl.View[tl.f32, (M, K)],
-         Xq: tl.View[ggml.Q8_0, (M, K)], Y: tl.View[tl.f32, (M, N)]):
+def q8_0(W: tl.View[ggml_formats.Q8_0, (N, K)], X: tl.View[tl.f32, (M, K)],
+         Xq: tl.View[ggml_formats.Q8_0, (M, K)], Y: tl.View[tl.f32, (M, N)]):
     project_natural(W, X, Xq, Y, M, N, K, 0, False, False, 2)

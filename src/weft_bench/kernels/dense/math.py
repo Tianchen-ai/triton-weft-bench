@@ -2,62 +2,62 @@
 from __future__ import annotations
 
 import triton
-import triton.language as wl
+import triton.language as tl
 
 
 @triton.jit(model="weft", strided=("X", "Y"))
-def exp_nonpositive(X: wl.View[wl.f32, (M, N)], Y: wl.View[wl.f32, (M, N)], *, BLOCK: wl.constexpr):
+def exp_nonpositive(X: tl.View[tl.f32, (M, N)], Y: tl.View[tl.f32, (M, N)], *, BLOCK: tl.constexpr):
     for row in range(M):
-        with wl.level.blocks(N, extent=wl.auto("BLOCK")) as part:
-            wl.store(Y[row, part], wl.exp(-wl.abs(wl.load(X[row, part]))))
+        with tl.level.blocks(N, extent=tl.auto("BLOCK")) as part:
+            tl.store(Y[row, part], tl.exp(-tl.abs(tl.load(X[row, part]))))
 
 
 @triton.jit(model="weft", strided=("X", "Y"))
-def exp_clamped(X: wl.View[wl.f32, (M, N)], Y: wl.View[wl.f32, (M, N)], *, BLOCK: wl.constexpr):
+def exp_clamped(X: tl.View[tl.f32, (M, N)], Y: tl.View[tl.f32, (M, N)], *, BLOCK: tl.constexpr):
     for row in range(M):
-        with wl.level.blocks(N, extent=wl.auto("BLOCK")) as part:
-            value = wl.maximum(wl.minimum(wl.load(X[row, part]), 87.0), -87.0)
-            wl.store(Y[row, part], wl.exp(value))
+        with tl.level.blocks(N, extent=tl.auto("BLOCK")) as part:
+            value = tl.maximum(tl.minimum(tl.load(X[row, part]), 87.0), -87.0)
+            tl.store(Y[row, part], tl.exp(value))
 
 
 @triton.jit(model="weft", strided=("X", "Y"))
-def log_clamped(X: wl.View[wl.f32, (M, N)], Y: wl.View[wl.f32, (M, N)], *, BLOCK: wl.constexpr):
+def log_clamped(X: tl.View[tl.f32, (M, N)], Y: tl.View[tl.f32, (M, N)], *, BLOCK: tl.constexpr):
     for row in range(M):
-        with wl.level.blocks(N, extent=wl.auto("BLOCK")) as part:
-            value = wl.maximum(wl.minimum(wl.load(X[row, part]), 1.2676506002282294e30), 7.888609052210118e-31)
-            wl.store(Y[row, part], wl.log(value))
+        with tl.level.blocks(N, extent=tl.auto("BLOCK")) as part:
+            value = tl.maximum(tl.minimum(tl.load(X[row, part]), 1.2676506002282294e30), 7.888609052210118e-31)
+            tl.store(Y[row, part], tl.log(value))
 
 
 @triton.jit(model="weft", strided=("X", "Y"))
-def log_exp_normalizer(X: wl.View[wl.f32, (M, N)], Y: wl.View[wl.f32, (M, N)], *, BLOCK: wl.constexpr):
+def log_exp_normalizer(X: tl.View[tl.f32, (M, N)], Y: tl.View[tl.f32, (M, N)], *, BLOCK: tl.constexpr):
     for row in range(M):
-        with wl.level.blocks(N, extent=wl.auto("BLOCK")) as part:
-            wl.store(Y[row, part], wl.log(1.0 + wl.exp(-wl.abs(wl.load(X[row, part])))))
+        with tl.level.blocks(N, extent=tl.auto("BLOCK")) as part:
+            tl.store(Y[row, part], tl.log(1.0 + tl.exp(-tl.abs(tl.load(X[row, part])))))
 
 
 @triton.jit(model="weft", strided=("X", "Y"))
-def selected_exp(X: wl.View[wl.f32, (M, N)], Y: wl.View[wl.f32, (M, N)], *, BLOCK: wl.constexpr):
+def selected_exp(X: tl.View[tl.f32, (M, N)], Y: tl.View[tl.f32, (M, N)], *, BLOCK: tl.constexpr):
     for row in range(M):
-        with wl.level.blocks(N, extent=wl.auto("BLOCK")) as part:
-            value = wl.load(X[row, part])
-            upper = wl.select(value > 5.0, 5.0, value)
-            bounded = wl.select(upper < -5.0, -5.0, upper)
-            wl.store(Y[row, part], wl.exp(bounded))
+        with tl.level.blocks(N, extent=tl.auto("BLOCK")) as part:
+            value = tl.load(X[row, part])
+            upper = tl.select(value > 5.0, 5.0, value)
+            bounded = tl.select(upper < -5.0, -5.0, upper)
+            tl.store(Y[row, part], tl.exp(bounded))
 
 
 @triton.jit(model="weft", strided=("X", "Y"))
-def masked_exp(X: wl.View[wl.f32, (M, N)], Y: wl.View[wl.f32, (M, N)], *, BLOCK: wl.constexpr):
+def masked_exp(X: tl.View[tl.f32, (M, N)], Y: tl.View[tl.f32, (M, N)], *, BLOCK: tl.constexpr):
     for row in range(M):
-        with wl.level.blocks(N, extent=wl.auto("BLOCK")) as part:
-            value = wl.load(X[row, part])
+        with tl.level.blocks(N, extent=tl.auto("BLOCK")) as part:
+            value = tl.load(X[row, part])
             in_range = (value >= -5.0) & (value <= 5.0)
-            wl.store(Y[row, part], wl.exp(wl.select(in_range, value, 0.0)))
+            tl.store(Y[row, part], tl.exp(tl.select(in_range, value, 0.0)))
 
 
 @triton.jit(model="weft", strided=("X", "Y"))
-def complemented_exp(X: wl.View[wl.f32, (M, N)], Y: wl.View[wl.f32, (M, N)], *, BLOCK: wl.constexpr):
+def complemented_exp(X: tl.View[tl.f32, (M, N)], Y: tl.View[tl.f32, (M, N)], *, BLOCK: tl.constexpr):
     for row in range(M):
-        with wl.level.blocks(N, extent=wl.auto("BLOCK")) as part:
-            value = wl.load(X[row, part])
-            outside = ((value >= -5.0) & (value <= 5.0)) ^ wl.i1(True)
-            wl.store(Y[row, part], wl.exp(wl.select(outside, 0.0, value)))
+        with tl.level.blocks(N, extent=tl.auto("BLOCK")) as part:
+            value = tl.load(X[row, part])
+            outside = ((value >= -5.0) & (value <= 5.0)) ^ tl.i1(True)
+            tl.store(Y[row, part], tl.exp(tl.select(outside, 0.0, value)))

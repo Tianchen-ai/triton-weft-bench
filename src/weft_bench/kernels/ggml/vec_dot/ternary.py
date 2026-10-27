@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 import triton
 import triton.language as tl
 
 
 @triton.jit
-def compute_tq2(W: tl.View[ggml.TQ2_0, (K,)], X: tl.View[ggml.Q8_K, (K,)],
+def compute_tq2(W: tl.View[ggml_formats.TQ2_0, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)],
                 LANES: tl.constexpr, DEFERRED: tl.constexpr = False):
     """Consume bounded code windows and the activation's stored group sums."""
     tl.static_assert(LANES == 16 or LANES == 32 or LANES == 64 or LANES == 128)
@@ -33,13 +33,13 @@ def compute_tq2(W: tl.View[ggml.TQ2_0, (K,)], X: tl.View[ggml.Q8_K, (K,)],
 
 
 @triton.jit(model="weft")
-def tq2_0(W: tl.View[ggml.TQ2_0, (K,)], X: tl.View[ggml.Q8_K, (K,)],
+def tq2_0(W: tl.View[ggml_formats.TQ2_0, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)],
           Y: tl.View[tl.f32, (1,)], *, LANES: tl.constexpr, DEFERRED: tl.constexpr = False):
     tl.store(Y[0], compute_tq2(W, X, LANES, DEFERRED))
 
 
 @triton.jit
-def compute_tq1(W: tl.View[ggml.TQ1_0, (K,)], X: tl.View[ggml.Q8_K, (K,)],
+def compute_tq1(W: tl.View[ggml_formats.TQ1_0, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)],
                 powers: tl.View[tl.u32, (5,)]):
     result = tl.f32(0)
     with tl.level.blocks(K, extent=256) as block:
@@ -74,6 +74,6 @@ def compute_tq1(W: tl.View[ggml.TQ1_0, (K,)], X: tl.View[ggml.Q8_K, (K,)],
 
 
 @triton.jit(model="weft")
-def tq1_0(W: tl.View[ggml.TQ1_0, (K,)], X: tl.View[ggml.Q8_K, (K,)],
+def tq1_0(W: tl.View[ggml_formats.TQ1_0, (K,)], X: tl.View[ggml_formats.Q8_K, (K,)],
           powers: tl.View[tl.u32, (5,)], Y: tl.View[tl.f32, (1,)]):
     tl.store(Y[0], compute_tq1(W, X, powers))

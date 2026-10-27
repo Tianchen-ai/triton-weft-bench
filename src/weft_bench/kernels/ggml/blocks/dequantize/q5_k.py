@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 from ....functions import quantization as qf
 import triton
-import triton.language as wl
+import triton.language as tl
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
-def row_dequantize_q5_k(W: wl.View[ggml.Q5_K, (K,)], Y: wl.View[wl.f32, (K,)]):
-    with wl.level.blocks(K, extent=256) as kb:
-        w = wl.load(W[kb])
-        with wl.level.subtiles(kb, extent=32) as sub:
-            q = wl.i32(w.q[sub]) | wl.i32(w.qh[sub]) << wl.u32(4)
-            wl.store(Y[kb][sub], qf.k_superblock(q, w.sc[sub], w.d, w.m[sub], w.dmin))
+def row_dequantize_q5_k(W: tl.View[ggml_formats.Q5_K, (K,)], Y: tl.View[tl.f32, (K,)]):
+    with tl.level.blocks(K, extent=256) as kb:
+        w = tl.load(W[kb])
+        with tl.level.subtiles(kb, extent=32) as sub:
+            q = tl.i32(w.q[sub]) | tl.i32(w.qh[sub]) << tl.u32(4)
+            tl.store(Y[kb][sub], qf.k_superblock(q, w.sc[sub], w.d, w.m[sub], w.dmin))

@@ -82,7 +82,8 @@ def catalog_example(request):
 
     def returned(frame, event, argument):
         if event == "return" and frame.f_code.co_name == "main" and Path(frame.f_code.co_filename).resolve() == source:
-            for name in ("x", "y", "a", "b", "indices", "matrix", "compiled", "loaded", "tuned", "block"):
+            for name in ("x", "y", "a", "b", "indices", "matrix", "compiled", "loaded", "tuned", "block",
+                         "logical", "storage"):
                 if name in frame.f_locals:
                     captured[name] = frame.f_locals[name]
 
@@ -101,7 +102,7 @@ def catalog_example(request):
             arguments = ["--operation", request["operation"], "--threads", str(request["threads"])]
         elif contract == "autotune_export":
             arguments = [str(artifact), "--size", str(request["size"]), "--threads", str(request["threads"])]
-        elif contract == "pytorch_cpu":
+        elif contract in ("pytorch_cpu", "encoding", "levels"):
             arguments = []
         else:
             raise ValueError("unknown usage observation contract " + contract)
@@ -155,6 +156,18 @@ def catalog_example(request):
             np.savez(output / "example-output.npz", X=x, Y=y)
             result.update(elements=int(y.size), selected_block=block, exported_artifact_reloaded=True,
                           tuning_candidates=len(captured["tuned"].configs))
+        elif contract == "encoding":
+            logical = (np.arange(64, dtype=np.uint8) % 16).reshape(2, 32)
+            exact(captured["logical"], logical)
+            exact(captured["storage"], logical[:, :16] | (logical[:, 16:] << 4))
+            exact(captured["y"], logical.reshape(-1))
+            result.update(elements=logical.size, integer_exact=True,
+                          explicit_packing_checked=True)
+        elif contract == "levels":
+            x = np.linspace(-1, 1, 4 * 65, dtype=np.float32).reshape(4, 65)
+            exact(captured["x"], x)
+            close(captured["y"], (x.astype(np.float64) ** 2).sum(axis=1))
+            result.update(elements=int(x.size), partial_last_block=True)
         else:
             import torch
             x, y, matrix = captured["x"], captured["y"], captured["matrix"]

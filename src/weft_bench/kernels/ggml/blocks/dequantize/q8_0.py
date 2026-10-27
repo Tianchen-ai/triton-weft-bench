@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 from ....functions import quantization as qf
 import triton
-import triton.language as wl
+import triton.language as tl
 
 
 @triton.jit(model="weft")
-def row_dequantize_q8_0(W: wl.View[ggml.Q8_0, (K,)], Y: wl.View[wl.f32, (K,)]):
-    with wl.level.blocks(K, extent=32) as kb:
-        w = wl.load(W[kb])
-        wl.store(Y[kb], qf.symmetric_integer(w.q, w.d))
+def row_dequantize_q8_0(W: tl.View[ggml_formats.Q8_0, (K,)], Y: tl.View[tl.f32, (K,)]):
+    with tl.level.blocks(K, extent=32) as kb:
+        w = tl.load(W[kb])
+        tl.store(Y[kb], qf.symmetric_integer(w.q, w.d))

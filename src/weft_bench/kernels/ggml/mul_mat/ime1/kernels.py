@@ -1,244 +1,203 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 import triton
-import triton.language as wl
-
-
-@triton.encoding
-class IMEQ4Centered:
-    layout = (wl.bitorder.lsb_first, wl.byteorder.little)
-    alignment = 2
-    elements = 32
-    d: wl.f16
-    q: wl.u4[32] @ wl.grouped(elements=16) @ wl.bit_layers(elements=8, order=wl.lo_first)
-
-
-@triton.encoding
-class IMEQ4Affine:
-    layout = (wl.bitorder.lsb_first, wl.byteorder.little)
-    elements = 32
-    d: wl.f16
-    zp: wl.u8
-    q: wl.u4[32] @ wl.grouped(elements=16) @ wl.bit_layers(elements=8, order=wl.lo_first)
-
-
-@triton.encoding
-class IMEQ8:
-    layout = (wl.bitorder.lsb_first, wl.byteorder.little)
-    alignment = 4
-    elements = 32
-    d: wl.f32
-    q: wl.i8[32]
-
-
-@triton.derive
-def IMEQ4Centered_I(W: wl.View[IMEQ4Centered, (N, K)], *, rows: wl.static[int]) -> wl.View[IMEQ4Centered_I[rows], (N, K)]:
-    return wl.interleave(W, rows=rows, field_chunks={"d": 2, "q": 8})
-
-
-@triton.derive
-def IMEQ4Affine_I(W: wl.View[IMEQ4Affine, (N, K)], *, rows: wl.static[int]) -> wl.View[IMEQ4Affine_I[rows], (N, K)]:
-    return wl.interleave(W, rows=rows, field_chunks={"d": 2, "zp": 1, "q": 8})
-
-
-@triton.derive
-def IMEQ8_I(X: wl.View[IMEQ8, (M, K)], *, rows: wl.static[int]) -> wl.View[IMEQ8_I[rows], (M, K)]:
-    return wl.interleave(X, rows=rows, field_chunks={"d": 4, "q": 8})
+import triton.language as tl
+from weft_bench.kernels.ggml.layouts.ime1 import IMEQ4Centered, IMEQ4Affine, IMEQ8, IMEQ4Centered_I, IMEQ4Affine_I, IMEQ8_I
 
 
 @triton.jit(model="weft")
 def affine_zero_point(d, m):
-    ratio = -wl.f32(m) / wl.f32(d)
-    clipped = wl.minimum(wl.f32(15.0), wl.maximum(wl.f32(0.0), ratio))
-    return wl.narrow(clipped, wl.u8, rounding="dynamic", saturation=True)
+    ratio = -tl.f32(m) / tl.f32(d)
+    clipped = tl.minimum(tl.f32(15.0), tl.maximum(tl.f32(0.0), ratio))
+    return tl.narrow(clipped, tl.u8, rounding="dynamic", saturation=True)
 
 
 @triton.jit(model="weft")
-def pack_q4_0(W: wl.View[ggml.Q4_0, (N, K)], P: wl.View[IMEQ4Centered_I[16], (N, K)]):
+def pack_q4_0(W: tl.View[ggml_formats.Q4_0, (N, K)], P: tl.View[IMEQ4Centered_I[16], (N, K)]):
     for row in range(N):
-        with wl.level.blocks(K, extent=32) as kb:
-            w = wl.load(W[row, kb])
-            wl.store(P[row, kb].d, w.d)
-            wl.store(P[row, kb].q, w.q)
+        with tl.level.blocks(K, extent=32) as kb:
+            w = tl.load(W[row, kb])
+            tl.store(P[row, kb].d, w.d)
+            tl.store(P[row, kb].q, w.q)
 
 
 @triton.jit(model="weft")
-def pack_q4_1(W: wl.View[ggml.Q4_1, (N, K)], P: wl.View[IMEQ4Affine_I[16], (N, K)]):
+def pack_q4_1(W: tl.View[ggml_formats.Q4_1, (N, K)], P: tl.View[IMEQ4Affine_I[16], (N, K)]):
     for row in range(N):
-        with wl.level.blocks(K, extent=32) as kb:
-            w = wl.load(W[row, kb])
-            wl.store(P[row, kb].d, w.d)
-            wl.store(P[row, kb].zp, affine_zero_point(w.d, w.m))
-            wl.store(P[row, kb].q, w.q)
+        with tl.level.blocks(K, extent=32) as kb:
+            w = tl.load(W[row, kb])
+            tl.store(P[row, kb].d, w.d)
+            tl.store(P[row, kb].zp, affine_zero_point(w.d, w.m))
+            tl.store(P[row, kb].q, w.q)
 
 
 @triton.jit(model="weft")
-def pack_q4_k(W: wl.View[ggml.Q4_K, (N, K)], P: wl.View[IMEQ4Affine_I[16], (N, K)]):
+def pack_q4_k(W: tl.View[ggml_formats.Q4_K, (N, K)], P: tl.View[IMEQ4Affine_I[16], (N, K)]):
     for row in range(N):
-        with wl.level.blocks(K, extent=256) as kb:
-            w = wl.load(W[row, kb])
-            with wl.level.subtiles(extent=32) as s:
-                d = wl.f16(wl.f32(w.d) * wl.f32(w.sc[s]))
-                m = wl.f16(-wl.f32(w.dmin) * wl.f32(w.m[s]))
-                wl.store(P[row, s].d, d)
-                wl.store(P[row, s].zp, affine_zero_point(d, m))
-                wl.store(P[row, s].q, w.q[s])
+        with tl.level.blocks(K, extent=256) as kb:
+            w = tl.load(W[row, kb])
+            with tl.level.subtiles(extent=32) as s:
+                d = tl.f16(tl.f32(w.d) * tl.f32(w.sc[s]))
+                m = tl.f16(-tl.f32(w.dmin) * tl.f32(w.m[s]))
+                tl.store(P[row, s].d, d)
+                tl.store(P[row, s].zp, affine_zero_point(d, m))
+                tl.store(P[row, s].q, w.q[s])
 
 
 @triton.jit(model="weft")
 def quantize_activation(X, Xq):
     for row in range(M):
-        with wl.level.blocks(K, extent=32) as kb:
-            x = wl.load(X[row, kb])
-            amax = wl.reduce(wl.abs(x), op="max")
-            d = amax * wl.f32(0.007874015748031496)
-            inverse = wl.f32(0.0)
-            if amax != wl.f32(0.0):
-                inverse = wl.f32(1.0) / d
-            q = wl.narrow(x * inverse, wl.i8, rounding="dynamic", saturation=True)
-            wl.store(Xq[row, kb].d, d)
-            wl.store(Xq[row, kb].q, q)
+        with tl.level.blocks(K, extent=32) as kb:
+            x = tl.load(X[row, kb])
+            amax = tl.reduce(tl.abs(x), op="max")
+            d = amax * tl.f32(0.007874015748031496)
+            inverse = tl.f32(0.0)
+            if amax != tl.f32(0.0):
+                inverse = tl.f32(1.0) / d
+            q = tl.narrow(x * inverse, tl.i8, rounding="dynamic", saturation=True)
+            tl.store(Xq[row, kb].d, d)
+            tl.store(Xq[row, kb].q, q)
 
 
 @triton.jit(model="weft")
-def quantize_ime1_prefill(X: wl.View[wl.f32, (M, K)], Xq: wl.View[IMEQ8_I[4], (M, K)]):
+def quantize_ime1_prefill(X: tl.View[tl.f32, (M, K)], Xq: tl.View[IMEQ8_I[4], (M, K)]):
     quantize_activation(X, Xq)
 
 
 @triton.jit(model="weft")
-def mul_mat_centered(W, X, Xq, Y, *, MR: wl.constexpr, NR: wl.constexpr):
+def mul_mat_centered(W, X, Xq, Y, *, MR: tl.constexpr, NR: tl.constexpr):
     quantize_activation(X, Xq)
     packed_mat_centered(W, Xq, Y, MR=MR, NR=NR)
 
 
 @triton.jit(model="weft")
-def packed_mat_centered(W, Xq, Y, *, MR: wl.constexpr, NR: wl.constexpr):
-    with wl.level.rows(M, group=wl.auto("MR")) as mb:
-        with wl.level.cols(N, group=wl.auto("NR")) as nb:
-            acc = wl.state(wl.f32, [MR, NR], init=0)
-            with wl.level.blocks(K, extent=32) as kb:
-                x = wl.load(Xq[mb, kb])
-                w = wl.load(W[nb, kb])
-                partial = wl.state(wl.i32, [MR, NR], init=0)
-                with wl.level.subtiles(extent=8) as s:
-                    q = wl.i8(w.q[s]) - wl.i8(8)
-                    partial += wl.dot(x.q[s], q, over="k", acc_dtype=wl.i32)
-                scale = x.d * wl.f32(w.d)
-                acc += wl.f32(partial) * scale
-            wl.store(Y[mb, nb], acc)
+def packed_mat_centered(W, Xq, Y, *, MR: tl.constexpr, NR: tl.constexpr):
+    with tl.level.rows(M, group=tl.auto("MR")) as mb:
+        with tl.level.cols(N, group=tl.auto("NR")) as nb:
+            acc = tl.state(tl.f32, [MR, NR], init=0)
+            with tl.level.blocks(K, extent=32) as kb:
+                x = tl.load(Xq[mb, kb])
+                w = tl.load(W[nb, kb])
+                partial = tl.state(tl.i32, [MR, NR], init=0)
+                with tl.level.subtiles(extent=8) as s:
+                    q = tl.i8(w.q[s]) - tl.i8(8)
+                    partial += tl.dot(x.q[s], q, over="k", acc_dtype=tl.i32)
+                scale = x.d * tl.f32(w.d)
+                acc += tl.f32(partial) * scale
+            tl.store(Y[mb, nb], acc)
 
 
 @triton.jit(model="weft")
-def mul_mat_affine(W, X, Xq, Y, *, MR: wl.constexpr, NR: wl.constexpr):
+def mul_mat_affine(W, X, Xq, Y, *, MR: tl.constexpr, NR: tl.constexpr):
     quantize_activation(X, Xq)
     packed_mat_affine(W, Xq, Y, MR=MR, NR=NR)
 
 
 @triton.jit(model="weft")
-def packed_mat_affine(W, Xq, Y, *, MR: wl.constexpr, NR: wl.constexpr):
-    with wl.level.rows(M, group=wl.auto("MR")) as mb:
-        with wl.level.cols(N, group=wl.auto("NR")) as nb:
-            acc = wl.state(wl.f32, [MR, NR], init=0)
-            with wl.level.blocks(K, extent=32) as kb:
-                x = wl.load(Xq[mb, kb])
-                w = wl.load(W[nb, kb])
-                partial = wl.state(wl.i32, [MR, NR], init=0)
-                with wl.level.subtiles(extent=8) as s:
-                    q = wl.i8(w.q[s]) - wl.i8(w.zp)
-                    partial += wl.dot(x.q[s], q, over="k", acc_dtype=wl.i32)
-                scale = x.d * wl.f32(w.d)
-                acc += wl.f32(partial) * scale
-            wl.store(Y[mb, nb], acc)
+def packed_mat_affine(W, Xq, Y, *, MR: tl.constexpr, NR: tl.constexpr):
+    with tl.level.rows(M, group=tl.auto("MR")) as mb:
+        with tl.level.cols(N, group=tl.auto("NR")) as nb:
+            acc = tl.state(tl.f32, [MR, NR], init=0)
+            with tl.level.blocks(K, extent=32) as kb:
+                x = tl.load(Xq[mb, kb])
+                w = tl.load(W[nb, kb])
+                partial = tl.state(tl.i32, [MR, NR], init=0)
+                with tl.level.subtiles(extent=8) as s:
+                    q = tl.i8(w.q[s]) - tl.i8(w.zp)
+                    partial += tl.dot(x.q[s], q, over="k", acc_dtype=tl.i32)
+                scale = x.d * tl.f32(w.d)
+                acc += tl.f32(partial) * scale
+            tl.store(Y[mb, nb], acc)
 
 
 @triton.jit(model="weft")
-def q4_centered_decode(W: wl.View[IMEQ4Centered_I[16], (N, K)], X: wl.View[wl.f32, (M, K)], Xq: wl.View[IMEQ8_I[1], (M, K)], Y: wl.View[wl.f32, (M, N)], *, MR: wl.constexpr, NR: wl.constexpr):
+def q4_centered_decode(W: tl.View[IMEQ4Centered_I[16], (N, K)], X: tl.View[tl.f32, (M, K)], Xq: tl.View[IMEQ8_I[1], (M, K)], Y: tl.View[tl.f32, (M, N)], *, MR: tl.constexpr, NR: tl.constexpr):
     mul_mat_centered(W, X, Xq, Y, MR=MR, NR=NR)
 
 
 @triton.jit(model="weft")
-def q4_centered_prefill(W: wl.View[IMEQ4Centered_I[16], (N, K)], X: wl.View[wl.f32, (M, K)], Xq: wl.View[IMEQ8_I[4], (M, K)], Y: wl.View[wl.f32, (M, N)], *, MR: wl.constexpr, NR: wl.constexpr):
+def q4_centered_prefill(W: tl.View[IMEQ4Centered_I[16], (N, K)], X: tl.View[tl.f32, (M, K)], Xq: tl.View[IMEQ8_I[4], (M, K)], Y: tl.View[tl.f32, (M, N)], *, MR: tl.constexpr, NR: tl.constexpr):
     mul_mat_centered(W, X, Xq, Y, MR=MR, NR=NR)
 
 
 @triton.jit(model="weft")
-def q4_affine_decode(W: wl.View[IMEQ4Affine_I[16], (N, K)], X: wl.View[wl.f32, (M, K)], Xq: wl.View[IMEQ8_I[1], (M, K)], Y: wl.View[wl.f32, (M, N)], *, MR: wl.constexpr, NR: wl.constexpr):
+def q4_affine_decode(W: tl.View[IMEQ4Affine_I[16], (N, K)], X: tl.View[tl.f32, (M, K)], Xq: tl.View[IMEQ8_I[1], (M, K)], Y: tl.View[tl.f32, (M, N)], *, MR: tl.constexpr, NR: tl.constexpr):
     mul_mat_affine(W, X, Xq, Y, MR=MR, NR=NR)
 
 
 @triton.jit(model="weft")
-def q4_affine_prefill(W: wl.View[IMEQ4Affine_I[16], (N, K)], X: wl.View[wl.f32, (M, K)], Xq: wl.View[IMEQ8_I[4], (M, K)], Y: wl.View[wl.f32, (M, N)], *, MR: wl.constexpr, NR: wl.constexpr):
+def q4_affine_prefill(W: tl.View[IMEQ4Affine_I[16], (N, K)], X: tl.View[tl.f32, (M, K)], Xq: tl.View[IMEQ8_I[4], (M, K)], Y: tl.View[tl.f32, (M, N)], *, MR: tl.constexpr, NR: tl.constexpr):
     mul_mat_affine(W, X, Xq, Y, MR=MR, NR=NR)
 
 
 @triton.jit(model="weft", strided=("Y",))
-def q4_centered_packed_decode(W: wl.View[IMEQ4Centered_I[16], (N, K)], Xq: wl.View[IMEQ8_I[1], (M, K)], Y: wl.View[wl.f32, (M, N)], *, MR: wl.constexpr, NR: wl.constexpr):
+def q4_centered_packed_decode(W: tl.View[IMEQ4Centered_I[16], (N, K)], Xq: tl.View[IMEQ8_I[1], (M, K)], Y: tl.View[tl.f32, (M, N)], *, MR: tl.constexpr, NR: tl.constexpr):
     packed_mat_centered(W, Xq, Y, MR=MR, NR=NR)
 
 
 @triton.jit(model="weft", strided=("Y",))
-def q4_affine_packed_decode(W: wl.View[IMEQ4Affine_I[16], (N, K)], Xq: wl.View[IMEQ8_I[1], (M, K)], Y: wl.View[wl.f32, (M, N)], *, MR: wl.constexpr, NR: wl.constexpr):
+def q4_affine_packed_decode(W: tl.View[IMEQ4Affine_I[16], (N, K)], Xq: tl.View[IMEQ8_I[1], (M, K)], Y: tl.View[tl.f32, (M, N)], *, MR: tl.constexpr, NR: tl.constexpr):
     packed_mat_affine(W, Xq, Y, MR=MR, NR=NR)
 
 
 @triton.jit(model="weft", strided=("Y",))
-def q4_affine_packed_decode_correction(W: wl.View[IMEQ4Affine_I[16], (N, K)], Xq: wl.View[IMEQ8_I[1], (M, K)], Y: wl.View[wl.f32, (M, N)], *, MR: wl.constexpr, NR: wl.constexpr):
+def q4_affine_packed_decode_correction(W: tl.View[IMEQ4Affine_I[16], (N, K)], Xq: tl.View[IMEQ8_I[1], (M, K)], Y: tl.View[tl.f32, (M, N)], *, MR: tl.constexpr, NR: tl.constexpr):
     # The IME affine packing contract stores a Q4 zero point in [0, 15].
     # Apply its correction once per block, after the exact integer products.
-    with wl.level.rows(M, group=wl.auto("MR")) as mb:
-        with wl.level.cols(N, group=wl.auto("NR")) as nb:
-            acc = wl.state(wl.f32, [MR, NR], init=0)
-            with wl.level.blocks(K, extent=32) as kb:
-                x = wl.load(Xq[mb, kb])
-                w = wl.load(W[nb, kb])
-                partial = wl.state(wl.i32, [MR, NR], init=0)
-                with wl.level.subtiles(extent=8) as s:
-                    partial += wl.dot(x.q[s], wl.i8(w.q[s]), over="k", acc_dtype=wl.i32)
-                total = wl.i32(wl.reduce(wl.i16(x.q), axis="k"))
-                corrected = partial - total * wl.i32(w.zp)
-                scale = x.d * wl.f32(w.d)
-                acc += wl.f32(corrected) * scale
-            wl.store(Y[mb, nb], acc)
+    with tl.level.rows(M, group=tl.auto("MR")) as mb:
+        with tl.level.cols(N, group=tl.auto("NR")) as nb:
+            acc = tl.state(tl.f32, [MR, NR], init=0)
+            with tl.level.blocks(K, extent=32) as kb:
+                x = tl.load(Xq[mb, kb])
+                w = tl.load(W[nb, kb])
+                partial = tl.state(tl.i32, [MR, NR], init=0)
+                with tl.level.subtiles(extent=8) as s:
+                    partial += tl.dot(x.q[s], tl.i8(w.q[s]), over="k", acc_dtype=tl.i32)
+                total = tl.i32(tl.reduce(tl.i16(x.q), axis="k"))
+                corrected = partial - total * tl.i32(w.zp)
+                scale = x.d * tl.f32(w.d)
+                acc += tl.f32(corrected) * scale
+            tl.store(Y[mb, nb], acc)
 
 
 @triton.jit(model="weft", strided=("Y",))
-def q4_centered_packed_decode_block(W: wl.View[IMEQ4Centered_I[16], (N, K)], Xq: wl.View[IMEQ8_I[1], (M, K)], Y: wl.View[wl.f32, (M, N)], *, MR: wl.constexpr, NR: wl.constexpr):
-    with wl.level.rows(M, group=wl.auto("MR")) as mb:
-        with wl.level.cols(N, group=wl.auto("NR")) as nb:
-            acc = wl.state(wl.f32, [MR, NR], init=0)
-            with wl.level.blocks(K, extent=32) as kb:
-                x = wl.load(Xq[mb, kb])
-                w = wl.load(W[nb, kb])
-                partial = wl.dot(x.q, wl.i8(w.q), over="k", acc_dtype=wl.i32, engine="matrix")
-                total = wl.i32(wl.reduce(wl.i16(x.q), axis="k"))
-                corrected = partial - total * wl.i32(8)
-                scale = x.d * wl.f32(w.d)
-                acc += wl.f32(corrected) * scale
-            wl.store(Y[mb, nb], acc)
+def q4_centered_packed_decode_block(W: tl.View[IMEQ4Centered_I[16], (N, K)], Xq: tl.View[IMEQ8_I[1], (M, K)], Y: tl.View[tl.f32, (M, N)], *, MR: tl.constexpr, NR: tl.constexpr):
+    with tl.level.rows(M, group=tl.auto("MR")) as mb:
+        with tl.level.cols(N, group=tl.auto("NR")) as nb:
+            acc = tl.state(tl.f32, [MR, NR], init=0)
+            with tl.level.blocks(K, extent=32) as kb:
+                x = tl.load(Xq[mb, kb])
+                w = tl.load(W[nb, kb])
+                partial = tl.dot(x.q, tl.i8(w.q), over="k", acc_dtype=tl.i32, engine="matrix")
+                total = tl.i32(tl.reduce(tl.i16(x.q), axis="k"))
+                corrected = partial - total * tl.i32(8)
+                scale = x.d * tl.f32(w.d)
+                acc += tl.f32(corrected) * scale
+            tl.store(Y[mb, nb], acc)
 
 
 @triton.jit(model="weft", strided=("Y",))
-def q4_affine_packed_decode_block(W: wl.View[IMEQ4Affine_I[16], (N, K)], Xq: wl.View[IMEQ8_I[1], (M, K)], Y: wl.View[wl.f32, (M, N)], *, MR: wl.constexpr, NR: wl.constexpr):
-    with wl.level.rows(M, group=wl.auto("MR")) as mb:
-        with wl.level.cols(N, group=wl.auto("NR")) as nb:
-            acc = wl.state(wl.f32, [MR, NR], init=0)
-            with wl.level.blocks(K, extent=32) as kb:
-                x = wl.load(Xq[mb, kb])
-                w = wl.load(W[nb, kb])
-                partial = wl.dot(x.q, wl.i8(w.q), over="k", acc_dtype=wl.i32, engine="matrix")
-                total = wl.i32(wl.reduce(wl.i16(x.q), axis="k"))
-                corrected = partial - total * wl.i32(w.zp)
-                scale = x.d * wl.f32(w.d)
-                acc += wl.f32(corrected) * scale
-            wl.store(Y[mb, nb], acc)
+def q4_affine_packed_decode_block(W: tl.View[IMEQ4Affine_I[16], (N, K)], Xq: tl.View[IMEQ8_I[1], (M, K)], Y: tl.View[tl.f32, (M, N)], *, MR: tl.constexpr, NR: tl.constexpr):
+    with tl.level.rows(M, group=tl.auto("MR")) as mb:
+        with tl.level.cols(N, group=tl.auto("NR")) as nb:
+            acc = tl.state(tl.f32, [MR, NR], init=0)
+            with tl.level.blocks(K, extent=32) as kb:
+                x = tl.load(Xq[mb, kb])
+                w = tl.load(W[nb, kb])
+                partial = tl.dot(x.q, tl.i8(w.q), over="k", acc_dtype=tl.i32, engine="matrix")
+                total = tl.i32(tl.reduce(tl.i16(x.q), axis="k"))
+                corrected = partial - total * tl.i32(w.zp)
+                scale = x.d * tl.f32(w.d)
+                acc += tl.f32(corrected) * scale
+            tl.store(Y[mb, nb], acc)
 
 
 @triton.jit(model="weft", strided=("Y",))
-def q4_centered_packed_prefill(W: wl.View[IMEQ4Centered_I[16], (N, K)], Xq: wl.View[IMEQ8_I[4], (M, K)], Y: wl.View[wl.f32, (M, N)], *, MR: wl.constexpr, NR: wl.constexpr):
+def q4_centered_packed_prefill(W: tl.View[IMEQ4Centered_I[16], (N, K)], Xq: tl.View[IMEQ8_I[4], (M, K)], Y: tl.View[tl.f32, (M, N)], *, MR: tl.constexpr, NR: tl.constexpr):
     packed_mat_centered(W, Xq, Y, MR=MR, NR=NR)
 
 
 @triton.jit(model="weft", strided=("Y",))
-def q4_affine_packed_prefill(W: wl.View[IMEQ4Affine_I[16], (N, K)], Xq: wl.View[IMEQ8_I[4], (M, K)], Y: wl.View[wl.f32, (M, N)], *, MR: wl.constexpr, NR: wl.constexpr):
+def q4_affine_packed_prefill(W: tl.View[IMEQ4Affine_I[16], (N, K)], Xq: tl.View[IMEQ8_I[4], (M, K)], Y: tl.View[tl.f32, (M, N)], *, MR: tl.constexpr, NR: tl.constexpr):
     packed_mat_affine(W, Xq, Y, MR=MR, NR=NR)

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 import triton
 import triton.language as tl
 
@@ -59,27 +59,27 @@ def compute_centered_pairs(W, X, K, CENTER: tl.constexpr, HIGH: tl.constexpr):
 
 
 @triton.jit(model="weft")
-def q4_0(W: tl.View[ggml.Q4_0, (K,)], X: tl.View[ggml.Q8_0, (K,)], Y: tl.View[tl.f32, (1,)]):
+def q4_0(W: tl.View[ggml_formats.Q4_0, (K,)], X: tl.View[ggml_formats.Q8_0, (K,)], Y: tl.View[tl.f32, (1,)]):
     tl.store(Y[0], compute(W, X, K, 8, False, False, 4))
 
 
 @triton.jit(model="weft")
-def q4_1(W: tl.View[ggml.Q4_1, (K,)], X: tl.View[ggml.Q8_1, (K,)], Y: tl.View[tl.f32, (1,)]):
+def q4_1(W: tl.View[ggml_formats.Q4_1, (K,)], X: tl.View[ggml_formats.Q8_1, (K,)], Y: tl.View[tl.f32, (1,)]):
     tl.store(Y[0], compute(W, X, K, 0, False, True, 4))
 
 
 @triton.jit(model="weft")
-def q5_0(W: tl.View[ggml.Q5_0, (K,)], X: tl.View[ggml.Q8_0, (K,)], Y: tl.View[tl.f32, (1,)]):
+def q5_0(W: tl.View[ggml_formats.Q5_0, (K,)], X: tl.View[ggml_formats.Q8_0, (K,)], Y: tl.View[tl.f32, (1,)]):
     tl.store(Y[0], compute_centered_pairs(W, X, K, 16, True))
 
 
 @triton.jit(model="weft")
-def q5_1(W: tl.View[ggml.Q5_1, (K,)], X: tl.View[ggml.Q8_1, (K,)], Y: tl.View[tl.f32, (1,)]):
+def q5_1(W: tl.View[ggml_formats.Q5_1, (K,)], X: tl.View[ggml_formats.Q8_1, (K,)], Y: tl.View[tl.f32, (1,)]):
     tl.store(Y[0], compute(W, X, K, 0, True, True, 4))
 
 
 @triton.jit(model="weft")
-def q8_0(W: tl.View[ggml.Q8_0, (K,)], X: tl.View[ggml.Q8_0, (K,)],
+def q8_0(W: tl.View[ggml_formats.Q8_0, (K,)], X: tl.View[ggml_formats.Q8_0, (K,)],
          Y: tl.View[tl.f32, (1,)], GROUP: tl.constexpr = 4):
     tl.static_assert(GROUP == 2 or GROUP == 4)
     tl.store(Y[0], compute(W, X, K, 0, False, False, GROUP))

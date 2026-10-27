@@ -214,11 +214,15 @@ arrays rather than parsing the printed preview:
 | `pytorch_cpu` | Hand-written kernel plus cached complete Inductor output and generated Weft code |
 
 Each `usage` entry provides `source` and any `imports` package roots. For example,
-`imports: {"source": "/work/Triton-Weft/third_party/weft/source"}` supplies the
-product's author kernels. Imported files are copied into the run. The selected
+`imports: {"examples": "/work/triton-weft/examples"}` supplies the product's
+tutorial package, including explicit imports across language and deployment
+examples. Imported files are copied into the run. The selected
 target runtime must already be installed and provide the example's required
 capabilities. New example semantics require an explicit observation contract;
 successful process exit or a few printed values do not establish correctness.
+The `encoding` usage contract checks the tutorial's host-packed bytes and every
+unpacked integer. The `levels` contract checks the complete row reduction,
+including the partial final block. These use the existing usage observer.
 
 `configs/verification-riscv.example.json` provides selectable runtime entries for
 standard `tl.associative_scan` (both directions, several axes and tuple outputs),

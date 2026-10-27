@@ -1,16 +1,9 @@
 from __future__ import annotations
 
-import triton.integrations.ggml_formats as ggml
+from triton.integrations import ggml_formats
 import triton
 import triton.language as tl
-
-
-@triton.encoding
-class BlockSum32:
-    layout = (tl.bitorder.lsb_first, tl.byteorder.little)
-    alignment = 2
-    elements = 32
-    value: tl.i16
+from weft_bench.kernels.ggml.layouts.activation_sums import BlockSum32
 
 
 @triton.jit
@@ -42,16 +35,16 @@ def quantize(X, Y, K, WITH_SUM: tl.constexpr, BLOCKS: tl.constexpr,
 
 
 @triton.jit(model="weft", alias_groups={"X": "input", "Y": "output"})
-def q8_0(X: tl.View[tl.f32, (K,)], Y: tl.View[ggml.Q8_0, (K,)], BLOCKS: tl.constexpr = 4):
+def q8_0(X: tl.View[tl.f32, (K,)], Y: tl.View[ggml_formats.Q8_0, (K,)], BLOCKS: tl.constexpr = 4):
     quantize(X, Y, K, False, BLOCKS)
 
 
 @triton.jit(model="weft", alias_groups={"X": "input", "Y": "output"})
-def q8_1(X: tl.View[tl.f32, (K,)], Y: tl.View[ggml.Q8_1, (K,)], BLOCKS: tl.constexpr = 4):
+def q8_1(X: tl.View[tl.f32, (K,)], Y: tl.View[ggml_formats.Q8_1, (K,)], BLOCKS: tl.constexpr = 4):
     quantize(X, Y, K, True, BLOCKS)
 
 
 @triton.jit(model="weft", alias_groups={"X": "input", "Y": "output"})
-def q8_0_specialized(X: tl.View[tl.f32, (K,)], Y: tl.View[ggml.Q8_0, (K,)], *,
+def q8_0_specialized(X: tl.View[tl.f32, (K,)], Y: tl.View[ggml_formats.Q8_0, (K,)], *,
                      K: tl.constexpr, BLOCKS: tl.constexpr = 4):
     quantize(X, Y, K, False, BLOCKS)

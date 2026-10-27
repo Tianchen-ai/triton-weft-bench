@@ -1,16 +1,16 @@
 from __future__ import annotations
 
 import triton
-import triton.language as wl
+import triton.language as tl
 
 
 @triton.jit(model="weft")
 def gemm_f32(
-    X: wl.View[wl.f32, (M, K)], W: wl.View[wl.f32, (N, K)], Y: wl.View[wl.f32, (M, N)]
-, *, MC: wl.constexpr, MR: wl.constexpr, NC: wl.constexpr, NR: wl.constexpr):
-    with wl.level.tiles(N, extent=wl.auto("NC")) as nc:
-        with wl.level.tiles(M, extent=wl.auto("MC")) as mc:
-            with wl.level.cols(nc, group=wl.auto("NR")) as nb:
-                with wl.level.rows(mc, group=wl.auto("MR")) as mb:
-                    product = wl.dot(wl.load(X[mb]), wl.load(W[nb]), over="k")
-                    wl.store(Y[mb, nb], product)
+    X: tl.View[tl.f32, (M, K)], W: tl.View[tl.f32, (N, K)], Y: tl.View[tl.f32, (M, N)]
+, *, MC: tl.constexpr, MR: tl.constexpr, NC: tl.constexpr, NR: tl.constexpr):
+    with tl.level.tiles(N, extent=tl.auto("NC")) as nc:
+        with tl.level.tiles(M, extent=tl.auto("MC")) as mc:
+            with tl.level.cols(nc, group=tl.auto("NR")) as nb:
+                with tl.level.rows(mc, group=tl.auto("MR")) as mb:
+                    product = tl.dot(tl.load(X[mb]), tl.load(W[nb]), over="k")
+                    tl.store(Y[mb, nb], product)
