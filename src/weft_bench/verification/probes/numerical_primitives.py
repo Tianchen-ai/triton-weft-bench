@@ -2028,7 +2028,7 @@ def byte_sum_contract(root, options, compile_target):
 
 
 def extrema_and_half(root, options, compile_target):
-    from numerical_primitive_kernels import fixed_number_extrema, scalar_half_widen, array_special_reduce, independent_half_pair, snapshot_half_pair, absolute_maxima, broadcast_half_snapshot
+    from numerical_primitive_kernels import fixed_number_extrema, scalar_half_widen, scalar_half_bits, array_special_reduce, independent_half_pair, snapshot_half_pair, absolute_maxima, broadcast_half_snapshot
     artifacts = {}
     def execute(kernel, *args):
         if compile_target is None:
@@ -2114,6 +2114,15 @@ def extrema_and_half(root, options, compile_target):
     same(array_result[:,1:], np.array([[np.nan,np.nan],[0.,-0.],[0.,-0.]],np.float32))
     raw = np.arange(65536, dtype=np.uint16)
     source = raw.view(np.float16)
+    bit_storage, bit_output = guarded(raw.size, np.uint16, 12345)
+    half_storage, half_bits = guarded(raw.size, np.uint16, 12345)
+    bit_compiled = execute(scalar_half_bits, raw, source, half_bits.view(np.float16), bit_output)
+    exact(half_bits, raw)
+    exact(bit_output, raw)
+    for guard in (bit_storage, half_storage):
+        exact(guard[[0, 1, -2, -1]], np.full(4, 12345, np.uint16))
+    native_evidence(bit_compiled, root, "scalar-half-bits", ["bitcast"])
+    save(root, "scalar-half-bits", source_bits=raw, half_output_bits=half_bits, integer_output_bits=bit_output)
     storage, output = guarded(65536, np.float32, -777)
     with np.errstate(invalid="ignore"):
         expected = source.astype(np.float32)
@@ -2160,7 +2169,7 @@ def extrema_and_half(root, options, compile_target):
              expected=wanted, actual=output, expected_wide=wanted_wide, actual_wide=wide)
     native_evidence(compiled, root, "broadcast-half-snapshot", [])
     return {"extrema":records,"array_extrema_signed_zero_and_nan":True,"half_patterns":65536,
-            "strided_half_broadcast_snapshot":True,
+            "strided_half_broadcast_snapshot":True,"half_bit_transfers_exact_including_nan_payloads":True,
             "half_pairs_f32_and_f64":True,"half_nan_payload_unspecified":True,"output_guards_unchanged":True}
 
 

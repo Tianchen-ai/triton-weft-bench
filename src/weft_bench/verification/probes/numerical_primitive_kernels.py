@@ -5,6 +5,14 @@ import triton
 import triton.language as tl
 
 
+@triton.jit(model="weft", alias_groups={"Bits": "input", "Half": "input", "HalfOut": "output", "BitsOut": "output"})
+def scalar_half_bits(Bits: tl.View[tl.u16, (N,)], Half: tl.View[tl.f16, (N,)],
+                     HalfOut: tl.View[tl.f16, (N,)], BitsOut: tl.View[tl.u16, (N,)]):
+    for i in range(N):
+        tl.store(HalfOut[i], tl.load(Bits[i]).to(tl.float16, bitcast=True))
+        tl.store(BitsOut[i], tl.load(Half[i]).to(tl.uint16, bitcast=True))
+
+
 @triton.jit(model="weft")
 def affine_float64(X: tl.View[tl.f64, (N,)], Y: tl.View[tl.f64, (N,)],
                    scale: tl.f64, bias: tl.f64):
