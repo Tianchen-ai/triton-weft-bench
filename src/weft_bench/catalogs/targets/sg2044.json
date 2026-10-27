@@ -3821,8 +3821,7 @@
         "constexprs": {},
         "toolchain": {
           "cflags": [
-            "-falign-loops=16",
-            "-fno-slp-vectorize"
+            "-falign-loops=16"
           ]
         },
         "backend_options": {
