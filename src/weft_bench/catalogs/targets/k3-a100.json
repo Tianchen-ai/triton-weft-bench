@@ -767,7 +767,7 @@
         "constexprs": {},
         "backend_options": {
           "lmul_eighths": 16,
-          "unroll": 2,
+          "unroll": 8,
           "pipeline_depth": 2
         },
         "compile_target": {
@@ -800,7 +800,7 @@
         "constexprs": {},
         "backend_options": {
           "lmul_eighths": 16,
-          "unroll": 2,
+          "unroll": 8,
           "pipeline_depth": 2
         },
         "compile_target": {
@@ -3350,7 +3350,9 @@
         "source": "package:kernels/ggml/blocks/mul_mat/iq4_xs.py",
         "symbol": "production_mul_mat_iq4_xs",
         "toolchain": {
-          "cflags": ["-fno-slp-vectorize"]
+          "cflags": [
+            "-fno-slp-vectorize"
+          ]
         },
         "signature": {},
         "constexprs": {
@@ -4138,7 +4140,9 @@
         "source": "package:kernels/ggml/blocks/mul_mat/q5_k.py",
         "symbol": "production_mul_mat_q5_k",
         "toolchain": {
-          "cflags": ["-fno-slp-vectorize"]
+          "cflags": [
+            "-fno-slp-vectorize"
+          ]
         },
         "signature": {},
         "constexprs": {
@@ -4221,7 +4225,9 @@
         "source": "package:kernels/ggml/blocks/mul_mat/q6_k.py",
         "symbol": "production_mul_mat_q6_k",
         "toolchain": {
-          "cflags": ["-fno-slp-vectorize"]
+          "cflags": [
+            "-fno-slp-vectorize"
+          ]
         },
         "signature": {},
         "constexprs": {
@@ -4602,7 +4608,9 @@
         "constexprs": {
           "BLOCK": 32
         },
-        "backend_options": {},
+        "backend_options": {
+          "native_loop_alignment": 0
+        },
         "compile_target": {
           "arch": "riscv64",
           "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause_zba",
@@ -4671,7 +4679,9 @@
         "constexprs": {
           "BLOCK": 32
         },
-        "backend_options": {},
+        "backend_options": {
+          "native_loop_alignment": 0
+        },
         "compile_target": {
           "arch": "riscv64",
           "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause_zba",
@@ -4765,17 +4775,27 @@
       "reference_catalog": "ggml-ime2"
     },
     "ime2_i4_affine_prefill": {
-      "shape": {"M": 8, "N": 32, "K": 4096},
+      "shape": {
+        "M": 8,
+        "N": 32,
+        "K": 4096
+      },
       "scope": "packed-ime2-u4-i8-affine-block32",
       "dtype": "packed-u4*i8->f32",
       "candidate": {
         "source": "package:kernels/ggml/mul_mat/ime2/kernels.py",
         "symbol": "i4_affine_native_tile",
         "signature": {},
-        "constexprs": {"M": 8, "MR": 8, "NR": 32},
+        "constexprs": {
+          "M": 8,
+          "MR": 8,
+          "NR": 32
+        },
         "backend_options": {
           "matrix_extension": "spacemit-ime2",
-          "required_extensions": ["spacemit-ime2"],
+          "required_extensions": [
+            "spacemit-ime2"
+          ],
           "private_stack_bytes": 262144,
           "unroll": 2
         },
@@ -4789,7 +4809,9 @@
       },
       "reference": "ggml",
       "artifact_evidence": {
-        "used_extensions": ["spacemit-ime2"],
+        "used_extensions": [
+          "spacemit-ime2"
+        ],
         "matrix_in_artifact": true,
         "runtime_instruction_path": "not_observed"
       },
