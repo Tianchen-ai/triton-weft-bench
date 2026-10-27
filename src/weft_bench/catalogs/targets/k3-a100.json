@@ -4134,6 +4134,9 @@
       "candidate": {
         "source": "package:kernels/ggml/blocks/mul_mat/q5_k.py",
         "symbol": "production_mul_mat_q5_k",
+        "toolchain": {
+          "cflags": ["-fno-slp-vectorize"]
+        },
         "signature": {},
         "constexprs": {
           "NC": 32,

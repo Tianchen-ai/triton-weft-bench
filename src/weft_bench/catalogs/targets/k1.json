@@ -4464,6 +4464,9 @@
       "candidate": {
         "source": "package:kernels/ggml/blocks/mul_mat/q8_0.py",
         "symbol": "production_mul_mat_q8_0",
+        "toolchain": {
+          "cflags": ["-fno-slp-vectorize"]
+        },
         "signature": {},
         "constexprs": {
           "NC": 32,
