@@ -6,14 +6,12 @@ import triton
 import triton.language as wl
 
 
-@triton.jit(model="weft", alias_groups={"Xq": "workspace", "Y": "output"})
-def production_mul_mat_q2_k(
+@triton.jit(noinline=True)
+def multiply_quantized(
     W: wl.View[ggml.Q2_K, (N, K)],
-    X: wl.View[wl.f32, (M, K)],
     Xq: wl.View[ggml.Q8_K, (M, K)],
     Y: wl.View[wl.f32, (M, N)],
  *, MC: wl.constexpr, MR: wl.constexpr, NC: wl.constexpr, NR: wl.constexpr):
-    quant_q8_k.quantize_matrix(X, Xq)
     with wl.level.tiles(N, extent=wl.auto("NC")) as nc:
         wp = wl.stage(wl.load(W[nc]))
         with wl.level.tiles(M, extent=wl.auto("MC")) as mc:
@@ -42,3 +40,14 @@ def production_mul_mat_q2_k(
                             - wl.f32(w.dmin) * wl.widen(correction, wl.f32)
                         )
                     wl.store(Y[mb, nb], acc)
+
+
+@triton.jit(model="weft", alias_groups={"Xq": "workspace", "Y": "output"})
+def production_mul_mat_q2_k(
+    W: wl.View[ggml.Q2_K, (N, K)],
+    X: wl.View[wl.f32, (M, K)],
+    Xq: wl.View[ggml.Q8_K, (M, K)],
+    Y: wl.View[wl.f32, (M, N)],
+ *, MC: wl.constexpr, MR: wl.constexpr, NC: wl.constexpr, NR: wl.constexpr):
+    quant_q8_k.quantize_matrix(X, Xq)
+    multiply_quantized(W, Xq, Y, MC=MC, MR=MR, NC=NC, NR=NR)
