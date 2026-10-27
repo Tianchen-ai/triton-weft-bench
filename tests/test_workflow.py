@@ -14,6 +14,29 @@ from weft_bench.adapters.dense import bind_metadata
 
 
 class WorkflowTests(unittest.TestCase):
+    def test_saved_input_preserves_the_following_random_stream(self):
+        import subprocess
+        from weft_bench.adapters.native import NATIVE
+
+        with tempfile.TemporaryDirectory() as directory:
+            executable = Path(directory) / "input-stream"
+            source = r'''
+#include "worker.h"
+int main() {
+  for(uint32_t seed : {0U,410U,0xffffffffU})
+    for(size_t count : {size_t(0),size_t(1),size_t(2),size_t(33),size_t(4096),size_t(131073)}) {
+      wb::InputSet generated(seed),loaded(seed);
+      for(size_t i=0;i<count;++i) generated.random();
+      loaded.discard(count);
+      for(int i=0;i<19;++i)
+        if(generated.random()!=loaded.random() || generated.seed!=loaded.seed) return 1;
+    }
+}
+'''
+            subprocess.run(["c++", "-std=c++17", "-I" + str(NATIVE), "-x", "c++", "-",
+                            "-o", str(executable)], input=source, text=True, check=True, capture_output=True)
+            subprocess.run([str(executable)], check=True, capture_output=True)
+
     def test_catalog_verification_uses_jit_and_selected_shapes(self):
         from weft_bench.catalogs import apply_catalog
         from weft_bench.verification.catalog import plan

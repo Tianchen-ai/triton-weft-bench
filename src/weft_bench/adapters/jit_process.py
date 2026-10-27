@@ -71,6 +71,14 @@ def run(request):
     fixture.wb_fixture_session.argtypes = [session_type, pointer, ctypes.c_size_t]
     fixture.wb_fixture_invoke.argtypes = [pointer, launch_type, pointer, ctypes.c_size_t]
     fixture.wb_fixture_action.argtypes = [pointer, ctypes.c_int, pointer, ctypes.c_size_t]
+    prepared = request.get("prepared_inputs", [])
+    prepared_directory = Path(request["artifact"]).parent / "prepared-inputs"
+    if request.get("reuse_prepared_inputs"):
+        fixture.wb_fixture_use_inputs.argtypes = [ctypes.c_char_p]
+        fixture.wb_fixture_use_inputs.restype = None
+        fixture.wb_fixture_use_inputs(str(prepared_directory).encode())
+    elif prepared:
+        prepared_directory.mkdir(exist_ok=True)
     error = ctypes.create_string_buffer(4096)
     phase = "prepare"
     failures = []
@@ -131,6 +139,17 @@ def run(request):
                 raise failures.pop() if failures else ValueError(error.value.decode())
             if not bound_calls:
                 raise ValueError("the workload produced no Triton invocations")
+            if prepared and not request.get("reuse_prepared_inputs"):
+                snapshot_started = time.perf_counter_ns()
+                # Capture immutable workload inputs before the kernel can write
+                # anything. Cache checks and native timing consume these bytes.
+                action(4)
+                result["prepared_input_snapshot_ms"] = (time.perf_counter_ns() - snapshot_started) / 1e6
+            if prepared:
+                result["prepared_inputs"] = {name: {"path": str(prepared_directory / (name + ".bin")),
+                                                    "bytes": (prepared_directory / (name + ".bin")).stat().st_size}
+                                             for name in prepared}
+                result["prepared_input_reuse"] = bool(request.get("reuse_prepared_inputs"))
             guards = request.get("guard_input_ends", [])
             if guards:
                 import mmap

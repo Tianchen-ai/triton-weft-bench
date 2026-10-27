@@ -16,8 +16,9 @@ struct ProjectionInputs {
     weights.resize(N*weight_bytes);activation.resize(M*K);expected.resize(output_size);
     inputs.fill(activation);inputs.load("X",activation);
     std::vector<float> w(K),importance(K,1.0f);
-    for(size_t n=0;n<N;++n){inputs.fill(w);ggml_quantize_chunk(weight_type,w.data(),weights.data()+n*weight_bytes,0,1,K,importance.data());}
-    inputs.load("W",weights);tables.prepare_tables();
+    if(inputs.load("W",weights)) inputs.discard(N*K);
+    else for(size_t n=0;n<N;++n){inputs.fill(w);ggml_quantize_chunk(weight_type,w.data(),weights.data()+n*weight_bytes,0,1,K,importance.data());}
+    tables.prepare_tables();
     std::vector<float> decoded(M*K);
     if(activation_type==GGML_TYPE_F32)decoded=activation;
     else {

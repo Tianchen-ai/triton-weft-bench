@@ -122,7 +122,8 @@ def worker_source(
     return "\n".join(lines) + "\n"
 
 
-def fixture_source(workload, call, metadata, input_source, *, save_outputs=False, eviction_bytes=0):
+def fixture_source(workload, call, metadata, input_source, *, save_outputs=False, eviction_bytes=0,
+                   prepared_inputs=()):
     """Borrow the native workload, including traversal, aliases and its oracle.
 
     The session callback keeps ordinary C++ automatic storage alive on the same
@@ -146,6 +147,10 @@ def fixture_source(workload, call, metadata, input_source, *, save_outputs=False
     snapshots = {"Y": "output", **workload.snapshots, **call.snapshots} if save_outputs else {}
     export = "".join("wb::save_buffer(" + json.dumps(name + ".bin") + "," + value + ");"
                      for name, value in snapshots.items())
+    input_exports = "".join("wb::save_buffer(" + json.dumps("prepared-inputs/" + name + ".bin")
+                            + "," + workload.snapshots[name] + ");" for name in prepared_inputs)
+    input_reuse = "".join("inputs.files[" + json.dumps(name) + "] = prepared_input_directory + "
+                          + json.dumps("/" + name + ".bin") + ";" for name in prepared_inputs)
     return "\n".join("#include " + json.dumps(h) for h in sorted(includes)) + f'''
 #include <functional>
 #include <stdexcept>
@@ -153,8 +158,12 @@ using Launch = int (*)(void **);
 using Session = int (*)(void *);
 struct Fixture {{
   std::function<void(Launch)> invoke;
-  std::function<void()> reset, check, save, evict;
+  std::function<void()> reset, check, save, evict, save_inputs;
 }};
+static std::string prepared_input_directory;
+extern "C" void wb_fixture_use_inputs(const char *directory) {{
+  prepared_input_directory = directory;
+}}
 extern "C" int wb_fixture_invoke(void *handle,Launch launch,char *error,size_t capacity) {{
   try {{ static_cast<Fixture*>(handle)->invoke(launch); return 0; }}
   catch(const std::exception &e) {{std::snprintf(error,capacity,"%s",e.what());return 1;}}
@@ -166,6 +175,7 @@ extern "C" int wb_fixture_action(void *handle,int action,char *error,size_t capa
     else if(action==1)fixture.check();
     else if(action==2)fixture.save();
     else if(action==3)fixture.evict();
+    else if(action==4)fixture.save_inputs();
     else throw std::runtime_error("unknown fixture action");
     return 0;
   }} catch(const std::exception &e) {{std::snprintf(error,capacity,"%s",e.what());return 1;}}
@@ -173,6 +183,7 @@ extern "C" int wb_fixture_action(void *handle,int action,char *error,size_t capa
 extern "C" int wb_fixture_session(Session session,char *error,size_t capacity) {{
   try {{
     {input_source}
+    if(!prepared_input_directory.empty()) {{ {input_reuse} }}
     {workload.setup}
     std::vector<{workload.output_type}> output({workload.output_size});
     {workload.initialize_output}
@@ -189,6 +200,7 @@ extern "C" int wb_fixture_session(Session session,char *error,size_t capacity) {
     fixture.reset=[&] {{ {workload.reset}{call.reset} }};
     fixture.check=[&] {{ {call.collect}{workload.collect}{workload.check}; }};
     fixture.save=[&] {{ {export} }};
+    fixture.save_inputs=[&] {{ {input_exports} }};
     fixture.evict=[&] {{ wb::evict(eviction); }};
     return session(&fixture);
   }} catch(const std::exception &e) {{std::snprintf(error,capacity,"%s",e.what());return 1;}}

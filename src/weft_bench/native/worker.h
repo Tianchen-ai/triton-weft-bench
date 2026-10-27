@@ -37,6 +37,16 @@ struct InputSet {
   explicit InputSet(uint32_t s):seed(s){}
   float random() {seed=seed*1664525U+1013904223U;return (float(seed>>8)/8388608.0f-1)*.5f;}
   template<class T> void fill(std::vector<T>& v) {for(auto &x:v)x=T(random());}
+  void discard(size_t count) {
+    // Advance the same uint32 LCG without generating values replaced by a
+    // saved input. Later generated ports retain their original random stream.
+    uint32_t multiplier=1664525U,increment=1013904223U,scale=1,offset=0;
+    while(count) {
+      if(count&1) {offset=offset*multiplier+increment;scale*=multiplier;}
+      increment*=multiplier+1;multiplier*=multiplier;count>>=1;
+    }
+    seed=seed*scale+offset;
+  }
   template<class T> bool load(const std::string &name,std::vector<T>& v) {
     auto item=files.find(name);if(item==files.end())return false;
     std::ifstream f(item->second,std::ios::binary|std::ios::ate);
