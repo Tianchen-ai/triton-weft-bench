@@ -4680,7 +4680,7 @@
           "BLOCK": 32
         },
         "backend_options": {
-          "native_loop_alignment": 0
+          "native_loop_alignment": 64
         },
         "compile_target": {
           "arch": "riscv64",
