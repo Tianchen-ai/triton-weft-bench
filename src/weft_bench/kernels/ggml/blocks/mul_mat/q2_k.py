@@ -6,7 +6,7 @@ import triton
 import triton.language as wl
 
 
-@triton.jit(model="weft")
+@triton.jit(model="weft", alias_groups={"Xq": "workspace", "Y": "output"})
 def production_mul_mat_q2_k(
     W: wl.View[ggml.Q2_K, (N, K)],
     X: wl.View[wl.f32, (M, K)],
@@ -29,7 +29,10 @@ def production_mul_mat_q2_k(
                         )
                         integer = wl.state(wl.i32, [MR, NR], init=wl.i32(0))
                         with wl.level.subtiles(kb, extent=16) as sub:
-                            partial = wl.dot(x.q[:, sub], w.q[:, sub], over="k", acc_dtype=wl.i32)
+                            # Q2 values are in [0, 3], so the signed byte
+                            # operand preserves the exact integer program.
+                            partial = wl.dot(x.q[:, sub], wl.widen(w.q[:, sub], wl.i8),
+                                             over="k", acc_dtype=wl.i32)
                             scale = wl.i32(low_scales[:, sub])
                             integer += partial * scale
                         mins = wl.widen(wl.u8(w.scales) >> wl.u8(4), wl.i16)

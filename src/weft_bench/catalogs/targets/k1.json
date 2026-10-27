@@ -3847,8 +3847,8 @@
         "constexprs": {
           "NC": 32,
           "MC": 32,
-          "MR": 1,
-          "NR": 2
+          "MR": 4,
+          "NR": 4
         },
         "backend_options": {
           "lmul_eighths": 8,
@@ -3868,8 +3868,8 @@
       },
       "reference": "ggml",
       "artifact_evidence": {
-        "used_extensions": [],
-        "matrix_in_artifact": false,
+        "used_extensions": ["spacemit-ime1"],
+        "matrix_in_artifact": true,
         "runtime_instruction_path": "not_observed"
       },
       "reference_catalog": "ggml-cpu-rvv"
