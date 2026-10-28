@@ -229,7 +229,7 @@ def _ggml_call(name, case):
             "timing": "one complete native tile; excludes graph dispatch and activation quantization"}}
         return NativeCall(name, "AMXTileReference reference(data,output);", "reference.run();",
                           collect="std::puts(" + json.dumps("WB_DETAILS " + json.dumps(details)) + ");",
-                          includes=("amx_tile_reference.h",))
+                          includes=("amx_tile_reference.h",), activate="reference.activate();")
     if family == "dense":
         return NativeCall(
             name,

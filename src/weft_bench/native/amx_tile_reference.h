@@ -9,11 +9,34 @@ struct AMXTileReference {
   ProjectionReference weights;
   const AMXTileInputs &input;
   std::vector<float> &output;
+#if !WB_AMX_DECODE
+  alignas(64) tile_config_t configuration{};
+  static const tile_config_t &normal_configuration() {
+    static thread_local const tile_config_t saved = [] {
+      alignas(64) tile_config_t value{};
+      ggml_tile_config_init();
+      _tile_storeconfig(&value);
+      return value;
+    }();
+    return saved;
+  }
+#endif
   AMXTileReference(const AMXTileInputs &data,std::vector<float> &out)
       : weights(data.weight_type,data.M,data.N,data.K,data.weights.data(),data.activation.data(),out),
         input(data),output(out) {
     if(weights.weight_buffer_name!="AMX")
       throw std::runtime_error("normal GGML did not select its AMX weight buffer");
+#if !WB_AMX_DECODE
+    configuration = normal_configuration();
+#endif
+  }
+  void activate() {
+#if !WB_AMX_DECODE
+    // GGML initializes its thread-local tile configuration once. Other native
+    // providers can replace it; restore the actual reference configuration at
+    // the sample boundary, outside the measured kernel batch.
+    _tile_loadconfig(&configuration);
+#endif
   }
   void run() {
 #if WB_AMX_DECODE

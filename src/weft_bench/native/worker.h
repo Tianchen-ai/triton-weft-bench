@@ -86,20 +86,23 @@ struct NativeExecution : Execution {
   std::vector<T>& output;
   bool stateful, save;
   const char *correctness;
+  std::function<void()> activate;
   bool exported=false;
   bool finished=false;
   const char *stage="run";
   std::optional<Timing<Run,Reset>> timing;
   NativeExecution(const char* name,Run run,Collect collect,Reset reset,Check check,Initialize initialize,
-                  std::vector<T>& output,bool stateful,bool save,const char* correctness)
+                  std::vector<T>& output,bool stateful,bool save,const char* correctness,
+                  std::function<void()> activate = {})
       :name(name),run(run),collect(collect),reset(reset),check(check),initialize(initialize),output(output),
-       stateful(stateful),save(save),correctness(correctness) {}
+       stateful(stateful),save(save),correctness(correctness),activate(std::move(activate)) {}
   void fail(const std::exception &e) {
     finished=true;
     std::printf("WB_RESULT {\"implementation\":%s,\"status\":%s,\"stage\":%s,\"error\":%s,\"outputs_available\":%s,\"samples_ms\":[]}\n",json(name).c_str(),json(std::string(stage)=="check"?"check_failed":"run_failed").c_str(),json(stage).c_str(),json(e.what()).c_str(),exported?"true":"false");
   }
   void prepare() override {
   try {
+    if (activate) activate();
     initialize();
     reset();run();collect();
     if(save) {
@@ -123,7 +126,10 @@ struct NativeExecution : Execution {
   }
   void sample(bool refresh) override {
     if (finished) return;
-    try { timing->sample(refresh); } catch(const std::exception &e) { fail(e); }
+    try {
+      if (activate) activate();
+      timing->sample(refresh);
+    } catch(const std::exception &e) { fail(e); }
   }
   void report() override {
     if (!finished) { timing->report(); finished=true; }
@@ -133,9 +139,10 @@ struct ExecutionGroup {
   std::vector<std::unique_ptr<Execution>> executions;
   template<class Run,class Collect,class Reset,class Check,class Initialize,class T>
   void add(const char* name,Run run,Collect collect,Reset reset,Check check,Initialize initialize,
-           std::vector<T>& output,bool stateful,bool save,const char* correctness) {
+           std::vector<T>& output,bool stateful,bool save,const char* correctness,
+           std::function<void()> activate = {}) {
     executions.push_back(std::make_unique<NativeExecution<Run,Collect,Reset,Check,Initialize,T>>(
-        name,run,collect,reset,check,initialize,output,stateful,save,correctness));
+        name,run,collect,reset,check,initialize,output,stateful,save,correctness,std::move(activate)));
   }
   void run() {
     for (auto &execution:executions) execution->prepare();
@@ -151,8 +158,8 @@ struct ExecutionGroup {
   }
 };
 template<class Run,class Collect,class Reset,class Check,class Initialize,class T>
-void execute(const char* name,Run run,Collect collect,Reset reset,Check check,Initialize initialize,std::vector<T>& output,bool stateful,bool save,const char* correctness) {
-  NativeExecution<Run,Collect,Reset,Check,Initialize,T> execution(name,run,collect,reset,check,initialize,output,stateful,save,correctness);
+void execute(const char* name,Run run,Collect collect,Reset reset,Check check,Initialize initialize,std::vector<T>& output,bool stateful,bool save,const char* correctness,std::function<void()> activate = {}) {
+  NativeExecution<Run,Collect,Reset,Check,Initialize,T> execution(name,run,collect,reset,check,initialize,output,stateful,save,correctness,std::move(activate));
   execution.prepare();
   const int samples=static_cast<int>(option("WB_SAMPLES",5));
   for (int i=0;i<samples;++i) execution.sample(false);

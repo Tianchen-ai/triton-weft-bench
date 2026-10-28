@@ -82,7 +82,11 @@ by the required state reset. JIT fixtures use the same output initialization. Ne
 step belongs to the measured invocation. Native calls keep their typed call boundary;
 there is no extra dispatch inside the timer. With `cache=reuse`, one untimed call
 refreshes each implementation before its sample. Per-sample frequencies are
-diagnostics, never a correction to wall-clock scores. Alternating order requires
+diagnostics, never a correction to wall-clock scores. Provider execution state is
+reestablished at sample boundaries. The AMX reference
+restores its original tile configuration there, outside the measured batch, so
+another compiled kernel's tile configuration or release cannot invalidate it.
+Alternating order requires
 immutable workload inputs and prepared native entries. Both single instances and
 synchronous grid launchers are supported; a grid sample includes its OpenMP
 launch and worker checks. The next candidate starts only after the current team
@@ -139,6 +143,11 @@ to compile with the recorded Triton Python/toolchain and options.
 
 Model fixed references work the same way: `e2e ... --baseline runs/model-ref`
 runs only Weft by default. Numerical oracles may still execute outside timing.
+
+When `--impl weft,ggml` or `--impl normal,weft` explicitly measures the reference,
+the reported speedup uses that run's matching reference. A configured historical
+baseline is retained in `details.historical_comparison`. An explicit `--baseline`
+continues to select the saved reference for the primary comparison.
 
 `check --target TARGET` remains a daily convenience using configured
 `check.reference` and `check.previous`. It adds the historical multi-row dot

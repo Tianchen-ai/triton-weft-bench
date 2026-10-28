@@ -43,6 +43,7 @@ class NativeCall:
     includes: tuple[str, ...] = ()
     snapshots: dict[str, str] = field(default_factory=dict)
     whole_workload: bool = False
+    activate: str = ""
 
 
 @dataclass
@@ -100,6 +101,7 @@ def worker_source(
             "auto collect = [&] { " + call.collect + workload.collect + export + " };",
             "auto initialize_output = [&] { " + workload.initialize_output + " };",
             "auto reset = [&] { " + workload.reset + call.reset + " };",
+            "auto activate = [&] { " + call.activate + " };",
             "auto check = [&] { " + workload.check + "; };",
             f"{'measurements.add' if alternating else 'wb::execute'}({label}, invoke, collect, reset, check, initialize_output, output, "
             + ("true" if call.reset or workload.reset else "false")
@@ -107,7 +109,7 @@ def worker_source(
             + ("true" if save_outputs else "false")
             + ", "
             + json.dumps(workload.correctness)
-            + ");",
+            + ", activate);",
         ]
         if not alternating:
             lines.append("}")

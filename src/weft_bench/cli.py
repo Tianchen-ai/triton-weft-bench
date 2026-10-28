@@ -584,6 +584,7 @@ def main(argv=None):
             return 0
         config = load_config(args.config)
         target = select_target(config, args.target)
+        explicit_baseline = bool(getattr(args, "baseline", None))
         if args.command == "op" and bool(args.case) == bool(args.suite):
             raise ValueError("select one case or --suite")
         if args.command == "e2e" and not args.case:
@@ -748,10 +749,24 @@ def main(argv=None):
                 )
         if args.baseline:
             reference_rows = read(args.baseline)
+            measured_rows = [replace(row, details=dict(row.details)) for row in rows]
             for row in rows:
                 selected_reference = target.settings.get("case_catalog", {}).get(row.case, {}).get("reference")
-                apply_baselines([row], reference_rows,
-                    args.baseline_impl or (selected_reference or "ggml" if args.command == "op" else "normal"))
+                reference_name = args.baseline_impl or (selected_reference or "ggml" if args.command == "op" else "normal")
+                apply_baselines([row], reference_rows, reference_name)
+                if not explicit_baseline and reference_name in implementations:
+                    # An explicitly measured reference belongs to this run.
+                    # Keep the configured historical comparison as evidence,
+                    # but do not print it as the speedup against the new sample.
+                    row.details["historical_comparison"] = {
+                        "source": str(Path(args.baseline).resolve()),
+                        "baseline": row.baseline,
+                        "median_ms": row.details.get("baseline_median_ms"),
+                        "speedup": row.speedup,
+                        "comparison_note": row.details.get("comparison_note"),
+                    }
+                    apply_baselines([row], measured_rows, reference_name)
+                    row.details["reference_selection"] = "measured-in-current-run"
         elif args.baseline_impl or (
             len(implementations) > 1 and ("ggml" in implementations or "normal" in implementations)
         ):
