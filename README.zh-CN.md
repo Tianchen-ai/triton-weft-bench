@@ -1,4 +1,11 @@
-# Weft Bench
+# Triton–Weft Bench
+
+[English](README.md) · [论文实验复现](https://tianchen-ai.github.io/triton-weft/zh/experiments/reproduce/) · [论文 CSV](docs/paper/README.zh-CN.md)
+
+**使用 Triton–Weft 与本 Bench 工程复现论文中的算子和 llama.cpp 实验。**
+Catalog 登记作者程序、shape、参考与模型 package，
+[双语复现流程](https://tianchen-ai.github.io/triton-weft/zh/experiments/reproduce/)
+覆盖目标机 JIT、完整套件、原生参考和 prefill／decode。
 
 本工具只围绕两种工作：
 

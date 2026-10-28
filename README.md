@@ -1,5 +1,12 @@
 # Triton–Weft Bench
 
+[中文](README.zh-CN.md) · [Reproduce the paper](https://tianchen-ai.github.io/triton-weft/experiments/reproduce/) · [Paper CSV tables](docs/paper/README.md)
+
+**Reproduce the paper's kernel and llama.cpp experiments with Triton–Weft and this Bench project.**
+The catalogs identify author programs, shapes, references and model packages.
+The [bilingual workflow](https://tianchen-ai.github.io/triton-weft/experiments/reproduce/)
+covers target-side JIT, complete suites, native references and prefill/decode.
+
 Compare Triton–Weft kernels with GGML, or compare normal llama.cpp with
 explicitly selected kernel replacements. Pick an operation, inputs and implementation;
 Bench prepares the shared inputs, checks outputs and measures the native call.
