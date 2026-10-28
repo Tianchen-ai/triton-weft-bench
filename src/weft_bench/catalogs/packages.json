@@ -206,7 +206,22 @@
           "NR": 16
         },
         "backend_options": {
+          "lmul_eighths": 8,
+          "unroll": 1,
+          "pipeline_depth": 1,
+          "scalar_load_prime": 0,
+          "pointwise_issue_copies": 1,
+          "contraction_column_copies": 4,
+          "panel_transfer_fields": 4,
+          "panel_transfer_strategy": "issue-work",
+          "contraction_panel_k": 128,
+          "contraction_k_steps": 4,
+          "partial_combine_policy": "independent-multilevel",
+          "record_axis_policy": "within-record",
+          "max_widening_combine_groups": 2,
           "matrix_extension": "spacemit-ime1",
+          "local_tile_strategy": "atom-partitioned",
+          "private_stack_bytes": 65536,
           "required_extensions": [
             "spacemit-ime1"
           ]
@@ -217,6 +232,11 @@
           "vlen_bits": 256,
           "arch": "riscv64",
           "backend": "weft"
+        },
+        "toolchain": {
+          "cflags": [
+            "-mtune=spacemit-x60"
+          ]
         }
       },
       "ggml.vec_dot/q6_K": {
