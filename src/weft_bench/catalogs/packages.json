@@ -265,18 +265,20 @@
     "model": "deepseek8b-q4_k_m",
     "policy": "normal",
     "bindings": {
-      "ggml.vec_dot/q4_K": {
-        "source": "package:kernels/ggml/blocks/vec_dot/q4_k_q8_k.py",
-        "symbol": "quantized_vec_dot_q4_k_q8_k",
+      "ggml.ime1/q4_affine_decode": {
+        "source": "package:kernels/ggml/mul_mat/ime1/kernels.py",
+        "symbol": "q4_affine_packed_decode_correction",
         "signature": {},
-        "constexprs": {},
+        "constexprs": {
+          "MR": 1,
+          "NR": 16
+        },
         "backend_options": {
-          "lmul_eighths": 8,
-          "unroll": 8,
-          "pipeline_depth": 1,
-          "scalar_load_prime": 0,
-          "partial_combine_policy": "independent-multilevel",
-          "record_axis_policy": "within-record"
+          "matrix_extension": "spacemit-ime1",
+          "required_extensions": ["spacemit-ime1"]
+        },
+        "toolchain": {
+          "cflags": ["-mtune=spacemit-x60"]
         },
         "compile_target": {
           "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause_zba",
@@ -298,6 +300,9 @@
           "scalar_load_prime": 0,
           "partial_combine_policy": "independent-multilevel",
           "record_axis_policy": "within-record"
+        },
+        "toolchain": {
+          "cflags": ["-mtune=spacemit-x60"]
         },
         "compile_target": {
           "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause_zba",
