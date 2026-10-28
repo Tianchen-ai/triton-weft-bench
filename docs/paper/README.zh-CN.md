@@ -7,6 +7,8 @@
 
 - [operators.csv](operators.csv)：553 行算子—平台记录，其中 543 项具有匹配原生参考。
 - [models.csv](models.csv)：九组模型配对配置的 18 个阶段。
+- [operators.png](operators.png) 与 [models.png](models.png)：论文图 8、图 10 的
+  原始 PNG 导出，直接展示在仓库 README 中。
 
 ## 阅读各列
 

@@ -1,11 +1,53 @@
 # Triton–Weft Bench
 
-[English](README.md) · [论文实验复现](https://tianchen-ai.github.io/triton-weft/zh/experiments/reproduce/) · [论文 CSV](docs/paper/README.zh-CN.md)
+[English](README.md) · [实验结果](#论文实验结果) · [论文实验复现](https://tianchen-ai.github.io/triton-weft/zh/experiments/reproduce/) · [论文 CSV](docs/paper/README.zh-CN.md)
 
 **使用 Triton–Weft 与本 Bench 工程复现论文中的算子和 llama.cpp 实验。**
 Catalog 登记作者程序、shape、参考与模型 package，
 [双语复现流程](https://tianchen-ai.github.io/triton-weft/zh/experiments/reproduce/)
 覆盖目标机 JIT、完整套件、原生参考和 prefill／decode。
+
+## 论文实验结果
+
+论文覆盖 **553 个算子—平台案例**，其中 **543 项具有匹配的原生参考**，
+以及 **18 个模型阶段**。以下图片和表格来自[论文数据](docs/paper/README.zh-CN.md)，
+倍率均为参考耗时除以 Triton–Weft 耗时。
+
+### 算子性能
+
+[![代表算子与全部 543 项匹配原生比较](docs/paper/operators.png)](docs/paper/operators.png)
+
+| 平台 | 正式用例 | 匹配比较 | 几何平均加速 |
+|---|---:|---:|---:|
+| SG2044 · RVV128 | 133 | 132 | **1.60×** |
+| K1 · RVV256／IME1 | 137 | 136 | **1.55×** |
+| K3 A100 · RVV1024／IME2 | 136 | 135 | **1.82×** |
+| Xeon Platinum 8470Q · AVX-512／VNNI／AMX | 147 | 140 | **1.56×** |
+
+参考包含 541 项 GGML 和两项 oneDNN。
+[算子 CSV](docs/paper/operators.csv)记录工作负载、数值检查、耗时、参考与 JIT 观察。
+
+### 模型推理
+
+[![九组模型配置的 prefill 与 decode 配对结果](docs/paper/models.png)](docs/paper/models.png)
+
+| 平台 | 模型 | 参考 | Prefill | Decode |
+|---|---|---|---:|---:|
+| x86 | Llama 2 7B Q4_0 | 正常 llama.cpp | 1.75× | 1.20× |
+| x86 | DeepSeek 8B Q4_K_M | 正常 llama.cpp | 1.23× | 1.27× |
+| x86 | Qwen 2.5 14B Q4_K_M | 正常 llama.cpp | 1.18× | 1.25× |
+| SG2044 | Llama 2 7B Q4_0 | 正常 llama.cpp | 1.26× | 1.02× |
+| SG2044 | DeepSeek 8B Q4_K_M | 正常 llama.cpp | 1.15× | 0.957× |
+| K1 | Llama 2 7B Q4_0 | 正常 llama.cpp | 1.62× | 0.997× |
+| K1 | DeepSeek 8B Q4_K_M | 正常 llama.cpp | 1.15× | 1.01× |
+| K3 A100 | DeepSeek 8B Q4_K_M | CPU–RVV | 1.93× | 1.92× |
+| K3 A100 | DeepSeek 8B Q4_K_M | 厂商 IME2 | 0.985× | 1.17× |
+
+模型均使用八线程。SG2044／K1／x86 为 128-token prefill、512-token context 后生成
+32 tokens；K3 为 32-token prefill、32-token context 后生成 8 tokens。
+[模型 CSV](docs/paper/models.csv)保留全部 18 个阶段的耗时、参考策略和替换计数。
+
+## 安装与复现
 
 本工具只围绕两种工作：
 

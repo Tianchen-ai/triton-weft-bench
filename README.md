@@ -1,6 +1,6 @@
 # Triton–Weft Bench
 
-[中文](README.zh-CN.md) · [Reproduce the paper](https://tianchen-ai.github.io/triton-weft/experiments/reproduce/) · [Paper CSV tables](docs/paper/README.md)
+[中文](README.zh-CN.md) · [Results](#paper-results) · [Reproduce the paper](https://tianchen-ai.github.io/triton-weft/experiments/reproduce/) · [Paper CSV tables](docs/paper/README.md)
 
 **Reproduce the paper's kernel and llama.cpp experiments with Triton–Weft and this Bench project.**
 The catalogs identify author programs, shapes, references and model packages.
@@ -10,6 +10,51 @@ covers target-side JIT, complete suites, native references and prefill/decode.
 Compare Triton–Weft kernels with GGML, or compare normal llama.cpp with
 explicitly selected kernel replacements. Pick an operation, inputs and implementation;
 Bench prepares the shared inputs, checks outputs and measures the native call.
+
+## Paper results
+
+The paper evaluates **553 operator–platform cases**, including **543 matched
+native comparisons**, and **18 model stages**. These figures and tables use the
+[published paper dataset](docs/paper/README.md); speedup is reference time divided
+by Triton–Weft time.
+
+### Operators
+
+[![Representative kernels and all 543 matched native comparisons](docs/paper/operators.png)](docs/paper/operators.png)
+
+| Platform | Registered cases | Matched comparisons | Geometric mean speedup |
+|---|---:|---:|---:|
+| SG2044 · RVV128 | 133 | 132 | **1.60×** |
+| K1 · RVV256 / IME1 | 137 | 136 | **1.55×** |
+| K3 A100 · RVV1024 / IME2 | 136 | 135 | **1.82×** |
+| Xeon Platinum 8470Q · AVX-512 / VNNI / AMX | 147 | 140 | **1.56×** |
+
+References comprise 541 GGML cases and two oneDNN cases.
+[Operator CSV](docs/paper/operators.csv) records workloads, numerical checks,
+timings, references and JIT observations.
+
+### Model inference
+
+[![Prefill and decode for all nine paired model configurations](docs/paper/models.png)](docs/paper/models.png)
+
+| Platform | Model | Reference | Prefill | Decode |
+|---|---|---|---:|---:|
+| x86 | Llama 2 7B Q4_0 | normal llama.cpp | 1.75× | 1.20× |
+| x86 | DeepSeek 8B Q4_K_M | normal llama.cpp | 1.23× | 1.27× |
+| x86 | Qwen 2.5 14B Q4_K_M | normal llama.cpp | 1.18× | 1.25× |
+| SG2044 | Llama 2 7B Q4_0 | normal llama.cpp | 1.26× | 1.02× |
+| SG2044 | DeepSeek 8B Q4_K_M | normal llama.cpp | 1.15× | 0.957× |
+| K1 | Llama 2 7B Q4_0 | normal llama.cpp | 1.62× | 0.997× |
+| K1 | DeepSeek 8B Q4_K_M | normal llama.cpp | 1.15× | 1.01× |
+| K3 A100 | DeepSeek 8B Q4_K_M | CPU–RVV | 1.93× | 1.92× |
+| K3 A100 | DeepSeek 8B Q4_K_M | vendor IME2 | 0.985× | 1.17× |
+
+All model runs use eight threads. SG2044/K1/x86 use 128-token prefill and
+32-token decode after a 512-token context; K3 uses 32-token prefill and
+8-token decode after a 32-token context. [Model CSV](docs/paper/models.csv)
+contains all 18 measured stages, reference policies and replacement counters.
+
+## Install and reproduce
 
 Reference libraries can also run independently: GGML operators and normal llama.cpp,
 OpenBLAS F32 GEMM, and oneDNN strict F32, BF16/F32 or S8/S32 matmul. See the

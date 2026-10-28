@@ -8,6 +8,8 @@ with machine-local paths omitted.
 
 - [operators.csv](operators.csv): 553 operator–platform rows, including 543 matched native comparisons.
 - [models.csv](models.csv): 18 phases from nine paired model configurations.
+- [operators.png](operators.png) and [models.png](models.png): the paper's original
+  Figure 8 and Figure 10 PNG exports, embedded directly in the repository README.
 
 ## Read the columns
 
