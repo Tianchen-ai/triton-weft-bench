@@ -43,7 +43,7 @@ Catalog 登记作者程序、shape、参考与模型 package，
 | K3 A100 | DeepSeek 8B Q4_K_M | CPU–RVV | 1.93× | 1.92× |
 | K3 A100 | DeepSeek 8B Q4_K_M | 厂商 IME2 | 0.985× | 1.17× |
 
-模型均使用八线程。SG2044／K1／x86 为 128-token prefill、512-token context 后生成
+SG2044 模型使用 64 线程，K1、K3 和 x86 使用八线程。SG2044／K1／x86 为 128-token prefill、512-token context 后生成
 32 tokens；K3 为 32-token prefill、32-token context 后生成 8 tokens。
 [模型 CSV](docs/paper/models.csv)保留全部 18 个阶段的耗时、参考策略和替换计数。
 
