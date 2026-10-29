@@ -82,38 +82,6 @@
           "backend": "weft"
         }
       },
-      "ggml.vec_dot/q4_0": {
-        "source": "package:kernels/ggml/blocks/vec_dot/q4_0_q8_0.py",
-        "symbol": "quantized_vec_dot_q4_0_q8_0",
-        "signature": {},
-        "constexprs": {},
-        "backend_options": {
-          "lmul_eighths": 8,
-          "unroll": 1,
-          "pipeline_depth": 2,
-          "scalar_load_prime": 0,
-          "pointwise_issue_copies": 1,
-          "contraction_column_copies": 4,
-          "panel_transfer_fields": 4,
-          "panel_transfer_strategy": "issue-work",
-          "contraction_panel_k": 128,
-          "contraction_k_steps": 4,
-          "partial_combine_policy": "independent-multilevel",
-          "record_axis_policy": "within-record",
-          "max_widening_combine_groups": 2,
-          "matrix_extension": "none",
-          "local_tile_strategy": "target-default",
-          "private_stack_bytes": 65536,
-          "required_extensions": []
-        },
-        "compile_target": {
-          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause",
-          "abi": "lp64d",
-          "vlen_bits": 128,
-          "arch": "riscv64",
-          "backend": "weft"
-        }
-      },
       "ggml.vec_dot/q4_K": {
         "source": "package:kernels/ggml/vec_dot/q4_k_q8_k.py",
         "symbol": "quantized_vec_dot_q4_k_q8_k",
@@ -121,8 +89,8 @@
         "constexprs": {},
         "backend_options": {
           "lmul_eighths": 8,
-          "unroll": 8,
-          "pipeline_depth": 1,
+          "unroll": 1,
+          "pipeline_depth": 2,
           "scalar_load_prime": 0,
           "pointwise_issue_copies": 1,
           "contraction_column_copies": 4,
@@ -197,55 +165,13 @@
           "backend": "weft"
         }
       },
-      "ggml.ime1/q4_centered_decode": {
-        "source": "package:kernels/ggml/mul_mat/ime1/kernels.py",
-        "symbol": "q4_centered_packed_decode",
-        "signature": {},
-        "constexprs": {
-          "MR": 1,
-          "NR": 16
-        },
-        "backend_options": {
-          "lmul_eighths": 8,
-          "unroll": 1,
-          "pipeline_depth": 1,
-          "scalar_load_prime": 0,
-          "pointwise_issue_copies": 1,
-          "contraction_column_copies": 4,
-          "panel_transfer_fields": 4,
-          "panel_transfer_strategy": "issue-work",
-          "contraction_panel_k": 128,
-          "contraction_k_steps": 4,
-          "partial_combine_policy": "independent-multilevel",
-          "record_axis_policy": "within-record",
-          "max_widening_combine_groups": 2,
-          "matrix_extension": "spacemit-ime1",
-          "local_tile_strategy": "atom-partitioned",
-          "private_stack_bytes": 65536,
-          "required_extensions": [
-            "spacemit-ime1"
-          ]
-        },
-        "compile_target": {
-          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause_zba",
-          "abi": "lp64d",
-          "vlen_bits": 256,
-          "arch": "riscv64",
-          "backend": "weft"
-        },
-        "toolchain": {
-          "cflags": [
-            "-mtune=spacemit-x60"
-          ]
-        }
-      },
       "ggml.vec_dot/q6_K": {
         "source": "package:kernels/ggml/blocks/vec_dot/q6_k_q8_k.py",
         "symbol": "quantized_vec_dot_q6_k_q8_k",
         "signature": {},
         "constexprs": {},
         "backend_options": {
-          "lmul_eighths": 32,
+          "lmul_eighths": 16,
           "unroll": 2,
           "pipeline_depth": 1,
           "scalar_load_prime": 0,
@@ -269,6 +195,11 @@
           "vlen_bits": 256,
           "arch": "riscv64",
           "backend": "weft"
+        },
+        "toolchain": {
+          "cflags": [
+            "-mtune=spacemit-x60"
+          ]
         }
       }
     },
