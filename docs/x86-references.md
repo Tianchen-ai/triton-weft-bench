@@ -121,6 +121,15 @@ GGML can use VNNI for decode or AVX512 for F16 with such a buffer. Bench records
 buffer selection plus successful graph execution without guessing that an AMX
 instruction executed.
 
+The `amx_*_prefill_strided` workloads can compare a fixed 32-by-32 native
+artifact with a kernel that accepts the worker's complete column window.
+For a fixed artifact, Bench traverses complete 32-by-32 tiles using the existing
+packed weights, quantized activations and explicit output row stride. All tile
+calls remain inside the same native measurement interval. Persistent-input
+metadata records the full prepared shape, artifact shape and number of calls.
+Incomplete fixed-tile windows are rejected; a dynamic artifact handles its own
+tails. Both paths check the entire output and untouched stride padding.
+
 For complete projections, the native runner also records `projection_boundary`:
 the prepared W/X buffers, setup and preparation statements, and the timed call.
 Weights are persistent inputs prepared before timing; activation preparation and

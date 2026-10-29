@@ -5,6 +5,23 @@ import json
 import math
 
 
+def amx_fixed_tile(case, abi, aliases):
+    """Recognize the fixed native prefill ABI used by GGML's tile traversal."""
+    if case.family != "amx_tile" or case.data.get("decode"):
+        return None
+    roles = {aliases.get(arg["name"], arg["name"]): arg for arg in abi["arguments"]}
+    output = roles.get("Y", {})
+    if output.get("kind") != "view" or list(map(str, output["shape"])) != ["32", "32"]:
+        return None
+    if case.shape["M"] == 32 and case.shape["N"] == 32:
+        return None
+    if case.shape["M"] % 32 or case.shape["N"] % 32:
+        raise ValueError("fixed AMX prefill tiles require complete 32-by-32 workload windows")
+    if not output.get("strided"):
+        raise ValueError("fixed AMX prefill traversal requires the output row-stride ABI")
+    return 32, 32
+
+
 def persistent_inputs(case, workload, abi, names, aliases, providers=None):
     if len(names) != len(set(names)):
         raise ValueError("persistent_inputs contains duplicate arguments")
@@ -34,7 +51,9 @@ def persistent_inputs(case, workload, abi, names, aliases, providers=None):
                 raise NotImplementedError("unknown persistent framework storage provider")
             encoding, elements, storage, base = layouts[weight]
             shape = [int(n) if str(n).isdecimal() else dimensions[n] for n in arg["shape"]]
-            if (shape != [dimensions["N"], dimensions["K"]] or shape[0] % 16 or shape[1] % elements or
+            tile = amx_fixed_tile(case, abi, aliases)
+            expected = [tile[1] if tile else dimensions["N"], dimensions["K"]]
+            if (shape != expected or shape[0] % 16 or shape[1] % elements or
                 arg["encoding"] != encoding or arg["record_elements"] != elements or
                 arg["storage_bytes"] != storage or arg["interleave_rows"] != 16):
                 raise ValueError(f"artifact does not declare the GGML AMX {base} weight storage contract")
@@ -47,8 +66,11 @@ def persistent_inputs(case, workload, abi, names, aliases, providers=None):
             buffers[role] = prefix
             bases[name] = base
             details.append({"argument": name, "workload_port": role, "base_encoding": base,
-                            "encoding": arg["encoding"], "shape": shape,
+                            "encoding": arg["encoding"], "shape": [dimensions["N"], dimensions["K"]],
                             "provider": "ggml-model-default/AMX", "preparation": "persistent-before-timing"})
+            if tile:
+                details[-1].update(artifact_shape=shape, native_tile=list(tile),
+                                   native_calls=dimensions["M"] // tile[0] * (dimensions["N"] // tile[1]))
             continue
         storage = arg.get("storage_layout")
         if storage and arg.get("interleave_rows") and not arg.get("artifact_pack"):

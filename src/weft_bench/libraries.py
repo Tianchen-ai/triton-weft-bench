@@ -61,6 +61,8 @@ def candidate_configuration(case, base, candidate):
 
 
 def weft_call(name, case, workload, metadata, aliases=None, packed_inputs=None):
+    from .adapters.persistent import amx_fixed_tile
+
     dimensions = {**case.shape}
     if case.family == "ime":
         dimensions["M"] = case.data.get("tile_rows", 4)
@@ -69,11 +71,27 @@ def weft_call(name, case, workload, metadata, aliases=None, packed_inputs=None):
         for a in metadata["arguments"])
     if whole_workload and not workload.batch_buffers:
         raise ValueError("the workload has no complete row-batch binding")
-    validate_binding(case, metadata, aliases or {}, dimensions, packed_inputs, whole_workload=whole_workload)
+    tile = amx_fixed_tile(case, metadata, aliases or {})
+    binding_case = case
+    buffers = workload.batch_buffers if whole_workload else workload.buffers
+    if tile:
+        dimensions.update(M=tile[0], N=tile[1])
+        binding_case = replace(case, shape=dimensions)
+        arguments = {(aliases or {}).get(a["name"], a["name"]): a for a in metadata["arguments"]}
+        buffers = dict(buffers)
+        for role, coordinate in (("W", "wb_amx_n"), ("Xq", "wb_amx_m")):
+            arg = arguments[role]
+            buffers[role] = (f"(reinterpret_cast<const uint8_t*>({buffers[role]})+{coordinate}*"
+                             f"(data.K/{arg['record_elements']})*{arg['storage_bytes']})")
+        buffers["Y"] = f"({buffers['Y']}+wb_amx_m*data.ldc+wb_amx_n)"
+    validate_binding(binding_case, metadata, aliases or {}, dimensions, packed_inputs, whole_workload=whole_workload)
     call = bind_metadata(
-        metadata, workload.batch_buffers if whole_workload else workload.buffers, dimensions, workload.scalars, aliases,
+        metadata, buffers, dimensions, workload.scalars, aliases,
         workload.strides
     )
+    if tile:
+        call = (f"for(size_t wb_amx_m=0;wb_amx_m<data.M;wb_amx_m+={tile[0]})"
+                f"for(size_t wb_amx_n=0;wb_amx_n<data.N;wb_amx_n+={tile[1]}){{{call}}}")
     if case.name == "rope_full":
         call = "data.prepare_rope(); " + call
     converted_projection = case.family == "projection" and case.data.get("activation_dtype") != "f32"
