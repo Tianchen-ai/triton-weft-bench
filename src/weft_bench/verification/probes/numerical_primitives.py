@@ -2029,6 +2029,7 @@ def byte_sum_contract(root, options, compile_target):
 
 def extrema_and_half(root, options, compile_target):
     from numerical_primitive_kernels import fixed_number_extrema, scalar_half_widen, scalar_half_bits, array_special_reduce, independent_half_pair, snapshot_half_pair, absolute_maxima, broadcast_half_snapshot
+    from numerical_primitive_kernels import half_widen_add, single_widen_add
     artifacts = {}
     def execute(kernel, *args):
         if compile_target is None:
@@ -2168,9 +2169,32 @@ def extrema_and_half(root, options, compile_target):
         save(root, f"broadcast-half-{n}-{stride}", source=before, actual_source=backing,
              expected=wanted, actual=output, expected_wide=wanted_wide, actual_wide=wide)
     native_evidence(compiled, root, "broadcast-half-snapshot", [])
+    widening_adds = []
+    for kernel, dtype, wide_dtype in ((half_widen_add, np.float16, np.float32),
+                                      (single_widen_add, np.float32, np.float64)):
+        patterns = source.copy() if dtype is np.float16 else np.concatenate((
+            source.astype(np.float32),
+            np.array([np.finfo(np.float32).max, -np.finfo(np.float32).max,
+                      np.nextafter(np.float32(0), np.float32(1)),
+                      -np.nextafter(np.float32(0), np.float32(1))], np.float32)))
+        for n in (0, 1, 17, 31, 32, 33, len(patterns)):
+            left = patterns[:n].copy()
+            right = patterns[::-1][:n].copy()
+            storage, output = guarded(n, wide_dtype, -777)
+            with np.errstate(invalid="ignore"):
+                wanted = left.astype(wide_dtype) + right.astype(wide_dtype)
+            compiled = execute(kernel, left, right, output)
+            same(output, wanted)
+            exact(storage[[0, 1, -2, -1]], np.full(4, -777, wide_dtype))
+        evidence = native_evidence(compiled, root, kernel.__name__, ["widen", "binary"])
+        if compiled.metadata.target.arch == "riscv64":
+            assert '"rvv.vfwadd.vv"' in compiled.asm["riscvir"], "floating widening add was not selected"
+        widening_adds.append({"source": str(np.dtype(dtype)), "result": str(np.dtype(wide_dtype)),
+                             "patterns": len(patterns), "empty_and_tail": True, "evidence": evidence})
     return {"extrema":records,"array_extrema_signed_zero_and_nan":True,"half_patterns":65536,
             "strided_half_broadcast_snapshot":True,"half_bit_transfers_exact_including_nan_payloads":True,
-            "half_pairs_f32_and_f64":True,"half_nan_payload_unspecified":True,"output_guards_unchanged":True}
+            "half_pairs_f32_and_f64":True,"half_nan_payload_unspecified":True,"output_guards_unchanged":True,
+            "widening_float_adds":widening_adds}
 
 
 def logical_shape_contract(root, options):

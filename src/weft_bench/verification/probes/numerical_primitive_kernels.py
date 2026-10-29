@@ -14,6 +14,20 @@ def scalar_half_bits(Bits: tl.View[tl.u16, (N,)], Half: tl.View[tl.f16, (N,)],
 
 
 @triton.jit(model="weft")
+def half_widen_add(X: tl.View[tl.f16, (N,)], Y: tl.View[tl.f16, (N,)],
+                   Z: tl.View[tl.f32, (N,)]):
+    with tl.level.blocks(N, extent=32) as block:
+        tl.store(Z[block], tl.f32(tl.load(X[block])) + tl.f32(tl.load(Y[block])))
+
+
+@triton.jit(model="weft")
+def single_widen_add(X: tl.View[tl.f32, (N,)], Y: tl.View[tl.f32, (N,)],
+                     Z: tl.View[tl.f64, (N,)]):
+    with tl.level.blocks(N, extent=32) as block:
+        tl.store(Z[block], tl.f64(tl.load(X[block])) + tl.f64(tl.load(Y[block])))
+
+
+@triton.jit(model="weft")
 def affine_float64(X: tl.View[tl.f64, (N,)], Y: tl.View[tl.f64, (N,)],
                    scale: tl.f64, bias: tl.f64):
     end = N // 1024 * 1024
