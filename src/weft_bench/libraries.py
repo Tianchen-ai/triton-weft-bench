@@ -226,7 +226,8 @@ def ggml_call(name, case):
 def _ggml_call(name, case):
     family = case.family
     if family == "ime2":
-        if case.data.get("affine") and case.data["tile_rows"] == 1:
+        if (case.data.get("affine") and case.data["tile_rows"] == 1 and
+                case.data.get("numerical_contract") != "f16-nibble-partials"):
             raise NotImplementedError(
                 "the vendor IME2 I4 M1 branch uses HP/f16 accumulation; "
                 "it is not a matched reference for this exact-i32 affine workload")

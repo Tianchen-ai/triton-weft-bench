@@ -181,8 +181,10 @@ def catalog():
                            phase=phase, data={"tile_rows": rows})
         affine = "ime2_i4_affine_" + phase
         cases[affine] = Case(affine, "ime2", {"M": rows, "N": 32, "K": 4096},
-                             "packed-ime2-u4-i8-affine-block32", dtype="packed-u4*i8->f32",
-                             phase=phase, data={"tile_rows": rows, "affine": True})
+                             "packed-ime2-u4-i8-affine-block32" + ("-half-partials" if rows == 1 else ""),
+                             dtype="packed-u4*i8->f16->f32" if rows == 1 else "packed-u4*i8->f32",
+                             phase=phase, data={"tile_rows": rows, "affine": True,
+                                                "numerical_contract": "f16-nibble-partials" if rows == 1 else "i32-block"})
     for index, fmt in enumerate(("f16", *FORMATS)):
         for phase, m in (("decode", 1), ("prefill", 128)):
             name = fmt + "_projection_" + phase

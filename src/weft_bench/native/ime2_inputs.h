@@ -1,10 +1,12 @@
 #pragma once
 #include "worker.h"
+#include <cmath>
 #include <cstring>
 
 // Native IME2 i8 ABI: block32 weights in N32 cohorts, activations in M1/M4
 // cohorts. Preparation is outside timing for both providers. The independent
 // oracle uses the original code arrays, never either implementation's output.
+// Affine M1 has the vendor HP half-rounding boundary; affine M4 uses I32.
 struct IME2Inputs {
   size_t M=WB_M,N=WB_N,K=WB_K,output_size=M*N;
   std::vector<uint8_t> weights,activation;
@@ -43,9 +45,28 @@ struct IME2Inputs {
     for(size_t m=0;m<M;++m) for(size_t n=0;n<N;++n) {
       double sum=0;
       for(size_t b=0;b<K/32;++b) {
-        int32_t dot=0;
-        for(size_t k=0;k<32;++k) dot+=int32_t(x[m*K+b*32+k])*(int32_t(w[n*K+b*32+k])-(WB_AFFINE ? zero_point(n,b) : 0));
-        sum+=double(dot)*activation_scale(m,b)*weight_scale(n,b);
+        if constexpr (WB_AFFINE && WB_TILE_ROWS == 1) {
+          int32_t high=0,low=0,negative=0;
+          for(size_t k=0;k<32;++k) {
+            const int32_t a=x[m*K+b*32+k],weight=w[n*K+b*32+k];
+            const int32_t lower=uint8_t(a)&15;
+            high+=((a-lower)/16)*weight;
+            low+=lower*weight;
+            negative-=a;
+          }
+          const _Float16 upper=static_cast<_Float16>(high*16);
+          const _Float16 product=static_cast<_Float16>(float(upper)+float(low));
+          const uint16_t correction_bits=uint16_t(negative*zero_point(n,b));
+          int16_t correction_integer;
+          std::memcpy(&correction_integer,&correction_bits,sizeof(correction_integer));
+          const _Float16 correction=static_cast<_Float16>(correction_integer);
+          const float scaled=(float(product)+float(correction))*weight_scale(n,b);
+          sum=std::fma(scaled,activation_scale(m,b),float(sum));
+        } else {
+          int32_t dot=0;
+          for(size_t k=0;k<32;++k) dot+=int32_t(x[m*K+b*32+k])*(int32_t(w[n*K+b*32+k])-(WB_AFFINE ? zero_point(n,b) : 0));
+          sum+=double(dot)*activation_scale(m,b)*weight_scale(n,b);
+        }
       }
       expected[m*N+n]=float(sum);
     }

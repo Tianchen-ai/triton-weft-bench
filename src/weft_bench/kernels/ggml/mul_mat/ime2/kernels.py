@@ -118,3 +118,23 @@ def i4_affine_native_tile(W: tl.View[IME2Weight4AffineRows[32], (N, K)],
                          Y: tl.View[tl.f32, (M, N)], *, M: tl.constexpr = 8,
                          MR: tl.constexpr = 8, NR: tl.constexpr = 32):
     packed_i4_affine(W, Xq, Y, M, MR, NR, True)
+
+
+@triton.jit(model="weft", strided=("Y",), alias_groups={"Y": "output"})
+def i4_affine_half_decode(W: tl.View[IME2Weight4AffineRows[32], (N, K)],
+                          Xq: tl.View[IME2Activation8Rows[1], (M, K)],
+                          Y: tl.View[tl.f32, (M, N)], *, NR: tl.constexpr = 32):
+    """M1 HP contract: two half-rounded nibble contributions per block."""
+    with tl.level.rows(M, group=1) as rows:
+        with tl.level.cols(N, group=NR) as columns:
+            result = tl.state(tl.f32, [1, NR], init=0)
+            with tl.level.blocks(K, extent=32) as block:
+                w, x = tl.load(W[columns, block]), tl.load(Xq[rows, block])
+                high = tl.dot(tl.i4(x.q >> 4), w.q, over="k", acc_dtype=tl.i32)
+                low = tl.dot(tl.u4(x.q), w.q, over="k", acc_dtype=tl.i32)
+                high_half = tl.f16(tl.f32(high) * tl.f32(16))
+                product = tl.f16(tl.f32(high_half) + tl.f32(low))
+                correction = tl.f16(tl.i16(x.neg_sum) * tl.i16(w.zp))
+                corrected = tl.f32(product) + tl.f32(correction)
+                result += (corrected * tl.f32(w.d)) * x.d
+            tl.store(Y[rows, columns], result)
