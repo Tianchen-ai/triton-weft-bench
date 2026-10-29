@@ -57,6 +57,8 @@ def _run(name, target, implementation, parameters, directory, token_reference=No
             flags += ["-DWB_WEFT_AMX_COUNTER"]
         if counters["ime2"]:
             flags += ["-DWB_WEFT_IME2_COUNTER"]
+        if counters["ime2_i4"]:
+            flags += ["-DWB_WEFT_IME2_I4_COUNTER"]
     executable = executor.workspace + "/validate-model"
     command = [*tools["cxx"], *flags, "-std=c++17", "-I" + source + "/include",
                "-I" + source + "/ggml/include", helper, "-L" + library, "-Wl,-rpath," + library,

@@ -26,6 +26,13 @@
     "local_patches": ["ggml-iq2-s-rvv1024.patch", "ggml-iqxxs-rvv.patch"],
     "build": "Clang 23 and compatible external assembler; A100 registration before affinity"
   },
+  "ggml-ime2-i4-affine": {
+    "provider": "SpacemiT IME2", "targets": ["k3-a100"], "revision": "6df9f75",
+    "entry": "spacemit_kernels::ime2::gemm_kernel_i8i4, block32 affine M4 integer branch",
+    "boundary": "Packed U4 weights and I8 activations, exact I32 products followed by F32 scale/update; two M4 calls cover an M8 window",
+    "source_file": "ggml/src/ggml-spacemit/ime2_kernels.cpp",
+    "build": "Same retained vendor reference library and external assembler as the IME2 I8 cases"
+  },
   "openblas": {
     "provider": "OpenBLAS", "source": "https://github.com/OpenMathLib/OpenBLAS", "version": "0.3.34",
     "workloads": ["gemm_f32"], "entry": "cblas_sgemm", "boundary": "LP64 SGEMM X[M,K] times W[N,K] transpose"

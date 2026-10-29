@@ -309,6 +309,7 @@ def save(rows, destination):
         "quantize_calls",
         "ime_calls",
         "ime2_calls",
+        "ime2_i4_calls",
         "amx_calls",
         "candidate_origin",
         "jit_status",
@@ -340,8 +341,8 @@ def save(rows, destination):
             data["jit_launches_per_workload"] = runtime.get("launches_per_workload")
             counts = row.details.get("replacement_counts", {})
             data["replacement_counter_scope"] = counts.get("scope")
-            for kind in ("vec_dot", "quantize", "ime", "ime2", "amx"):
-                observed = counts.get(kind + "_observed" if kind in ("ime2", "amx") else "observed")
+            for kind in ("vec_dot", "quantize", "ime", "ime2", "ime2_i4", "amx"):
+                observed = counts.get(kind + "_observed" if kind in ("ime2", "ime2_i4", "amx") else "observed")
                 data[kind + "_calls"] = counts.get(kind) if observed else None
             native = row.details.get("native", {})
             cpu_samples = native.get("calling_thread_samples_ms", [])

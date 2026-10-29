@@ -32,6 +32,9 @@ static uint64_t observe(int step) {
     calls += ime2;
     std::cout << "WB_MODEL_HITS {\"step\":" << step << ",\"type\":\"ime2\",\"ime\":" << ime2 << "}\n";
 #endif
+#ifdef WB_WEFT_IME2_I4_COUNTER
+    std::cout << "WB_MODEL_HITS {\"step\":" << step << ",\"type\":\"ime2_i4\",\"ime\":" << ggml_weft_ime2_i4_calls() << "}\n";
+#endif
 #ifdef WB_WEFT_AMX_COUNTER
     const auto amx = ggml_weft_amx_calls();
     calls += amx;

@@ -4815,7 +4815,7 @@
         "matrix_in_artifact": true,
         "runtime_instruction_path": "not_observed"
       },
-      "reference_catalog": "ggml-ime2"
+      "reference_catalog": "ggml-ime2-i4-affine"
     },
     "ime2_i8_decode": {
       "shape": {

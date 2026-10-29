@@ -204,8 +204,13 @@ time changed. Fixed normal llama.cpp results remain read-only baselines.
 The K3 IME2 signed-byte slots are `ggml.ime2/i8_prefill` (M4) and
 `ggml.ime2/i8_decode` (M1). `ime2_i8_prefill` and `ime2_i8_decode` measure
 those packed native calls against the actual vendor kernel. They consume the
-vendor block32 I8 weight/activation storage used for Q6_K and Q8_0; they do not
-cover the separate scaled FP16 Q4 path. Select the same explicit M/N/K as the
+vendor block32 I8 weight/activation storage used for Q6_K and Q8_0. The separate
+`ggml.ime2/i4_affine_prefill_rows8` slot consumes affine Q4 block32 weights and
+the same M4-interleaved I8 activations through a fixed M8 artifact. Its integer
+native reference is `gemm_kernel_i8i4` with non-null zero points and M4 rows;
+the M1 HP/f16 branch has a different numerical contract. The `ime2_i4` counter
+records only the new prefill slot, as a subset of the total `ime2` count.
+Select the same explicit M/N/K as the
 saved reference rather than relying on the workload's default K.
 
 Keep the standalone SpacemiT backend enabled in both model builds and runtime

@@ -10,6 +10,7 @@ def counter_capabilities(header):
             for name, function in (("per_type", "ggml_weft_counters_get"),
                                    ("ime1", "ggml_weft_ime1_calls"),
                                    ("ime2", "ggml_weft_ime2_calls"),
+                                   ("ime2_i4", "ggml_weft_ime2_i4_calls"),
                                    ("amx", "ggml_weft_amx_calls"))}
 
 
@@ -114,16 +115,19 @@ static void wb_measurement_counts(const char *point, int sample) {
         if text.count(anchor) != 1:
             raise ValueError("missing measurement counter boundary")
         text = text.replace(anchor, anchor + "\n" + amx_line)
-    ime2_line = '  fprintf(stderr,"WB_COUNTER sample=%d point=%s type=ime2 dots=0 quantizes=0 ime=%llu\\n",sample,point,(unsigned long long)ggml_weft_ime2_calls());'
-    if weft_include and capabilities["ime2"] and "type=ime2 dots=" not in text:
-        anchor = 'static void wb_measurement_counts(const char *point, int sample) {'
-        if text.count(anchor) != 1:
-            raise ValueError("missing IME2 measurement counter boundary")
-        text = text.replace(anchor, anchor + "\n" + ime2_line)
-    if weft_include and not capabilities["ime2"] and "type=ime2 dots=" in text:
-        if text.count(ime2_line) != 1:
-            raise ValueError("unrecognized IME2 observer for unavailable SDK counter")
-        text = text.replace(ime2_line + "\n", "")
+    for kind, function in (("ime2", "ggml_weft_ime2_calls"), ("ime2_i4", "ggml_weft_ime2_i4_calls")):
+        line = ('  fprintf(stderr,"WB_COUNTER sample=%d point=%s type=' + kind +
+                ' dots=0 quantizes=0 ime=%llu\\n",sample,point,(unsigned long long)' + function + '());')
+        marker = "type=" + kind + " dots="
+        if weft_include and capabilities[kind] and marker not in text:
+            anchor = 'static void wb_measurement_counts(const char *point, int sample) {'
+            if text.count(anchor) != 1:
+                raise ValueError("missing IME2 measurement counter boundary")
+            text = text.replace(anchor, anchor + "\n" + line)
+        if weft_include and not capabilities[kind] and marker in text:
+            if text.count(line) != 1:
+                raise ValueError("unrecognized IME2 observer for unavailable SDK counter")
+            text = text.replace(line + "\n", "")
     if text != original:
         path.write_text(text)
     return {

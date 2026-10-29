@@ -26,6 +26,8 @@ def role_case(role):
     if group == "ggml.ime2" and entry == "i8_prefill_rows8":
         case = get("ime2_i8_prefill")
         return replace(case, shape={**case.shape, "M": 8})
+    if group == "ggml.ime2" and entry == "i4_affine_prefill_rows8":
+        return get("ime2_i4_affine_prefill")
     if group == "ggml.amx" and entry in ("q4_0_decode", "q4_0_prefill"):
         return get("q4_0_projection_" + entry.removeprefix("q4_0_"))
     if group == "ggml.amx" and entry in ("q4_K_decode", "q4_K_prefill", "q6_K_decode", "q6_K_prefill"):

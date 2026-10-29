@@ -53,7 +53,7 @@ def replacement_counts(text):
                     "sample": sample,
                     "vec_dot": sum(v[0] for v in values),
                     "quantize": sum(v[1] for v in values),
-                    "ime": sum(v[2] for v in values),
+                    "ime": sum(v[2] for kind, v in by_type.items() if kind != "ime2_i4"),
                     "amx": amx_delta,
                     "by_type": {
                         kind: dict(zip(("vec_dot", "quantize", "ime"), value))
@@ -70,6 +70,8 @@ def replacement_counts(text):
         return {
             key: sum(d[key] for d in deltas) for key in ("vec_dot", "quantize", "ime", "amx")
         } | {"ime2": per_type.get("ime2", {}).get("ime", 0),
+             "ime2_i4": per_type.get("ime2_i4", {}).get("ime", 0),
+             "ime2_i4_observed": bool(deltas) and all("ime2_i4" in d["by_type"] for d in deltas),
              "ime2_observed": bool(deltas) and all("ime2" in d["by_type"] for d in deltas),
              "observed": bool(deltas), "amx_observed": bool(amx) and all({"begin", "end"} <= p.keys() for p in amx.values()),
              "samples": deltas, "scope": "measured-windows", "by_type": per_type}
