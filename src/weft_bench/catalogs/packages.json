@@ -420,6 +420,32 @@
     "model": "deepseek8b-q4_k_m",
     "policy": "vendor-ime2",
     "bindings": {
+      "ggml.ime2/i4_affine_prefill_rows8": {
+        "source": "package:kernels/ggml/mul_mat/ime2/kernels.py",
+        "symbol": "i4_affine_native_tile",
+        "signature": {},
+        "constexprs": {
+          "M": 8,
+          "MR": 8,
+          "NR": 32
+        },
+        "backend_options": {
+          "matrix_extension": "spacemit-ime2",
+          "unroll": 2,
+          "required_extensions": ["spacemit-ime2"],
+          "private_stack_bytes": 262144
+        },
+        "toolchain": {
+          "cflags": ["-mno-strict-align"]
+        },
+        "compile_target": {
+          "arch": "riscv64",
+          "march": "rv64gcv_zfh_zvfh_zicbop_zihintpause_zba",
+          "abi": "lp64d",
+          "vlen_bits": 1024,
+          "backend": "weft"
+        }
+      },
       "ggml.ime2/i8_prefill_rows8": {
         "source": "package:kernels/ggml/mul_mat/ime2/kernels.py",
         "symbol": "i8_prefill_rows8",
@@ -434,6 +460,9 @@
             "spacemit-ime2"
           ],
           "private_stack_bytes": 262144
+        },
+        "toolchain": {
+          "cflags": ["-mno-strict-align"]
         },
         "compile_target": {
           "arch": "riscv64",
