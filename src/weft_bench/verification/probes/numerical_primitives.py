@@ -1173,7 +1173,7 @@ def integer_boundary_contract(root, options, compile_target):
     from triton import compile
     from triton.compiler import ASTSource
     from triton.backends.compiler import CPUTarget
-    from numerical_primitive_kernels import wide_integer_bounds
+    from numerical_primitive_kernels import wide_integer_bounds, constant_integer_bounds
     mask = (1 << 64) - 1
     edges = [0, 1, 127, 128, 255, 256, (1 << 31)-1, 1 << 31, (1 << 32)-1,
              1 << 32, (1 << 63)-1, 1 << 63, (1 << 63)+1, mask-1, mask]
@@ -1217,7 +1217,19 @@ def integer_boundary_contract(root, options, compile_target):
             exact(storage[[0, 1, -2, -1]], np.full(4, 0xa5a5a5a5a5a5a5a5, np.uint64))
             records.append({"mode": mode, "N": n})
         native_evidence(compiled, root, f"integer-boundaries-{mode}", [])
-    return {"cases": records, "integer_exact": True, "guards_unchanged": True,
+    storage, output = guarded(8, np.int64)
+    if compile_target is None:
+        constants = constant_integer_bounds[(1,)](output, **options)
+    else:
+        constants = compile(ASTSource(constant_integer_bounds, {}, {}),
+                            target=CPUTarget(backend="weft", **compile_target), options=options)
+        constants[(1,)](output)
+    expected = np.array([-1, 255, -1, -(1 << 63), 11, 13, 17, 0], dtype=np.int64)
+    exact(output, expected)
+    exact(storage[[0, 1, -2, -1]], np.full(4, -12345, np.int64))
+    save(root, "constant-integer-boundaries", actual=output, expected=expected)
+    native_evidence(constants, root, "constant-integer-boundaries", [])
+    return {"cases": records, "integer_exact": True, "constant_integer_control": True, "guards_unchanged": True,
             "execution_mode": "jit" if compile_target is None else "aot"}
 
 

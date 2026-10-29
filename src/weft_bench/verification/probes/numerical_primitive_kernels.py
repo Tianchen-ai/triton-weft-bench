@@ -61,6 +61,30 @@ def wide_integer_bounds(X: tl.View[tl.u64, (N,)], Y: tl.View[tl.u64, (N,)],
         tl.store(Y[block], y)
 
 
+@triton.jit(model="weft")
+def constant_integer_bounds(Y: tl.View[tl.i64, (8,)]):
+    negative = tl.i8(-1)
+    unsigned = tl.u8(negative)
+    high = tl.u64(9223372036854775808)
+    tl.store(Y[0], tl.i64(negative))
+    tl.store(Y[1], tl.i64(unsigned))
+    tl.store(Y[2], tl.i64(tl.i8(tl.u16(255))))
+    tl.store(Y[3], tl.i64(high))
+    if negative < tl.i8(1):
+        tl.store(Y[4], tl.i64(11))
+    else:
+        tl.store(Y[4], tl.i64(-11))
+    if unsigned > tl.u8(1):
+        tl.store(Y[5], tl.i64(13))
+    else:
+        tl.store(Y[5], tl.i64(-13))
+    if high > tl.u64(1):
+        tl.store(Y[6], tl.i64(17))
+    else:
+        tl.store(Y[6], tl.i64(-17))
+    tl.store(Y[7], tl.i64(tl.u1(tl.u8(2))))
+
+
 @triton.jit(model="weft", alias_groups={"Y": "output"})
 def pipelined_scaled_groups(A: tl.View[tl.i8, (B, G, K)],
                             X: tl.View[tl.i8, (B, G, K)],
