@@ -108,3 +108,24 @@ def q4_compute(Y: tl.View[tl.f32, (M, N)],
     output = tl.subview(Y, offsets=(0, tile * BN), extents=(M, BN))
     consume_output_tile(output, Panel, Scales, D, Activation, Sums, XScale, Minima, Dmin,
         tile, B=B, BM=BM, BN=BN, GROUPS=GROUPS, WORDS=WORDS, PACK=PACK)
+
+
+@triton.jit(model="weft", alias_groups={"W": "weights", "Y": "output", "Panel": "panel",
+    "Scales": "scales", "D": "scale", "Activation": "activation", "Sums": "sums",
+    "XScale": "xscale", "Minima": "minima", "Dmin": "minimum_scale"})
+def q4_prepare_and_compute(W: tl.View[ggml_formats.Q4_K, (N, K)], Y: tl.View[tl.f32, (M, N)],
+    Panel: tl.View[tl.u8, (B, TILES, BN, GROUPS, WORDS, PACK)],
+    Scales: tl.View[tl.i32, (B, TILES, GROUPS, BN)], D: tl.View[tl.f32, (B, TILES, BN)],
+    Activation: tl.View[tl.i8, (B, AK, M, PACK)], Sums: tl.View[tl.i32, (B, GROUPS, M)],
+    XScale: tl.View[tl.f32, (B, M)], Minima: tl.View[tl.i32, (B, TILES, GROUPS, BN)],
+    Dmin: tl.View[tl.f32, (B, TILES, BN)], *, M: tl.constexpr, N: tl.constexpr,
+    K: tl.constexpr, B: tl.constexpr, TILES: tl.constexpr, BM: tl.constexpr = 16,
+    BN: tl.constexpr = 8, AK: tl.constexpr = 64, GROUPS: tl.constexpr = 8,
+    WORDS: tl.constexpr = 8, PACK: tl.constexpr = 4):
+    # Each program owns one output-column tile and its weight preparation;
+    # only the shared activation preparation needs a cross-program barrier.
+    q4_prepare_weights(W, Panel, Scales, D, Minima, Dmin, N=N, K=K, B=B,
+        TILES=TILES, BN=BN, GROUPS=GROUPS, WORDS=WORDS, PACK=PACK)
+    q4_compute(Y, Panel, Scales, D, Activation, Sums, XScale, Minima, Dmin,
+        M=M, N=N, B=B, TILES=TILES, BM=BM, BN=BN, AK=AK,
+        GROUPS=GROUPS, WORDS=WORDS, PACK=PACK)

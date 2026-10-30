@@ -56,7 +56,15 @@ class TritonSequenceAdapter:
         combined = {'arguments': list(arguments.values()), 'bindings': bindings}
         validate_binding(case, combined, {}, case.shape, whole_workload=True)
         supplied = set(workload.buffers)
-        for _, manifest, _ in compiled:
+        for index, (_, manifest, _) in enumerate(compiled):
+            initializes = stages[index].get('initializes', [])
+            writable = {arg['name'] for arg in manifest['kernel']['arguments']
+                        if arg.get('access') in ('write', 'readwrite')}
+            if not isinstance(initializes, list) or not set(initializes) <= writable:
+                raise ValueError('stage initializes must name writable stage arguments')
+            # A kernel may initialize and then consume private scratch during
+            # the same invocation. That source contract is explicit here.
+            supplied.update(initializes)
             for arg in manifest['kernel']['arguments']:
                 if arg['kind'] not in ('view', 'pointer'):
                     continue
@@ -75,12 +83,13 @@ class TritonSequenceAdapter:
         threads = int(options.get('num_cpu_threads', target.settings.get('threads', 1)))
         for index, (artifact, manifest, grid) in enumerate(compiled):
             label = f'sequence_{index}'
+            deployment = f'{name}/{label}'
             abi = manifest['grid']['kernel']
-            remote_library = worker.upload(artifact / 'kernel.so', f'{label}/kernel.so')
-            remote_manifest = worker.write(f'{label}/manifest.json', json.dumps({**manifest, **manifest['grid']}))
+            remote_library = worker.upload(artifact / 'kernel.so', f'{deployment}/kernel.so')
+            remote_manifest = worker.write(f'{deployment}/manifest.json', json.dumps({**manifest, **manifest['grid']}))
             metadata = json.loads((artifact / 'triton.json').read_text())
             for filename in metadata['runtime_files']:
-                worker.upload(artifact / filename, f'{label}/{filename}')
+                worker.upload(artifact / filename, f'{deployment}/{filename}')
             declaration = abi['declaration']
             prefix = 'void ' + abi['symbol'] + '('
             if not declaration.startswith(prefix) or not declaration.endswith(');'):
@@ -97,7 +106,8 @@ class TritonSequenceAdapter:
             invokes.append(f'{label}_native.grid({label}_launcher,reinterpret_cast<weft_native_entry>({label}_entry),'
                            f'{label}_launch_arguments,{grid[0]},{grid[1]},{grid[2]},{threads});')
             details.append({'source': stages[index]['source'], 'symbol': stages[index]['symbol'],
-                'grid': grid, 'artifact': str(artifact), 'build': metadata.get('native_build')})
+                'grid': grid, 'initializes': stages[index].get('initializes', []),
+                'artifact': str(artifact), 'build': metadata.get('native_build')})
         call = NativeCall(name, setup, ''.join(invokes), includes=('triton_native.h',), whole_workload=True)
         flags = ['-I' + runtime['include'], runtime['library'], '-Wl,-rpath,' + str(Path(runtime['library']).parent),
                  *runtime.get('ldflags', [])]
