@@ -1,4 +1,8 @@
 {
+  "projection_activation_contracts": {
+    "q8_0": "absmax-rtne-reciprocal-scale",
+    "q8_1": "absmax-rtne-reciprocal-scale"
+  },
   "description": "Selected author programs and measurement contracts; local resources are configured separately.",
   "cases": {
     "q4_k_projection_decode": {

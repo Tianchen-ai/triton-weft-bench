@@ -1,7 +1,8 @@
 {
   "description": "Selected author programs and measurement contracts; local resources are configured separately.",
   "projection_activation_contracts": {
-    "q8_0": "absmax-rtne-direct-inverse"
+    "q8_0": "absmax-rtne-direct-inverse",
+    "q8_1": "absmax-rtne-direct-inverse"
   },
   "implementations": {
     "weft-amx": {

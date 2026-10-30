@@ -19,18 +19,28 @@ inline void wb_dequantize_reference(ggml_type type,const void* x,float* y,size_t
   } else {auto fn=ggml_get_type_traits(type)->to_float;if(!fn)throw std::runtime_error("no dequantization oracle");fn(x,y,n);}
 }
 
-inline void wb_quantize_q80_rtne_contract(const float *x, uint8_t *y, size_t n) {
-  if (n % 32) throw std::runtime_error("Q8_0 requires complete blocks");
+inline void wb_quantize_block32_rtne_contract(ggml_type type, const float *x,
+                                            uint8_t *y, size_t n, bool direct_inverse) {
+  if (n % 32 || (type != GGML_TYPE_Q8_0 && type != GGML_TYPE_Q8_1))
+    throw std::runtime_error("Q8 block32 contract requires complete Q8_0/Q8_1 blocks");
   for (size_t block = 0; block < n / 32; ++block) {
     float maximum = 0;
     for (size_t i = 0; i < 32; ++i) maximum = std::max(maximum, std::fabs(x[block * 32 + i]));
     float scale = maximum / 127.0f;
-    float inverse = maximum != 0 ? 127.0f / maximum : 0;
+    float inverse = maximum != 0 ? (direct_inverse ? 127.0f / maximum : 1.0f / scale) : 0;
     auto half = ggml_fp32_to_fp16(scale);
-    uint8_t *out = y + block * sizeof(block_q8_0);
+    uint8_t *out = y + block * ggml_type_size(type);
     std::memcpy(out, &half, sizeof(half));
-    auto *values = reinterpret_cast<int8_t *>(out + sizeof(half));
-    for (size_t i = 0; i < 32; ++i) values[i] = int8_t(std::nearbyint(x[block * 32 + i] * inverse));
+    auto *values = reinterpret_cast<int8_t *>(out + (type == GGML_TYPE_Q8_1 ? 4 : 2));
+    int sum = 0;
+    for (size_t i = 0; i < 32; ++i) {
+      values[i] = int8_t(std::nearbyint(x[block * 32 + i] * inverse));
+      sum += values[i];
+    }
+    if (type == GGML_TYPE_Q8_1) {
+      auto half_sum = ggml_fp32_to_fp16(float(sum) * scale);
+      std::memcpy(out + 2, &half_sum, sizeof(half_sum));
+    }
   }
 }
 

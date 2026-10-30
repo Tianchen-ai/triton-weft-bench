@@ -24,13 +24,17 @@ struct ProjectionInputs {
     else {
       quantized.resize(M*activation_bytes);
       for(size_t m=0;m<M;++m){
-#if defined(WB_PROJECTION_Q8K_CONTRACT) || defined(WB_PROJECTION_Q80_CONTRACT)
-        // The scalar GGML reference's rounding trick can contract its multiply
-        // into the magic-bias add. Native SIMD rounds the product to f32 first.
-        // Use the declared independent storage contract and check the actual
-        // CPU quantizer before using these bytes in the projection oracle.
+#if defined(WB_PROJECTION_Q8K_CONTRACT) || defined(WB_PROJECTION_Q80_CONTRACT) || defined(WB_PROJECTION_Q81_CONTRACT)
+        // Scalar and target quantizers differ at ties and in how they compute
+        // the inverse scale. Calculate the declared target storage rule here
+        // and verify its bytes against the actual CPU quantizer independently
+        // of the timed projection.
 #ifdef WB_PROJECTION_Q80_CONTRACT
-        wb_quantize_q80_rtne_contract(activation.data()+m*K,quantized.data()+m*activation_bytes,K);
+        wb_quantize_block32_rtne_contract(activation_type,activation.data()+m*K,
+            quantized.data()+m*activation_bytes,K,WB_PROJECTION_Q80_CONTRACT==1);
+#elif defined(WB_PROJECTION_Q81_CONTRACT)
+        wb_quantize_block32_rtne_contract(activation_type,activation.data()+m*K,
+            quantized.data()+m*activation_bytes,K,WB_PROJECTION_Q81_CONTRACT==1);
 #else
         wb_quantize_contract(activation_type,activation.data()+m*K,quantized.data()+m*activation_bytes,K);
 #endif

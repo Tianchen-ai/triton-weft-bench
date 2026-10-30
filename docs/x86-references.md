@@ -251,3 +251,12 @@ contract determine whether a ratio is meaningful. Separate worker directories
 retain each implementation's source, headers, commands and raw output when a
 comparison uses multiple native providers. No complete performance report is
 required to continue development.
+# Projection activation storage
+
+Projection checks use the target's declared activation storage rule. The x86
+Q8_0 and Q8_1 quantizers round to nearest even and calculate `127 / absmax`
+directly. RVV quantizers round to nearest even using `1 / (absmax / 127)`.
+Both rules store the half-precision scale; Q8_1 also stores its rounded
+half-precision scaled integer sum. The independent checker constructs these
+bytes, checks the native GGML quantizer byte for byte, and checks the candidate's
+activation workspace before comparing the complete projection output.

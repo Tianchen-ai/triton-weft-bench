@@ -154,12 +154,16 @@ def configured_workload(case, settings):
         workload = replace(workload, setup="ProjectionInputs data(inputs, false, true);",
                            correctness="within-tolerance-full-projection")
     defines = []
-    if case.family == "projection" and "-DWB_ACTIVATION_TYPE=GGML_TYPE_Q8_0" in workload.defines:
-        contract = settings.get("projection_activation_contracts", {}).get("q8_0")
-        if contract:
-            if contract != "absmax-rtne-direct-inverse":
-                raise ValueError("unsupported projection Q8_0 storage contract")
-            defines.append("-DWB_PROJECTION_Q80_CONTRACT=1")
+    if case.family == "projection":
+        for fmt, macro in [("q8_0", "Q80"), ("q8_1", "Q81")]:
+            if f"-DWB_ACTIVATION_TYPE=GGML_TYPE_{fmt.upper()}" not in workload.defines:
+                continue
+            contract = settings.get("projection_activation_contracts", {}).get(fmt)
+            if contract:
+                modes = {"absmax-rtne-direct-inverse": 1, "absmax-rtne-reciprocal-scale": 2}
+                if contract not in modes:
+                    raise ValueError(f"unsupported projection {fmt.upper()} storage contract")
+                defines.append(f"-DWB_PROJECTION_{macro}_CONTRACT={modes[contract]}")
     if case.family == "projection" and "-DWB_ACTIVATION_TYPE=GGML_TYPE_Q8_K" in workload.defines:
         contract = settings.get("projection_activation_contracts", {}).get("q8_k")
         if contract:

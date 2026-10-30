@@ -105,7 +105,7 @@ def weft_call(name, case, workload, metadata, aliases=None, packed_inputs=None):
     collect = ""
     if converted_projection:
         collect = (
-            "\n#if defined(WB_PROJECTION_Q8K_CONTRACT) || defined(WB_PROJECTION_Q80_CONTRACT)\n"
+            "\n#if defined(WB_PROJECTION_Q8K_CONTRACT) || defined(WB_PROJECTION_Q80_CONTRACT) || defined(WB_PROJECTION_Q81_CONTRACT)\n"
             "if(workspace!=data.quantized)throw std::runtime_error(\"candidate activation bytes differ from declared projection contract\");\n"
             "#endif\n"
         )
