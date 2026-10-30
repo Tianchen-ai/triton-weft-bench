@@ -54,12 +54,24 @@ struct ProjectionInputs {
     inputs.finish();
     // Independent complete-column checks for decode; a bounded sample for prefill.
     size_t samples=full_output?output_size:M==1?N:std::min<size_t>(64,output_size);
-    for(size_t s=0;s<samples;++s){size_t i=samples==1?0:s*(output_size-1)/(samples-1),m=i/N,n=i%N;
-      checked_indices.push_back(i);
-      wb_dequantize_reference(weight_type,weights.data()+n*weight_bytes,w.data(),K);double sum=0;
+    auto expected_at=[&](size_t m,size_t n){double sum=0;
       if(activation_type!=GGML_TYPE_Q8_1||!wb_packed_affine_dot(weight_type,weights.data()+n*weight_bytes,quantized.data()+m*activation_bytes,K,sum))
         for(size_t k=0;k<K;++k)sum+=double(w[k])*decoded[m*K+k];
-      expected[i]=float(sum);}
+      expected[m*N+n]=float(sum);};
+    if(full_output){
+      // Decode each immutable weight column once; every output keeps the same
+      // ordered scalar sum, activation bytes and affine-field rules.
+      for(size_t i=0;i<output_size;++i)checked_indices.push_back(i);
+      for(size_t n=0;n<N;++n){
+        wb_dequantize_reference(weight_type,weights.data()+n*weight_bytes,w.data(),K);
+        for(size_t m=0;m<M;++m)expected_at(m,n);
+      }
+    } else for(size_t s=0;s<samples;++s){
+      size_t i=samples==1?0:s*(output_size-1)/(samples-1),m=i/N,n=i%N;
+      checked_indices.push_back(i);
+      wb_dequantize_reference(weight_type,weights.data()+n*weight_bytes,w.data(),K);
+      expected_at(m,n);
+    }
   }
   void check(const std::vector<float> &y) const {
     for(auto value:y)if(!std::isfinite(value))throw std::runtime_error("numeric nonfinite projection");
