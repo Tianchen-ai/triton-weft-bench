@@ -498,6 +498,21 @@ def snapshot_storage_contract(root, options):
             assert 'weft_riscv.storage_disjoint' in compiled.asm["riscvir"]
         np.savez(root / (name + '.npz'), actual=output, expected=signed + 1000, bytes=y)
         records.append({"M": m, "K": k, "overlap": overlap, "evidence": proof})
+        # Decode the complete dynamic snapshot before projection, exercising
+        # record-vector field lowering and its signed subbyte validity.
+        x[:] = np.frombuffer(raw, np.uint8)
+        y[:] = before.reshape(-1)
+        compiled_fields = kernels.encoded_snapshot_fields[(1,)](
+            tl.View(x, encoding=kernels.NibblePair, shape=(m, k)),
+            tl.View(y, encoding=kernels.NibblePair, shape=(m, k)), output, **options)
+        np.testing.assert_array_equal(output, signed.astype(np.int32) + 1000)
+        np.testing.assert_array_equal(y.reshape(expected.shape), expected)
+        np.testing.assert_array_equal(source_storage[:64], np.full(64, 0xc3, np.uint8))
+        np.testing.assert_array_equal(source_storage[-64:], np.full(64, 0xc3, np.uint8))
+        np.testing.assert_array_equal(output_storage[:32], np.full(32, -12345, np.int32))
+        np.testing.assert_array_equal(output_storage[-32:], np.full(32, -12345, np.int32))
+        fields_proof = capture(compiled_fields, root, name + "-fields")
+        records.append({"M": m, "K": k, "overlap": overlap, "decode_before_projection": True, "evidence": fields_proof})
     return {"integer_exact": True, "same_jit_for_shapes_and_aliases": True,
             "guards_preserved": True, "cases": records}
 

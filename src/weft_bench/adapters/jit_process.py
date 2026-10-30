@@ -89,9 +89,17 @@ def run(request):
     grid = tuple(request["grid"])
     options = {**request["backend_options"], "toolchain": request["toolchain"],
                "num_cpu_threads": request["num_cpu_threads"]}
+    if hasattr(kernel,"configs"):
+        if any(config.num_cpu_threads != request["num_cpu_threads"] for config in kernel.configs):
+            raise ValueError("tuning configs must preserve the selected worker count")
+        options.pop("num_cpu_threads")
     buffers = {}
     compilations = []
-    knobs.compilation.listener = lambda **event: compilations.append({"cache_hit": event["cache_hit"]})
+    def compilation_event(**event):
+        times=event["times"]
+        compilations.append({"cache_hit":event["cache_hit"],"ir_initialization_us":times.ir_initialization,
+                             "lowering_stages_us":list(times.lowering_stages),"store_results_us":times.store_results})
+    knobs.compilation.listener = compilation_event
 
     def arguments(addresses):
         bound = dict(request["constexprs"])
@@ -221,6 +229,8 @@ def run(request):
             child_start = child_cpu_ms()
             cold_ms, first = timed()
             cold_children = child_cpu_ms() - child_start
+            compile_us=sum(item["ir_initialization_us"]+item["store_results_us"]+
+                           sum(duration for _,duration in item["lowering_stages_us"]) for item in compilations)
             retained.extend(first)
             phase = "check"
             action(1)
@@ -325,6 +335,8 @@ def run(request):
                           data_cache=measurement["cache"],
                           eviction_bytes=measurement["eviction_bytes"] if cold_data else 0,
                           cold_compile_and_launch_ms=cold_ms, first_cache_hit_launch_ms=hit_ms,
+                          compiler_api_ms=compile_us/1000,
+                          first_call_outside_compiler_ms=cold_ms-compile_us/1000,
                           cold_child_cpu_ms=cold_children, cache_hit_child_cpu_ms=hit_children,
                           same_compiled_kernel=True, launches_per_workload=len(bound_calls),
                           correctness=request["correctness"], native_build=first[0].metadata.native_build,
@@ -332,6 +344,10 @@ def run(request):
             if hasattr(kernel, "best_config"):
                 result["autotune"] = {"selected_kwargs": kernel.best_config.kwargs,
                                       "selected_backend_options": kernel.best_config.backend_options,
+                                      "candidate_count": len(kernel.configs),
+                                      "search_total_ms": getattr(kernel,"bench_time",0)*1000,
+                                      "candidate_timings_ms": [{"kwargs":config.kwargs,"times_ms":list(times)}
+                                          for config,times in getattr(kernel,"configs_timings",{}).items()],
                                       "provider": "triton.runtime.autotuner.Autotuner"}
             return 0
         except Exception as exception:

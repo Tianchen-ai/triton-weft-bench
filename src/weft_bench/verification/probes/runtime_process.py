@@ -18,7 +18,7 @@ from kernels import affine, coordinates
 
 torch = None
 if any(name not in ("packed_layouts", "numerical_primitives", "helper_noinline",
-                    "helper_loop_returns", "helper_context_return", "helper_descriptors")
+                    "helper_loop_returns", "helper_context_return", "helper_descriptors", "native_parallel", "pid_grid")
        for name in sys.argv[1:]):
     import torch
 
@@ -72,7 +72,7 @@ def numerical_primitives():
     from triton.runtime.driver import driver
 
     if request.get("execution_mode") == "aot":
-        if request["numerical_scenario"] not in {"pointwise_costs", "array_packets", "array_contractions", "lookup", "indexed_packets", "extrema_and_half", "byte_sum", "byte_planes", "byte_contractions", "bfloat_contractions", "amx_snapshots", "word_byte_contractions", "amx_mixed_storage", "matrix_operand_layout", "matrix_standard_pointer", "contraction_schedules", "streaming_stores", "cpu_tuning"}:
+        if request["numerical_scenario"] not in {"model_semantics", "pointwise_costs", "array_packets", "array_contractions", "lookup", "indexed_packets", "extrema_and_half", "byte_sum", "byte_planes", "byte_contractions", "bfloat_contractions", "amx_snapshots", "word_byte_contractions", "amx_mixed_storage", "matrix_operand_layout", "matrix_standard_pointer", "contraction_schedules", "streaming_stores", "cpu_tuning"}:
             raise NotImplementedError("explicit target AOT is not implemented for this numerical scenario")
         return run_scenario(request["numerical_scenario"], root, options, close, request["compile_target"])
     check_jit_target(request.get("architecture"), request.get("compile_target"),
@@ -276,11 +276,113 @@ def pid_grid():
     scenarios=[]
     for grid in ((2, 3), (2, 3, 4)):
         shape = (*grid, *([1]*(3-len(grid))))
-        y = torch.full(shape, -1.0)
+        y = np.full(shape, -1.0, dtype=np.float32)
         coordinates[grid](y, toolchain=request["toolchain"], num_cpu_threads=2)
         expected = np.fromfunction(lambda i,j,k: i+10*j+100*k+1000*shape[0]+10000*shape[1]+100000*shape[2], shape).astype(np.float32)
         close(y, expected);scenarios.append({"grid": grid, "shape": shape})
     return {"scenarios": scenarios, "all_pid_and_num_program_axes_checked": True}
+
+
+def native_parallel():
+    """Exercise the shared executor independently of arithmetic codegen."""
+    import ctypes
+    import select
+    runtime = os.environ.get("TRITON_WEFT_RUNTIME", str(Path(triton.__file__).parent / "_C/weft/lib/libweft_runtime.so"))
+    sdk = ctypes.CDLL(runtime)
+    check_type = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t)
+    body_type = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_size_t, ctypes.c_size_t)
+    sdk.weft_parallel_for.argtypes = [ctypes.c_size_t, ctypes.c_int, ctypes.c_void_p, check_type,
+        ctypes.c_void_p, body_type, ctypes.c_void_p, ctypes.c_size_t]
+    sdk.weft_parallel_for.restype = ctypes.c_int
+    sdk.weft_parallel_release.argtypes = []
+    sdk.weft_parallel_release.restype = None
+    allowed = set(os.sched_getaffinity(0))
+    initial_tasks = len(list(Path('/proc/self/task').iterdir()))
+
+    def exercise(count, threads, fail=False):
+        checked, intervals, failures, workers = [], [], [], []
+        output = np.full(count, -1, np.int64)
+        @check_type
+        def check(scope, message, capacity):
+            workers.append(threading.get_native_id())
+            if not set(os.sched_getaffinity(0)) <= allowed:
+                failures.append("worker affinity widened")
+            checked.append(1)
+            if fail and len(checked) == 1:
+                text = b"deliberate worker rejection\0"
+                ctypes.memmove(message, text, min(capacity, len(text)))
+                return 4
+            return 0
+        @body_type
+        def body(arguments, first, last):
+            if len(checked) != min(count, threads):
+                failures.append("writes began before all checks")
+            intervals.append((first, last))
+            output[first:last] = np.arange(first, last)
+        error = ctypes.create_string_buffer(1024)
+        status = sdk.weft_parallel_for(count, threads, None, check, None, body, error, len(error))
+        assert not failures, failures
+        if fail:
+            assert status == 4 and not intervals and np.all(output == -1)
+        else:
+            assert status == 0, error.value
+            assert np.array_equal(output, np.arange(count))
+            assert len(checked) == min(count, threads)
+        return set(workers)
+
+    records = []
+    for threads in [1, 2, 4, 8]:
+        for count in [0, 1, 3, 17, 129]:
+            exercise(count, threads)
+            records.append({"count": count, "threads": threads})
+    first = exercise(129, 4)
+    for _ in range(20):
+        assert exercise(129, 4) == first, "worker pool was recreated"
+    exercise(129, 4, fail=True)
+    exercise(129, 4)
+    def concurrent(index):
+        try:
+            for _ in range(10):
+                exercise(37 + index, 2)
+            return threading.get_native_id()
+        finally:
+            sdk.weft_parallel_release()
+    with ThreadPoolExecutor(max_workers=3) as callers:
+        callers_seen = list(callers.map(concurrent, range(3)))
+    assert len(set(callers_seen)) == 3
+    read_fd, write_fd = os.pipe()
+    pid = os.fork()
+    if pid == 0:
+        os.close(read_fd)
+        try:
+            exercise(65, 4)
+            sdk.weft_parallel_release()
+            os.write(write_fd, b"ok")
+            os._exit(0)
+        except BaseException:
+            os._exit(1)
+    os.close(write_fd)
+    ready, _, _ = select.select([read_fd], [], [], 20)
+    if not ready:
+        import signal
+        os.kill(pid, signal.SIGKILL)
+    payload = os.read(read_fd, 2) if ready else b""
+    os.close(read_fd)
+    _, status = os.waitpid(pid, 0)
+    assert payload == b"ok" and status == 0, "fork child did not rebuild its workers"
+    exercise(65, 4)
+    sdk.weft_parallel_release()
+    exercise(65, 4)
+    sdk.weft_parallel_release()
+    import time
+    deadline = time.monotonic() + 1
+    while len(list(Path('/proc/self/task').iterdir())) > initial_tasks and time.monotonic() < deadline:
+        time.sleep(.005)
+    assert len(list(Path('/proc/self/task').iterdir())) <= initial_tasks, "released workers remain alive"
+    return {"range_scenarios": records, "repeated_pool_reuse": 20,
+        "concurrent_callers": 3, "calls_per_concurrent_caller": 10,
+        "all_workers_checked_before_writes": True, "rejection_preserves_output": True,
+        "release_and_recreate": True, "fork_child_rebuild": True, "runtime": runtime}
 
 
 def affinity():
@@ -1016,7 +1118,7 @@ def default_toolchain():
 
 operations={"reduction_domains":reduction_domains,"dynamic_rounding":dynamic_rounding,"packed_layouts":packed_layouts,"numerical_primitives":numerical_primitives,"source_auto":source_auto,"dense_view":dense_view,
             "numpy_buffer":numpy_and_buffer,"aliases":aliases,"resize_views":resize_views,
-            "zero_concurrency":zero_and_concurrency,"pid_grid":pid_grid,"affinity":affinity,"lifetime":lifetime,
+            "zero_concurrency":zero_and_concurrency,"pid_grid":pid_grid,"native_parallel":native_parallel,"affinity":affinity,"lifetime":lifetime,
             "default_toolchain":default_toolchain,"integer_type_protocol":integer_type_protocol,
             "conversion_jit":conversion_jit,"integer_float_conversion":integer_float_conversion,
             "exp_boundaries":exp_boundaries,"helper_jit":helper_jit,"level_lifetimes":level_lifetimes,

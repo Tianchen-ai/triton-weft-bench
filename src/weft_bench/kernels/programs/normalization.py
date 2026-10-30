@@ -7,11 +7,17 @@ import triton.language as tl
 @triton.jit(model="weft", strided=("X", "Weight", "Y"),
              alias_groups={"X": "activation", "Y": "activation", "Weight": "parameters"})
 def rms_norm(X: tl.View[tl.f32, (M, N)], Weight: tl.View[tl.f32, (N,)],
-             Y: tl.View[tl.f32, (M, N)], epsilon: tl.f32 = 1e-5, *, BLOCK: tl.constexpr):
+             Y: tl.View[tl.f32, (M, N)], epsilon: tl.f32 = 1e-5, *, BLOCK: tl.constexpr,
+             ACCUM_F64: tl.constexpr = False):
     for row in range(M):
         row_value = tl.load(X[row])
-        squares = tl.reduce(row_value * row_value, op="add", axis="n")
-        inverse = tl.rsqrt(squares / tl.f32(N) + epsilon)
+        if ACCUM_F64:
+            squares = tl.reduce(tl.f64(row_value * row_value), op="add", axis="n")
+            mean = tl.f32(squares / tl.f64(N))
+        else:
+            squares = tl.reduce(row_value * row_value, op="add", axis="n")
+            mean = squares / tl.f32(N)
+        inverse = tl.rsqrt(mean + epsilon)
         with tl.level.blocks(N, extent=tl.auto("BLOCK")) as part:
             value = tl.load(X[row, part])
             weight = tl.load(Weight[part])

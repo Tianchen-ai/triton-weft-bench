@@ -98,6 +98,7 @@ inline void describe_environment() {
   std::ostringstream out;out << "{\"schema\":1,\"xstate\":" << xstate_json();
   out << ",\"riscv_vector\":" << riscv_vector_json();
 #if defined(__linux__)
+  out << ",\"process_id\":" << getpid();
   utsname system{};if(uname(&system)==0)
     out << ",\"architecture\":" << json(system.machine) << ",\"kernel\":" << json(system.release);
   out << ",\"cpu_allowed_list\":" << json(status_field("Cpus_allowed_list"))

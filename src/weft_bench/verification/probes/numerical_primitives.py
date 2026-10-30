@@ -1047,6 +1047,9 @@ def run_scenario(name, root, options, close, compile_target=None):
         return streaming_store_contract(root, options, compile_target)
     if name == "bfloat_contractions":
         return bfloat_contraction_contract(root, options, compile_target)
+    if name == "model_semantics":
+        from model_semantics import run
+        return run(root, options, compile_target)
     if name == "matrix_operand_layout":
         return matrix_operand_layout_contract(root, options, compile_target)
     if name == "matrix_standard_pointer":

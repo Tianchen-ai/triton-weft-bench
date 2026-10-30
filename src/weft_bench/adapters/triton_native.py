@@ -286,6 +286,8 @@ class TritonAdapter:
             "persistent_inputs": packed_details,
             "artifacts": {"weft": str(artifact.resolve())},
             "candidate_native_build": metadata["native_build"],
+            "compilation_timing": json.loads((artifact / "compile-timings.json").read_text())
+                if (artifact / "compile-timings.json").exists() else None,
             "compiler_decisions": metadata["compilation"],
             "physical_program": {key: abi[key] for key in ("physical_resources", "physical_operations") if key in abi},
             "required_extensions": abi["required_extensions"],

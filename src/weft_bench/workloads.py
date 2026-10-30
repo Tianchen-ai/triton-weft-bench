@@ -20,6 +20,10 @@ def ggml_type(fmt):
 
 
 def parameter_defaults(case):
+    if case.family == "online_attention":
+        return {"scale": case.shape["D"] ** -0.5}
+    if case.family == "statistics":
+        return {"offset": 0.0, "scale": 1.0}
     if case.name == "pointer_select":
         return {"select_x": 1.0}
     if case.name in ("rms_norm", "layer_norm"):
@@ -32,6 +36,12 @@ def parameter_defaults(case):
 
 
 def ports(case):
+    if case.family == "online_attention":
+        from .operators.online_attention import ports as attention_ports
+        return attention_ports(case)
+    if case.family == "statistics":
+        from .operators.statistics import ports as statistics_ports
+        return statistics_ports(case)
     if case.family == "ime2":
         m, n, k = (case.shape[x] for x in ("M", "N", "K"))
         rows = case.data["tile_rows"]
@@ -137,6 +147,12 @@ def ports(case):
 def configured_workload(case, settings):
     """The same declared numerical contract for native and language-runtime calls."""
     workload = native_workload(case)
+    if case.name == "gemm_f32" and settings.get("dense_check_all", False):
+        workload = replace(workload, defines=(*workload.defines, "-DWB_DENSE_FULL_CHECK=1"),
+                           correctness="within-tolerance-full-gemm")
+    if case.family == "projection" and settings.get("projection_check_all", False):
+        workload = replace(workload, setup="ProjectionInputs data(inputs, false, true);",
+                           correctness="within-tolerance-full-projection")
     defines = []
     if case.family == "projection" and "-DWB_ACTIVATION_TYPE=GGML_TYPE_Q8_K" in workload.defines:
         contract = settings.get("projection_activation_contracts", {}).get("q8_k")
@@ -158,6 +174,12 @@ def configured_workload(case, settings):
 
 
 def native_workload(case):
+    if case.family == "online_attention":
+        from .operators.online_attention import workload as attention_workload
+        return attention_workload(case)
+    if case.family == "statistics":
+        from .operators.statistics import workload as statistics_workload
+        return statistics_workload(case)
     if case.family == "ime2":
         ports(case)
         return NativeWorkload(

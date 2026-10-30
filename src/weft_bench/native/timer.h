@@ -71,19 +71,22 @@ struct Timing {
   const double warmup_budget = option("WB_WARMUP_MS", 0);
   const int samples = static_cast<int>(option("WB_SAMPLES", 5));
   const double budget = option("WB_BATCH_MS", 10);
+  const double minimum_sample_ms = option("WB_MIN_BATCH_MS", 0);
   const char *mode = std::getenv("WB_CACHE");
   const bool cold = mode && std::strcmp(mode, "cold") == 0;
   std::vector<std::uint8_t> eviction;
   std::size_t warmup_iterations = 0, sample_warmup_iterations = 0, iterations = 1;
   double warmup_ms = 0, calibration_ms = 0;
   std::vector<double> timings, cpu_timings;
+  std::vector<double> sample_total_ms;
+  std::vector<std::size_t> sample_iterations;
   std::vector<long> sample_frequency_before, sample_frequency_after;
   long frequency_before = -1, frequency_after = -1;
   Timing(Run run, Reset reset, const char *correctness, bool stateful, const char *implementation,
          const void *output, std::size_t outputBytes)
       : run(run), reset(reset), correctness(correctness), stateful(stateful), implementation(implementation),
         output(output), outputBytes(outputBytes) {
-    if (warmup < 0 || warmup_budget < 0 || samples < 1 || budget <= 0)
+    if (warmup < 0 || warmup_budget < 0 || samples < 1 || budget <= 0 || minimum_sample_ms < 0)
       throw std::runtime_error("invalid timing settings");
     eviction.resize(cold ? static_cast<std::size_t>(option("WB_EVICTION_BYTES", 67108864)) : 0, 1);
   }
@@ -136,8 +139,9 @@ struct Timing {
     Clock::time_point start;
     double elapsed = 0;
     double cpu_elapsed = 0;
+    std::size_t actual_iterations = 0;
     if (stateful || cold) {
-      for (std::size_t i = 0; i < iterations; ++i) {
+      while (actual_iterations < iterations || elapsed < minimum_sample_ms) {
         reset();
         if (cold) evict(eviction);
         const double cpu_start = calling_thread_ms();
@@ -145,17 +149,27 @@ struct Timing {
         run(); barrier();
         elapsed += milliseconds(start);
         cpu_elapsed += calling_thread_ms() - cpu_start;
+        ++actual_iterations;
       }
     } else {
       reset();
       const double cpu_start = calling_thread_ms();
       start = Clock::now();
-      for (std::size_t i = 0; i < iterations; ++i) { run(); barrier(); }
-      elapsed = milliseconds(start);
+      std::size_t chunk = iterations;
+      do {
+        for (std::size_t i = 0; i < chunk; ++i) { run(); barrier(); }
+        actual_iterations += chunk;
+        elapsed = milliseconds(start);
+        if (elapsed < minimum_sample_ms)
+          chunk = std::max<std::size_t>(1, std::min<std::size_t>(1000000,
+              std::ceil(actual_iterations * (minimum_sample_ms / std::max(elapsed, 0.000001) - 1.0))));
+      } while (elapsed < minimum_sample_ms);
       cpu_elapsed = calling_thread_ms() - cpu_start;
     }
-    timings.push_back(elapsed / iterations);
-    cpu_timings.push_back(cpu_elapsed / iterations);
+    timings.push_back(elapsed / actual_iterations);
+    cpu_timings.push_back(cpu_elapsed / actual_iterations);
+    sample_total_ms.push_back(elapsed);
+    sample_iterations.push_back(actual_iterations);
     frequency_after = observed_frequency_khz();
     sample_frequency_before.push_back(before);
     sample_frequency_after.push_back(frequency_after);
@@ -167,7 +181,11 @@ struct Timing {
   // library/OpenMP workers. It never replaces the operator's wall-clock score.
   std::printf("],\"calling_thread_samples_ms\":[");
   for (std::size_t i = 0; i < cpu_timings.size(); ++i) std::printf("%s%.12g", i ? "," : "", cpu_timings[i]);
-  std::printf("],\"observed_frequency_khz\":{\"before\":");
+  std::printf("],\"sample_iterations\":[");
+  for (std::size_t i = 0; i < sample_iterations.size(); ++i) std::printf("%s%zu", i ? "," : "", sample_iterations[i]);
+  std::printf("],\"sample_total_ms\":[");
+  for (std::size_t i = 0; i < sample_total_ms.size(); ++i) std::printf("%s%.12g", i ? "," : "", sample_total_ms[i]);
+  std::printf("],\"minimum_sample_ms\":%.12g,\"observed_frequency_khz\":{\"before\":", minimum_sample_ms);
   if (frequency_before > 0) std::printf("%ld", frequency_before); else std::printf("null");
   std::printf(",\"after\":");
   if (frequency_after > 0) std::printf("%ld", frequency_after); else std::printf("null");

@@ -173,6 +173,8 @@ def run_probe(entry, target, directory):
         files.append((probes / "riscv_kernels.py", "riscv_kernels.py"))
         files.append((probes / "level_kernels.py", "level_kernels.py"))
         files.append((probes / "level_scenarios.py", "level_scenarios.py"))
+        files.append((probes / "model_semantics.py", "model_semantics.py"))
+        files.append((probes / "model_semantics_kernels.py", "model_semantics_kernels.py"))
         files.append((probes / "bundled_toolchain.py", "bundled_toolchain.py"))
         files.append((probes / "dense_view_kernels.py", "dense_view_kernels.py"))
         files.append((probes / "dense_view_probe.py", "dense_view_probe.py"))

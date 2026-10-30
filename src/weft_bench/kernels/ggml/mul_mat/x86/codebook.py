@@ -124,6 +124,41 @@ def iq2_s_prefill(W: tl.View[ggml_formats.IQ2_S, (N, K)], X: tl.View[tl.f32, (M,
 
 
 @triton.jit
+def indexed_tile_product(Panel, Scales, D, Activation, Sums, XScale, rows, columns,
+                         BM: tl.constexpr, BN: tl.constexpr, GROUPS: tl.constexpr,
+                         WORDS: tl.constexpr, PACK: tl.constexpr,
+                         AFFINE: tl.constexpr = False, Minima=None, Dmin=None):
+    """Shared packed-byte microkernel for both fused and phased preparation."""
+    d = tl.reshape(tl.load(D), (BN,), axes=("N",), order=("BN",))
+    if AFFINE:
+        dmin = tl.reshape(tl.load(Dmin), (BN,), axes=("N",), order=("BN",))
+    integer = tl.state(tl.i32, [BN, BM], init=0)
+    if AFFINE:
+        minimum = tl.state(tl.i32, [BN, BM], init=0)
+    xd = tl.load(XScale[rows])
+    for g in range(GROUPS):
+        partial = tl.state(tl.i32, [BN, BM], init=0)
+        for word in tl.static_range(WORDS):
+            panel = tl.reshape(tl.load(Panel[:, g, word]), (BN, 4), axes=("N", "byte"), order=("BN", "PACK"))
+            activation = tl.reshape(tl.load(Activation[g * WORDS + word, rows]), (BM, PACK),
+                                    axes=("M", "byte"), order=("M", "PACK"))
+            product = tl.mac_groups(panel, activation, n=4, into=tl.i32)
+            partial += tl.reshape(product, (BN, BM), axes=("N", "M"), order=("N", "M", "byte"))
+        scale = tl.reshape(tl.load(Scales[g]), (BN,), axes=("N",), order=("BN",))
+        sums = tl.load(Sums[g, rows])
+        if AFFINE:
+            integer += partial * scale
+            min_scale = tl.reshape(tl.load(Minima[g]), (BN,), axes=("N",), order=("BN",))
+            minimum += min_scale * sums
+        else:
+            integer += (partial - tl.i32(128) * sums) * scale
+    value = tl.f32(integer) * (tl.f32(xd) * d)
+    if AFFINE:
+        value -= tl.f32(minimum) * (tl.f32(xd) * dmin)
+    return value
+
+
+@triton.jit
 def project_indexed_tiles(W, X, Xq: tl.View[ggml_formats.Q8_K, (M, K)], grid, Y, Panel, Scales, D,
                           Activation, Sums, XScale, Output, N, AK: tl.constexpr,
                           BM: tl.constexpr, BN: tl.constexpr, GROUPS: tl.constexpr, WORDS: tl.constexpr,
@@ -218,34 +253,10 @@ def project_indexed_tiles(W, X, Xq: tl.View[ggml_formats.Q8_K, (M, K)], grid, Y,
                     if AFFINE:
                         tl.store(Minima[:, column], zero_scale)
                         tl.store(Dmin[column], tl.f32(0))
-            d = tl.reshape(tl.load(D), (BN,), axes=("N",), order=("BN",))
-            if AFFINE:
-                dmin = tl.reshape(tl.load(Dmin), (BN,), axes=("N",), order=("BN",))
             with tl.level.rows(M, group=BM) as rows:
-                integer = tl.state(tl.i32, [BN, BM], init=0)
-                if AFFINE:
-                    minimum = tl.state(tl.i32, [BN, BM], init=0)
-                xd = tl.load(XScale[rows])
-                for g in range(GROUPS):
-                    partial = tl.state(tl.i32, [BN, BM], init=0)
-                    for word in tl.static_range(WORDS):
-                        panel = tl.reshape(tl.load(Panel[:, g, word]), (BN, 4), axes=("N", "byte"), order=("BN", "PACK"))
-                        activation = tl.reshape(tl.load(Activation[g * WORDS + word, rows]), (BM, PACK),
-                                                axes=("M", "byte"), order=("M", "PACK"))
-                        product = tl.mac_groups(panel, activation, n=4, into=tl.i32)
-                        partial += tl.reshape(product, (BN, BM), axes=("N", "M"), order=("N", "M", "byte"))
-                    scale = tl.reshape(tl.load(Scales[g]), (BN,), axes=("N",), order=("BN",))
-                    sums = tl.load(Sums[g, rows])
-                    if AFFINE:
-                        integer += partial * scale
-                        min_scale = tl.reshape(tl.load(Minima[g]), (BN,), axes=("N",), order=("BN",))
-                        minimum += min_scale * sums
-                    else:
-                        integer += (partial - tl.i32(128) * sums) * scale
+                value = indexed_tile_product(Panel, Scales, D, Activation, Sums, XScale, rows, columns,
+                    BM, BN, GROUPS, WORDS, PACK, AFFINE, Minima, Dmin)
                 prior = tl.load(Output[columns, rows])
-                value = tl.f32(integer) * (tl.f32(xd) * d)
-                if AFFINE:
-                    value -= tl.f32(minimum) * (tl.f32(xd) * dmin)
                 tl.store(Output[columns, rows], prior + value)
     with tl.level.cols(N, group=BN) as columns:
         with tl.level.rows(M, group=BM) as rows:

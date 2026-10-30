@@ -9,6 +9,12 @@
 #include <type_traits>
 #include <memory>
 #include <optional>
+#if defined(__linux__) && defined(__AMX_TILE__)
+#include <immintrin.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+#include <asm/prctl.h>
+#endif
 
 namespace wb {
 template<class T> void poison_output(std::vector<T> &output) {
@@ -75,6 +81,25 @@ struct Execution {
   virtual void sample(bool refresh) = 0;
   virtual void report() = 0;
 };
+// Libraries may cache AMX configuration initialization per thread. Preserve
+// each implementation's hardware context at a batch boundary when alternating
+// unrelated kernels in one worker. The restore is outside the timed interval.
+struct TileConfiguration {
+#if defined(__linux__) && defined(__AMX_TILE__)
+  alignas(64) unsigned char bytes[64] = {};
+  bool available = false;
+  void capture() {
+    unsigned long permitted = 0;
+    available = syscall(SYS_arch_prctl, ARCH_GET_XCOMP_PERM, &permitted) == 0 &&
+                (permitted & (1UL << 18));
+    if (available) _tile_storeconfig(bytes);
+  }
+  void restore() { if (available) _tile_loadconfig(bytes); }
+#else
+  void capture() {}
+  void restore() {}
+#endif
+};
 template<class Run,class Collect,class Reset,class Check,class Initialize,class T>
 struct NativeExecution : Execution {
   const char *name;
@@ -91,6 +116,7 @@ struct NativeExecution : Execution {
   bool finished=false;
   const char *stage="run";
   std::optional<Timing<Run,Reset>> timing;
+  TileConfiguration tile_configuration;
   NativeExecution(const char* name,Run run,Collect collect,Reset reset,Check check,Initialize initialize,
                   std::vector<T>& output,bool stateful,bool save,const char* correctness,
                   std::function<void()> activate = {})
@@ -120,6 +146,7 @@ struct NativeExecution : Execution {
     stage="measure";
     timing.emplace(run,reset,correctness,stateful,name,output.data(),output.size()*sizeof(T));
     timing->prepare();
+    tile_configuration.capture();
   } catch(const std::exception &e) {
     fail(e);
   }
@@ -127,6 +154,7 @@ struct NativeExecution : Execution {
   void sample(bool refresh) override {
     if (finished) return;
     try {
+      tile_configuration.restore();
       if (activate) activate();
       timing->sample(refresh);
     } catch(const std::exception &e) { fail(e); }

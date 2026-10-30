@@ -91,6 +91,20 @@ def encoded_snapshot_rows(X: tl.View[NibblePair, (M, K)],
                     tl.store(Values[row, block], tl.i32(value.s) + step * 1000)
 
 
+@triton.jit(model="weft", alias_groups={"Values": "values"})
+def encoded_snapshot_fields(X: tl.View[NibblePair, (M, K)],
+                            Y: tl.View[NibblePair, (M, K)],
+                            Values: tl.View[tl.i32, (M, K)]):
+    with tl.level.blocks(K, extent=32) as block:
+        saved = tl.stage(tl.load(X[:, block]))
+        decoded = saved.s
+        for step in range(2):
+            with tl.level.rows(M, group=4) as rows:
+                field = decoded[rows]
+                tl.store(Y[rows, block].s, field ^ tl.i4(1))
+                tl.store(Values[rows, block], tl.i32(field) + step * 1000)
+
+
 @triton.encoding
 class WindowFields:
     layout = (tl.bitorder.lsb_first, tl.byteorder.little)

@@ -146,6 +146,8 @@ def run_operator(
     # alternating calls reuse the same write-only output and immutable inputs.
     shared_native = all(port.access != "inout" for port in ports(case)) and all(
         mode(n, target) == "ggml" or (
+            mode(n, target) == "native" and target.implementations[n].get("supports_shared_inputs", False)
+        ) or (
             mode(n, target) == "triton" and
             {**target.implementations[n],
              **target.implementations[n].get("bindings", {}).get(case.name, {})}.get("entry", "single") in ("single", "grid")

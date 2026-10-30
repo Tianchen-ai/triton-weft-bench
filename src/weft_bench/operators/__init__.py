@@ -209,10 +209,14 @@ def catalog():
     from .shared_semantics import catalog as shared_catalog
     from .pointer_semantics import catalog as pointer_catalog
     from .matmul import catalog as matmul_catalog
+    from .statistics import catalog as statistics_catalog
+    from .online_attention import catalog as online_attention_catalog
 
     cases.update(shared_catalog())
     cases.update(pointer_catalog())
     cases.update(matmul_catalog())
+    cases.update(statistics_catalog())
+    cases.update(online_attention_catalog())
     cases["amx_q4_0_tile"] = Case(
         "amx_q4_0_tile", "amx_tile", {"M": 32, "N": 32, "K": 4096},
         "native-amx-q4_0-tile/prequantized/persistent-model-default",

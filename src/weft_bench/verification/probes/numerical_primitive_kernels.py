@@ -3,6 +3,56 @@ from __future__ import annotations
 
 import triton
 import triton.language as tl
+from triton.integrations import ggml_formats
+
+
+@triton.jit(model="weft")
+def encoded_group_reshape(W:tl.View[ggml_formats.Q8_0,(K,)],
+                          X:tl.View[ggml_formats.Q8_0,(K,)],
+                          Y:tl.View[tl.i32,(GROUPS,)],GROUPS:tl.constexpr,BIASED:tl.constexpr,K:tl.constexpr=32):
+    with tl.level.blocks(K,extent=32) as block:
+        w,x=tl.load(W[block]),tl.load(X[block])
+        left=tl.reshape(w.q,(GROUPS,32//GROUPS),axes=("GROUPS","term"),order=("k",))
+        right=tl.reshape(x.q,(GROUPS,32//GROUPS),axes=("GROUPS","term"),order=("k",))
+        if BIASED:
+            result=tl.reduce_dot(tl.u8(left)+tl.u8(128),right,over="term",acc_dtype=tl.i32)
+        else:
+            result=tl.reduce_dot(left,right,over="term",acc_dtype=tl.i32)
+        tl.store(Y,result)
+
+
+@triton.jit(model="weft", alias_groups={"X": "x", "W": "w", "Y": "y"})
+def grouped_chain_boundary(X: tl.View[tl.i8, (M, K)], W: tl.View[tl.u8, (M, K)],
+                           Y: tl.View[tl.i32, (M,)], *, FOLD: tl.constexpr):
+    with tl.level.rows(M, group=2) as row:
+        total = tl.state(tl.i32, [2], init=0)
+        with tl.level.blocks(K, extent=32) as block:
+            x = tl.load(X[row, block])
+            w = tl.load(W[row, block])
+            if FOLD:
+                first = tl.sum_pairs(tl.i16(x) * tl.i16(w))
+            else:
+                first = tl.mac_pairs(x, w, into=tl.i16)
+            second = tl.mac_pairs(first, first * 0 + 1, into=tl.i32)
+            total += tl.reduce(second)
+        tl.store(Y[row], total)
+
+
+@triton.jit(model="weft", alias_groups={"X": "x", "W": "w", "Y": "y"})
+def grouped_range_boundary(X: tl.View[tl.i8, (M, K)], W: tl.View[tl.u8, (M, K)],
+                           Y: tl.View[tl.i32, (M,)], *, SAFE: tl.constexpr):
+    with tl.level.rows(M, group=1) as row:
+        total = tl.state(tl.i32, [1], init=0)
+        with tl.level.blocks(K, extent=32) as block:
+            x = tl.load(X[row, block])
+            w = tl.load(W[row, block])
+            if SAFE:
+                weights = tl.u4(w)
+            else:
+                weights = w
+            partial = tl.mac_groups(x, weights, n=4, into=tl.i16)
+            total += tl.reduce(tl.widen(partial, tl.i32))
+        tl.store(Y[row], total)
 
 
 @triton.jit(model="weft", alias_groups={"Bits": "input", "Half": "input", "HalfOut": "output", "BitsOut": "output"})

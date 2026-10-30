@@ -57,6 +57,58 @@ def prepare(name, bindings=None, seed=410):
     def output(*shape, dtype=np.float32):
         return np.full(shape, np.nan if dtype == np.float32 else -1, dtype=dtype)
 
+    if name == "encoded_group_reshape":
+        groups=bindings.get("GROUPS",2)
+        record=np.dtype([("d",np.float16),("q",np.int8,(32,))])
+        w,x=np.zeros(1,record),np.zeros(1,record)
+        w["d"],x["d"]=1,1
+        w["q"]=rng.integers(-128,128,(1,32),dtype=np.int16).astype(np.int8)
+        x["q"]=np.arange(-16,16,dtype=np.int8)
+        def reference(v):
+            left=v["W"].view(record)["q"].astype(np.int64).reshape(groups,-1)
+            right=v["X"].view(record)["q"].astype(np.int64).reshape(groups,-1)
+            if bindings.get("BIASED",False):left=(left+128)%256
+            return {"Y":(left*right).sum(axis=1).astype(np.int32)}
+        return Scenario({"W":w.view(np.uint8),"X":x.view(np.uint8),"Y":output(groups,dtype=np.int32)},
+                        ("Y",),reference,("encoded-reshape","distinct-group-offsets","exact-integer"),
+                        encodings={"W":("ggml_formats.Q8_0",[32]),"X":("ggml_formats.Q8_0",[32])})
+
+    if name == "grouped_chain_boundary":
+        m, k = bindings.get("M", 3), bindings.get("K", 35)
+        x = rng.integers(-128, 128, (m, k), dtype=np.int16).astype(np.int8)
+        w = rng.integers(0, 256, (m, k), dtype=np.uint16).astype(np.uint8)
+        if k >= 4:
+            x[:, :2], x[:, 2:4], w[:, :4] = 127, -128, 255
+        def reference(v):
+            products = v["X"].astype(np.int64) * v["W"].astype(np.int64)
+            total = np.zeros(m, np.int64)
+            for start in range(0, k, 2):
+                partial = products[:, start:start+2].sum(axis=1)
+                if not bindings.get("FOLD", False):
+                    partial = (partial + 32768) % 65536 - 32768
+                total += partial
+            return {"Y": total.astype(np.int32)}
+        return Scenario({"X": x, "W": w, "Y": output(m, dtype=np.int32)},
+                        ("Y",), reference, ("chained-groups", "empty-and-partial-groups", "exact-integer"))
+
+    if name == "grouped_range_boundary":
+        m, k = bindings.get("M", 3), bindings.get("K", 35)
+        x = rng.integers(-128, 128, (m, k), dtype=np.int16).astype(np.int8)
+        w = rng.integers(0, 256, (m, k), dtype=np.uint16).astype(np.uint8)
+        if k >= 8:
+            x[:, :4], x[:, 4:8], w[:, :8] = 127, -128, 255
+        def reference(v):
+            weights = v["W"].astype(np.int64)
+            if bindings.get("SAFE", False): weights &= 15
+            products = v["X"].astype(np.int64) * weights
+            total = np.zeros(m, np.int64)
+            for start in range(0, k, 4):
+                partial = products[:, start:start+4].sum(axis=1)
+                total += (partial + 32768) % 65536 - 32768
+            return {"Y": total.astype(np.int32)}
+        return Scenario({"X": x, "W": w, "Y": output(m, dtype=np.int32)},
+                        ("Y",), reference, ("narrow-group-wrap", "zero-and-tail", "exact-integer"))
+
     if "norm" in name:
         m, n = 3, bindings.get("N", 32)
         args = {"X": f(m, n), "Weight": f(n), "Y": output(m, n), "epsilon": 1e-5}

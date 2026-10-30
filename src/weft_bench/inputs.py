@@ -49,7 +49,9 @@ class Inputs:
                 f"unknown inputs preset {self.preset!r}; select default, decode, prefill or a JSON file"
             )
         unknown = self.shape.keys() - shape.keys()
-        if unknown or any(type(v) is not int or v <= 0 for v in self.shape.values()):
+        zero_axes = set(case.data.get("zero_extent_axes", ()))
+        if unknown or any(type(v) is not int or v < 0 or (v == 0 and k not in zero_axes)
+                          for k, v in self.shape.items()):
             raise ValueError(f"invalid input shape {self.shape}")
         if type(self.seed) is not int or not 0 <= self.seed <= 0xFFFFFFFF:
             raise ValueError("input seed must fit uint32")

@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import re
 import sys
+import time
 
 
 def clear_backend_failures(directory, prefix="compile-failure"):
@@ -59,6 +60,13 @@ def main():
     from triton import compile
     from triton.backends.compiler import CPUTarget
     from triton.compiler import ASTSource
+    from triton import knobs
+    events = []
+    def compilation_event(**event):
+        times = event["times"]
+        events.append({"cache_hit": event["cache_hit"], "ir_initialization_us": times.ir_initialization,
+                       "lowering_stages_us": list(times.lowering_stages), "store_results_us": times.store_results})
+    knobs.compilation.listener = compilation_event
 
     if __package__:
         from .triton_source import load_kernel
@@ -77,6 +85,7 @@ def main():
         check_jit_target(None, request["target"], vars(target))
     else:
         target = CPUTarget(**compiler_target(request["target"]))
+    compile_started = time.perf_counter_ns()
     try:
         if request.get("program"):
             import importlib
@@ -103,7 +112,12 @@ def main():
     except Exception as error:
         save_backend_failures(error, output.parent)
         raise
+    compile_ms = (time.perf_counter_ns() - compile_started) / 1e6
+    export_started = time.perf_counter_ns()
     compiled.export(output)
+    (output / "compile-timings.json").write_text(json.dumps({"compile_ms": compile_ms,
+        "export_ms": (time.perf_counter_ns()-export_started)/1e6, "compilations": events,
+        "scope": "selected compiler API and artifact export; source import and benchmark worker build excluded"},indent=2))
     print(json.dumps({"engine": "triton", "artifact": str(output)}))
 
 

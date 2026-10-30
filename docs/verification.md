@@ -80,6 +80,7 @@ The optional `verification` object belongs in a target's external configuration:
       "bindings": {}
     },
     {"id": "runtime/pid_grid", "group": "runtime", "kind": "runtime", "case": "pid_grid"},
+    {"id": "runtime/native_parallel", "group": "runtime", "kind": "runtime", "case": "native_parallel"},
     {"id": "framework/inductor_pointwise", "group": "framework", "kind": "framework", "case": "inductor_pointwise"}
   ]
 }

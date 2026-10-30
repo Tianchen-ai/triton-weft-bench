@@ -28,7 +28,11 @@ struct DenseInputs {
   void check(const std::vector<float>& y) const {
     for(auto x:y)if(!std::isfinite(x))throw std::runtime_error("numeric nonfinite output");
     if(gemm) {
+#ifdef WB_DENSE_FULL_CHECK
+      for(size_t index=0;index<output_size;++index){size_t r=index/N,c=index%N;double v=0;
+#else
       for(size_t s=0;s<64;++s){size_t index=s*(output_size-1)/63,r=index/N,c=index%N;double v=0;
+#endif
         for(size_t k=0;k<K;++k)v+=double(input[r*K+k])*weight[c*K+k];wb::close(y[index],v,index);}
     } else if(WB_KIND==6) {
       for(size_t i=0;i<output_size;++i)wb::close(y[i],double(input[i])*scale+scalar_bias,i);

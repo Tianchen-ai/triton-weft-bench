@@ -59,7 +59,8 @@ class Program:
 
 _entries = (
     Program("rms_norm", "normalization", normalization.rms_norm,
-            "Row RMS normalization with a learned scale.", physical_defaults=(("lmul_eighths", 32),)),
+            "Row RMS normalization with a learned scale.",
+            (("BLOCK", 32), ("ACCUM_F64", False)), physical_defaults=(("lmul_eighths", 32),)),
     Program("layer_norm", "normalization", normalization.layer_norm,
             "Centered-variance layer normalization with scale and bias.", physical_defaults=(("lmul_eighths", 32),)),
     Program("rms_norm_row", "normalization", normalization.rms_norm_row,
