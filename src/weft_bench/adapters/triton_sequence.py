@@ -6,6 +6,7 @@ Invocation workspaces are allocated once and shared only by declared names.
 import copy
 from dataclasses import replace
 import json
+import math
 from pathlib import Path
 import re
 
@@ -163,3 +164,30 @@ class TritonSequenceAdapter:
             'persistent_inputs': packed_details,
             'preparation_scope': 'all stages execute inside every measured invocation'},
             include_flags=['-DWB_GGML_MODEL_WEIGHTS=1'] if packed_details else [])
+
+
+class TritonAMXProjectionAdapter(TritonSequenceAdapter):
+    """Normal complete-projection entry using persistent GGML AMX weights.
+
+    Activation preparation runs once per invocation; the existing 32-by-32
+    tile is traversed by the shared executor. Sources remain catalog choices.
+    """
+    def prepare_native(self, case, target, options, directory, worker, workload, name):
+        from ..catalogs import resolve_source
+
+        options = {**options, **options.get('bindings', {}).get(case.name, {})}
+        if (case.family != 'projection' or case.data.get('format') != 'q4_k'
+            or case.shape['M'] % 32 or case.shape['N'] % 32 or case.shape['K'] % 256):
+            raise NotImplementedError('AMX projection requires complete M/N tiles and Q4_K records')
+        stages = copy.deepcopy(options.get('stages', []))
+        if len(stages) != 2 or stages[1].get('tile_shape') != [32, 32]:
+            raise ValueError('AMX projection needs activation preparation and the fixed typed tile')
+        threads = int(options.get('num_cpu_threads', target.settings.get('threads', 1)))
+        parts = math.gcd(max(1, threads), case.shape['M'])
+        stages[0]['constexprs'] = {'M': case.shape['M'], 'K': case.shape['K'],
+                                    'PARTS': parts, 'GRAIN': case.shape['M'] // parts}
+        stages[0]['grid'] = [parts, 1, 1]
+        for stage in stages:
+            stage['source'] = resolve_source(stage['source'])
+        return super().prepare_native(case, target,
+            {**options, 'bindings': {}, 'stages': stages}, directory, worker, workload, name)

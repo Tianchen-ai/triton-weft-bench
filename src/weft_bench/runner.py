@@ -433,7 +433,10 @@ def run_operator(
             )
             for call in calls:
                 row = next(row for row in rows if row.implementation == call.name)
-                _record_projection_boundary(row, workload, call, mode(call.name, target),
+                provider = mode(call.name, target)
+                if provider == "native" and row.details.get("producer") == "triton":
+                    provider = "triton"
+                _record_projection_boundary(row, workload, call, provider,
                                             worker.local / "worker.cpp")
             binary = worker.workspace + "/worker"
             build_command = [

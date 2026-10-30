@@ -48,6 +48,9 @@ def apply_catalog(settings, implementations):
             binding["source"] = resolve_source(binding["source"])
         bindings[case] = binding
     candidate["bindings"] = {**candidate.get("bindings", {}), **bindings}
+    for name, variant in selected.get("implementations", {}).items():
+        base = {key: value for key, value in candidate.items() if key != "bindings"}
+        implementations[name] = {**base, **deepcopy(variant), **implementations.get(name, {})}
     return settings, implementations
 
 

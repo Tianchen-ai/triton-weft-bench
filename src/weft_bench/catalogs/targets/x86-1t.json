@@ -1,5 +1,63 @@
 {
   "description": "Selected author programs and measurement contracts; local resources are configured separately.",
+  "implementations": {
+    "weft-amx": {
+      "factory": "weft_bench.adapters.triton_sequence:TritonAMXProjectionAdapter",
+      "kind": "native",
+      "supports_shared_inputs": true,
+      "bindings": {
+        "q4_k_projection_prefill": {
+          "compile_target": {
+            "arch": "x86_64",
+            "march": "x86-64-v4+avx512vnni+avx512fp16+amx-tile+amx-int8",
+            "abi": "sysv",
+            "vlen_bits": 0,
+            "backend": "weft"
+          },
+          "persistent_inputs": [
+            "W"
+          ],
+          "persistent_providers": {
+            "W": "ggml-amx-q4_k"
+          },
+          "workspaces": [],
+          "stages": [
+            {
+              "source": "package:kernels/ggml/mul_mat/x86/phased.py",
+              "symbol": "prepare_quantized_activation",
+              "signature": {},
+              "constexprs": {},
+              "grid": [
+                1,
+                1,
+                1
+              ]
+            },
+            {
+              "source": "package:kernels/ggml/mul_mat/x86/amx_k_layout.py",
+              "symbol": "q4_k_prefill_tile",
+              "signature": {},
+              "constexprs": {
+                "M": 32,
+                "N": 32,
+                "BM": 16,
+                "BN": 32
+              },
+              "grid": [
+                1,
+                1,
+                1
+              ],
+              "tile_shape": [
+                32,
+                32
+              ]
+            }
+          ]
+        }
+      }
+    }
+  },
   "cases": {
     "q1_0_dequantize": {
       "shape": {
