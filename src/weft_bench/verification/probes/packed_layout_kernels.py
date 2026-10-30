@@ -78,6 +78,21 @@ class NibblePair:
 
 
 @triton.jit(model="weft", alias_groups={"Values": "values"})
+def encoded_loop_read(X: tl.View[NibblePair, (M, K)],
+                      Y: tl.View[NibblePair, (M, K)],
+                      Values: tl.View[tl.i32, (M, K)], *, MUTATE: tl.constexpr):
+    with tl.level.rows(M, group=4) as rows:
+        with tl.level.blocks(K, extent=32) as block:
+            saved = tl.load(X[rows, block])
+            total = tl.state(tl.i32, [4], init=0)
+            with tl.level.subtiles(extent=8) as part:
+                total += tl.reduce(tl.i32(saved.s[part]), axis="K")
+            if MUTATE:
+                tl.store(Y[rows, block].s, saved.s ^ tl.i4(1))
+            tl.store(Values[rows, block], tl.i32(saved.s) + total)
+
+
+@triton.jit(model="weft", alias_groups={"Values": "values"})
 def encoded_snapshot_rows(X: tl.View[NibblePair, (M, K)],
                           Y: tl.View[NibblePair, (M, K)],
                           Values: tl.View[tl.i32, (M, K)]):

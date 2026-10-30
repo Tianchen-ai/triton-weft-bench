@@ -91,6 +91,28 @@ def ime_activation(x, row_tile):
 
 def prepare(name, bindings, seed, Scenario):
     rng = np.random.default_rng(seed)
+    if name == "loop_read":
+        m, k = bindings['M'], bindings['K']
+        overlap, mutate = bool(bindings['OVERLAP']), bool(bindings['MUTATE'])
+        signed = rng.integers(-8, 8, (m, k), dtype=np.int8)
+        raw = np.zeros((m, k // 32, 36), np.uint8)
+        chunks = signed.reshape(m, k // 32, 32).astype(np.int32) & 15
+        raw[:, :, :16] = chunks[:, :, ::2] | (chunks[:, :, 1::2] << 4)
+        raw[:, :, 16:] = 0xa5
+        x = raw.copy()
+        y = x if overlap else np.full_like(x, 0x5a)
+        changed = y.copy()
+        if mutate:
+            values = chunks ^ 1
+            changed[:, :, :16] = values[:, :, ::2] | (values[:, :, 1::2] << 4)
+        total = signed.reshape(m, k // 32, 32).astype(np.int32).sum(axis=-1)
+        expected = (signed.reshape(m, k // 32, 32) + total[:, :, None]).reshape(m, k)
+        return Scenario({'X': x, 'Y': y, 'Values': np.full((m, k), -12345, np.int32)},
+                        ('X', 'Y', 'Values'),
+                        lambda v: {'X': changed if overlap else raw, 'Y': changed, 'Values': expected},
+                        ('nested-readonly-level', 'alias-write-snapshot', 'exact-integer'),
+                        encodings={'X': ('NibblePair', [m, k]), 'Y': ('NibblePair', [m, k])},
+                        exact_outputs=('X', 'Y', 'Values'))
     if name in ("q4_k_prepared_gemv", "q4_k_persistent"):
         n, blocks = 32, 2
         m = 1 if name == "q4_k_prepared_gemv" else 3
