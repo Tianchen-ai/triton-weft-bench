@@ -57,6 +57,48 @@ def prepare(name, bindings=None, seed=410):
     def output(*shape, dtype=np.float32):
         return np.full(shape, np.nan if dtype == np.float32 else -1, dtype=dtype)
 
+    if name == "semantics_composition":
+        if __package__:
+            from ..verification.probes.model_semantics import composition_reference
+        else:
+            from model_semantics import composition_reference
+        m, n, steps = (bindings[key] for key in ("M", "N", "STEPS"))
+        rows, block = bindings["ROWS"], bindings["BLOCK"]
+        x = rng.integers(-5000, 5001, (m, n), dtype=np.int32)
+        initial = rng.integers(-32768, 32768, m, dtype=np.int32)
+        def reference(values):
+            changed, result, _ = composition_reference(values["X"], values["Init"], steps, rows, block)
+            return {"X": changed, "Y": result}
+        return Scenario({"X": x, "Init": initial, "Y": output(m, 3, dtype=np.int32), "STEPS": steps},
+            ("X", "Y"), reference, ("level-initialization", "staged-snapshot", "alias-write",
+            "coupled-state", "handoff", "zero-tail", "exact-integer"))
+
+    if name == "lexical_helper_extent":
+        parent, count = bindings["M"], bindings["COUNT"]
+        return Scenario({"X": np.zeros(parent, np.int32), "Y": output(2, dtype=np.int32), "COUNT": count},
+            ("Y",), lambda v: {"Y": np.asarray([(count + 3) // 4, (count // 2 + 3) // 4], np.int32)},
+            ("lexical-helper-scope", "dynamic-extent", "exact-integer"))
+
+    if name == "composed_windows":
+        count = bindings["COUNT"]
+        def reference(values):
+            result = values["Y"].copy()
+            result[:count] = values["X"][:count] + 1
+            return {"Y": result}
+        return Scenario({"Padding": np.zeros(4, np.int32), "X": np.arange(31, dtype=np.int32),
+            "Y": np.full(31, -777, np.int32), "COUNT": count}, ("Y",), reference,
+            ("composed-views", "helper", "preserved-tail", "exact-integer"))
+
+    if name == "static_births":
+        source = np.arange(7, dtype=np.float32)
+        return Scenario({"X": source, "Y": output(7)}, ("X", "Y"),
+            lambda v: {"X": v["X"] + 1, "Y": v["X"].copy() if bindings["SHARED"] else v["X"] * 2},
+            ("constexpr-birth", "snapshot-before-alias-write"), exact_outputs=("X", "Y"))
+
+    if name == "static_window_copy":
+        return Scenario({"X": np.arange(16, dtype=np.int32), "Y": output(16, dtype=np.int32)},
+            ("Y",), lambda v: {"Y": v["X"] + 1}, ("exact-static-window", "helper"))
+
     if name == "encoded_group_reshape":
         groups=bindings.get("GROUPS",2)
         record=np.dtype([("d",np.float16),("q",np.int8,(32,))])

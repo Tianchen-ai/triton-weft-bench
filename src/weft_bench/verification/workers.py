@@ -86,6 +86,8 @@ def run(entry, target, directory):
     files = [(here / "program_process.py", "program_process.py")]
     files.extend((here.parent / "operators" / name, name) for name in
                  ("program_oracles.py", "dense_oracles.py", "encoded_oracles.py", "example_oracles.py"))
+    if entry["case"] == "semantics_composition":
+        files.append((here / "probes/model_semantics.py", "model_semantics.py"))
     for namespace, root in entry.get("imports", {}).items():
         if not namespace.isidentifier():
             raise ValueError("import root must be a Python package name")
