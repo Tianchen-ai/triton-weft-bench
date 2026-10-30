@@ -19,6 +19,21 @@ inline void wb_dequantize_reference(ggml_type type,const void* x,float* y,size_t
   } else {auto fn=ggml_get_type_traits(type)->to_float;if(!fn)throw std::runtime_error("no dequantization oracle");fn(x,y,n);}
 }
 
+inline void wb_quantize_q80_rtne_contract(const float *x, uint8_t *y, size_t n) {
+  if (n % 32) throw std::runtime_error("Q8_0 requires complete blocks");
+  for (size_t block = 0; block < n / 32; ++block) {
+    float maximum = 0;
+    for (size_t i = 0; i < 32; ++i) maximum = std::max(maximum, std::fabs(x[block * 32 + i]));
+    float scale = maximum / 127.0f;
+    float inverse = maximum != 0 ? 127.0f / maximum : 0;
+    auto half = ggml_fp32_to_fp16(scale);
+    uint8_t *out = y + block * sizeof(block_q8_0);
+    std::memcpy(out, &half, sizeof(half));
+    auto *values = reinterpret_cast<int8_t *>(out + sizeof(half));
+    for (size_t i = 0; i < 32; ++i) values[i] = int8_t(std::nearbyint(x[block * 32 + i] * inverse));
+  }
+}
+
 // Legacy callers use the RVV extrema/tie contract. An explicitly selected
 // first-absolute-max contract models GGML quantizers that use that storage rule.
 // Both oracles calculate the bytes here, independently of the timed function.

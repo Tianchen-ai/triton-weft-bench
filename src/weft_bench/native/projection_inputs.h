@@ -24,18 +24,22 @@ struct ProjectionInputs {
     else {
       quantized.resize(M*activation_bytes);
       for(size_t m=0;m<M;++m){
-#ifdef WB_PROJECTION_Q8K_CONTRACT
+#if defined(WB_PROJECTION_Q8K_CONTRACT) || defined(WB_PROJECTION_Q80_CONTRACT)
         // The scalar GGML reference's rounding trick can contract its multiply
         // into the magic-bias add. Native SIMD rounds the product to f32 first.
         // Use the declared independent storage contract and check the actual
         // CPU quantizer before using these bytes in the projection oracle.
+#ifdef WB_PROJECTION_Q80_CONTRACT
+        wb_quantize_q80_rtne_contract(activation.data()+m*K,quantized.data()+m*activation_bytes,K);
+#else
         wb_quantize_contract(activation_type,activation.data()+m*K,quantized.data()+m*activation_bytes,K);
+#endif
         std::vector<uint8_t> native(activation_bytes);
         auto quantizer=ggml_get_type_traits_cpu(activation_type)->from_float;
         if(!quantizer)throw std::runtime_error("GGML has no native activation quantizer");
         quantizer(activation.data()+m*K,native.data(),K);
         if(std::memcmp(native.data(),quantized.data()+m*activation_bytes,activation_bytes))
-          throw std::runtime_error("GGML activation quantization differs from declared Q8_K contract");
+          throw std::runtime_error("GGML activation quantization differs from declared projection contract");
 #else
         wb_quantize_reference(activation_type,activation.data()+m*K,quantized.data()+m*activation_bytes,K);
 #endif

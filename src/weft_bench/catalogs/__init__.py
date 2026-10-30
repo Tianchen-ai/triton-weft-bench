@@ -39,6 +39,11 @@ def apply_catalog(settings, implementations):
     settings = {**settings, "operator_suites": {**suites, **settings.get("operator_suites", {})},
                 "case_catalog": cases,
                 "verification": {"source_implementation": "weft", **settings.get("verification", {})}}
+    if selected.get("projection_activation_contracts"):
+        settings['projection_activation_contracts'] = {
+            **selected['projection_activation_contracts'],
+            **settings.get('projection_activation_contracts', {}),
+        }
     implementations = deepcopy(implementations)
     candidate = implementations.setdefault("weft", {"factory": "weft_bench.adapters.triton_jit:TritonJitAdapter"})
     bindings = {}

@@ -105,6 +105,13 @@ checks; no tolerance is relaxed for reference-only execution.
 
 ## Persistent model projection weights
 
+The x86 catalog declares Q8_0 activation preparation as absolute-maximum scaling
+with the direct `127 / amax` inverse and round-to-nearest-even integer conversion.
+The full-projection oracle computes these bytes independently and compares them
+with the selected native GGML quantizer before using them. The scalar model-file
+quantizer uses `roundf` and differs at half-way inputs; it is not the x86 SIMD
+activation contract.
+
 The `x86-1t` catalog also exposes `weft-amx` for the complete Q4_K prefill
 projection. It prepares the activation once on every call, reuses GGML's normal
 persistent AMX weight representation, and runs the existing 32-by-32 Weft tile
