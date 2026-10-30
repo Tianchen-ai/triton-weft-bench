@@ -43,7 +43,8 @@ class TritonSequenceAdapter:
                     or not abi['arguments'][-1].get('strided')):
                     raise ValueError('projection tiles require the typed 32-by-32 W/Xq/Y entry and complete output tiles')
                 expected_shapes = {'W': [32, case.shape['K']], 'Xq': [32, case.shape['K']], 'Y': [32, 32]}
-                if any(list(map(str, arg['shape'])) != list(map(str, expected_shapes[arg['name']]))
+                dimensions = {**case.shape, **abi.get('bindings', {}), 'M': 32, 'N': 32}
+                if any([int(x) if str(x).isdecimal() else dimensions[x] for x in arg['shape']] != expected_shapes[arg['name']]
                        for arg in abi['arguments']):
                     raise ValueError('projection tile argument extents differ from its declared tile shape')
             for key, value in abi.get('bindings', {}).items():
