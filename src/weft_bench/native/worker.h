@@ -9,6 +9,8 @@
 #include <type_traits>
 #include <memory>
 #include <optional>
+#include <dlfcn.h>
+#include <thread>
 #if defined(__linux__) && defined(__AMX_TILE__)
 #include <immintrin.h>
 #include <sys/syscall.h>
@@ -165,6 +167,17 @@ struct NativeExecution : Execution {
 };
 struct ExecutionGroup {
   std::vector<std::unique_ptr<Execution>> executions;
+  static void yield_idle_teams() {
+    if (!option("WB_YIELD_IDLE_TEAMS",0)) return;
+    // A competing runtime must not retain spinning workers across a sample
+    // boundary. Each implementation warms its own team before timed sampling.
+    if (auto release=reinterpret_cast<void(*)()>(dlsym(RTLD_DEFAULT,"weft_parallel_release"))) release();
+    // libomp builds can expose an unsupported pause-resource stub. Let the
+    // configured normal blocktime expire instead of changing either runtime.
+    double settle=option("WB_IDLE_TEAM_SETTLE_MS",0);
+    if (settle < 0) throw std::runtime_error("negative idle-team settle time");
+    if (settle) std::this_thread::sleep_for(std::chrono::duration<double,std::milli>(settle));
+  }
   template<class Run,class Collect,class Reset,class Check,class Initialize,class T>
   void add(const char* name,Run run,Collect collect,Reset reset,Check check,Initialize initialize,
            std::vector<T>& output,bool stateful,bool save,const char* correctness,
@@ -173,7 +186,7 @@ struct ExecutionGroup {
         name,run,collect,reset,check,initialize,output,stateful,save,correctness,std::move(activate)));
   }
   void run() {
-    for (auto &execution:executions) execution->prepare();
+    for (auto &execution:executions) { execution->prepare(); yield_idle_teams(); }
     const int samples=static_cast<int>(option("WB_SAMPLES",5));
     for (int round=0;round<samples;++round)
       for (std::size_t position=0;position<executions.size();++position) {
@@ -181,6 +194,7 @@ struct ExecutionGroup {
         // Virtual dispatch is outside Timing::sample's measured interval.
         // Every native invocation still uses its concrete typed lambda.
         executions[index]->sample(true);
+        yield_idle_teams();
       }
     for (auto &execution:executions) execution->report();
   }

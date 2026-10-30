@@ -60,5 +60,19 @@ public:
     int status=launcher(entry,arguments,x,y,z,threads,kernel_.get(),weft_kernel_check_worker,error,sizeof(error));
     if(status)throw std::runtime_error(std::string("grid launch: ")+error);
   }
+  // Execute an existing typed tile entry with invocation-owned coordinates.
+  // The shared executor checks every participating worker before any tile runs.
+  template<class Function> void parallel(size_t count,int threads,Function body) const {
+    char error[1024]{};
+    auto check=[](const void *scope,char *message,size_t capacity)->int {
+      auto native=static_cast<const TritonNative *>(scope);
+      return weft_kernel_check_worker(native->kernel_.get(),message,capacity);
+    };
+    auto invoke=[](void *arguments,size_t begin,size_t end) {
+      (*static_cast<Function *>(arguments))(begin,end);
+    };
+    int status=weft_parallel_for(count,threads,this,check,&body,invoke,error,sizeof(error));
+    if(status)throw std::runtime_error(std::string("native tiles: ")+error);
+  }
 };
 }

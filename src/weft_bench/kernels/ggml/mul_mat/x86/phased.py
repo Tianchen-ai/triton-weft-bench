@@ -46,6 +46,18 @@ def q4_prepare_activation(X: tl.View[tl.f32, (M, K)], Xq: tl.View[ggml_formats.Q
         activation_fields(block, activation, sums, scale, BM=BM, AK=AK, PACK=PACK, GROUPS=GROUPS)
 
 
+@triton.jit(model="weft", alias_groups={"X": "input", "Xq": "quantized"})
+def prepare_quantized_activation(X: tl.View[tl.f32, (M, K)],
+    Xq: tl.View[ggml_formats.Q8_K, (M, K)], *, M: tl.constexpr, K: tl.constexpr,
+    PARTS: tl.constexpr, GRAIN: tl.constexpr):
+    part = tl.program_id(0)
+    tl.assume(part >= 0)
+    tl.assume(part < PARTS)
+    for row in range(GRAIN):
+        position = part * GRAIN + row
+        q8_k_quantize_first_absolute(X[position], Xq[position])
+
+
 @triton.jit(model="weft", alias_groups={"W": "weights", "Panel": "panel", "Scales": "scales",
     "D": "scale", "Minima": "minima", "Dmin": "minimum_scale"})
 def q4_prepare_weights(W: tl.View[ggml_formats.Q4_K, (N, K)],
