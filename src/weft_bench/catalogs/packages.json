@@ -554,10 +554,11 @@
       },
       "ggml.amx/q6_K_decode": {
         "source": "package:kernels/ggml/mul_mat/x86/amx_k_layout.py",
-        "symbol": "q6_k_decode",
+        "symbol": "q6_k_decode_streaming",
         "signature": {},
         "constexprs": {
-          "BN": 64
+          "BN": 64,
+          "GROUPS": 1
         },
         "backend_options": {},
         "compile_target": {
@@ -647,10 +648,11 @@
       },
       "ggml.amx/q6_K_decode": {
         "source": "package:kernels/ggml/mul_mat/x86/amx_k_layout.py",
-        "symbol": "q6_k_decode",
+        "symbol": "q6_k_decode_streaming",
         "signature": {},
         "constexprs": {
-          "BN": 64
+          "BN": 64,
+          "GROUPS": 1
         },
         "backend_options": {},
         "compile_target": {
