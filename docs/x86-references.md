@@ -105,6 +105,15 @@ checks; no tolerance is relaxed for reference-only execution.
 
 ## Persistent model projection weights
 
+The `x86-1t` catalog also exposes `weft-amx` for the complete Q4_K prefill
+projection. It prepares the activation once on every call, reuses GGML's normal
+persistent AMX weight representation, and runs the existing 32-by-32 Weft tile
+through the shared CPU executor. Select it with `--impl ggml,weft-amx` for
+`q4_k_projection_prefill`. The workload includes activation preparation and all
+output tiles. M and N must be multiples of 32 and K a multiple of 256;
+`num_cpu_threads` selects the executor team. The normal native compiler Python,
+toolchain and runtime configuration applies to this catalog implementation.
+
 Set `ggml.projection_weights` to `model-default` for the CPU model-projection
 reference. Bench queries the CPU backend's extra buffer types in their normal
 order, tests each with `ggml_backend_dev_supports_op`, and falls back to the CPU
