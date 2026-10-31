@@ -128,3 +128,60 @@ def specialized_matmul_s8(X: tl.View[tl.i8, (M, K)], W: tl.View[tl.i8, (N, K)],
                           *, M: tl.constexpr, N: tl.constexpr, K: tl.constexpr,
                           BM: tl.constexpr, BN: tl.constexpr, BK: tl.constexpr):
     panel_product(X, W, Y, Scratch, Activation, M, N, K, BM, BN, BK, tl.i32)
+
+
+@triton.jit(model="weft", alias_groups={"Scratch": "weights", "Activation": "activation", "Y": "output"})
+def row_blocked_matmul_f32(X: tl.View[tl.f32, (M, K)], W: tl.View[tl.f32, (N, K)],
+                           Y: tl.View[tl.f32, (M, N)], Scratch: tl.View[tl.f32, (BK, BN)],
+                           Activation: tl.View[tl.f32, (MB, BK, BM)],
+                           *, M: tl.constexpr, N: tl.constexpr, K: tl.constexpr,
+                           BM: tl.constexpr, BN: tl.constexpr, BK: tl.constexpr, MB: tl.constexpr,
+                           UNROLL: tl.constexpr = 1):
+    """Pack contiguous row blocks inside each call; specialize the chosen shape."""
+    tl.static_assert(M % BM == 0 and MB == M // BM)
+    tl.static_assert(UNROLL > 0)
+    first = tl.i1(True)
+    with tl.level.blocks(K, extent=BK) as kb:
+        row_block = tl.index(0)
+        with tl.level.rows(M, group=BM) as mb:
+            transpose_small_panels(X[mb, kb], Activation[row_block], BM, BK, "m", "bm")
+            row_block += tl.index(1)
+        with tl.level.cols(N, group=BN) as nb:
+            transpose_small_panels(W[nb, kb], Scratch, BN, BK, "n", "bn")
+            row_block = tl.index(0)
+            with tl.level.rows(M, group=BM) as mb:
+                acc = tl.state(tl.f32, [BM, BN], init=0)
+                for start in range(0, tl.extent(X[mb, kb], axis=1), UNROLL):
+                    for offset in tl.static_range(UNROLL):
+                        k = start + offset
+                        if k < tl.extent(X[mb, kb], axis=1):
+                            activation = tl.reshape(tl.load(Activation[row_block, k, :]),
+                                                     (BM,), axes=("m",), order=("bm",))
+                            weights = tl.reshape(tl.load(Scratch[k, :]),
+                                                 (BN,), axes=("n",), order=("bn",))
+                            acc += activation * weights
+                if not first:
+                    acc += tl.load(Y[mb, nb])
+                tl.store(Y[mb, nb], acc)
+                row_block += tl.index(1)
+        first = tl.i1(False)
+    if first:
+        with tl.level.cols(N, group=BN) as nb:
+            with tl.level.rows(M, group=BM) as mb:
+                tl.store(Y[mb, nb], tl.state(tl.f32, [BM, BN], init=0))
+
+
+@triton.jit
+def transpose_small_panels(tile, workspace, ROWS: tl.constexpr, COLS: tl.constexpr,
+                           SOURCE_ROW: tl.constexpr, PACKED_ROW: tl.constexpr):
+    R: tl.constexpr = min(ROWS, 8)
+    if ROWS % R == 0 and COLS % 8 == 0 and tl.extent(tile, axis=0) == ROWS and tl.extent(tile, axis=1) == COLS:
+        for row in tl.static_range(0, ROWS, R):
+            for column in range(0, COLS, 8):
+                source = tl.subview(tile, offsets=(row, column), extents=(R, 8))
+                values = tl.reshape(tl.load(source), (8, R),
+                                    axes=("bk", PACKED_ROW), order=("k", SOURCE_ROW))
+                destination = tl.subview(workspace, offsets=(column, row), extents=(8, R))
+                tl.store(destination, values)
+    else:
+        transpose_panel(tile, workspace, ROWS, COLS, SOURCE_ROW, PACKED_ROW, 8, tl.f32)

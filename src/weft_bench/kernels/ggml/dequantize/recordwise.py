@@ -28,13 +28,15 @@ def q2_k(W: tl.View[ggml_formats.Q2_K, (K,)], Y: tl.View[tl.f32, (K,)]):
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
 def q3_k(W: tl.View[ggml_formats.Q3_K, (K,)], Y: tl.View[tl.f32, (K,)]):
+    """Decode one scale group at a time instead of permuting a full record."""
     with tl.level.blocks(K, extent=256) as block:
         record = tl.load(W[block])
-        lane = tl.arange(0, 256, dtype=tl.u32, axis="k")
-        group = lane // tl.u32(16)
-        scale = (tl.i32(record.scale_low[group]) | tl.i32(record.scale_high[group]) << tl.u32(4)) - tl.i32(32)
-        q = tl.i32(record.q[lane]) + tl.i32(record.hmask[lane]) * tl.i32(4) - tl.i32(4)
-        tl.store(Y[block], tl.f32(record.d) * tl.f32(scale) * tl.f32(q))
+        for group in tl.static_range(16):
+            lane = tl.arange(0, 16, dtype=tl.u32, axis="k") + tl.u32(group * 16)
+            scale = (tl.i32(record.scale_low[group]) | tl.i32(record.scale_high[group]) << tl.u32(4)) - tl.i32(32)
+            q = tl.i32(record.q[lane]) + tl.i32(record.hmask[lane]) * tl.i32(4) - tl.i32(4)
+            output = tl.subview(Y[block], offsets=(group * 16,), extents=(16,))
+            tl.store(output, tl.f32(record.d) * tl.f32(scale) * tl.f32(q))
 
 
 @triton.jit(model="weft", alias_groups={"Y": "output"})
