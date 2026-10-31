@@ -5,6 +5,26 @@
     "q8_1": "absmax-rtne-direct-inverse"
   },
   "implementations": {
+    "weft-fp32-panel": {
+      "factory": "weft_bench.adapters.fp32_panel:FP32PanelAdapter",
+      "kind": "native",
+      "supports_shared_inputs": true,
+      "bindings": {
+        "gemm_f32": {
+          "source": "package:kernels/dense/x86/panel_matmul.py",
+          "symbol": "row_blocked_matmul_f32",
+          "signature": {},
+          "workspaces": ["Scratch", "Activation"],
+          "compile_target": {
+            "arch": "x86_64",
+            "march": "x86-64-v4+avx512vnni",
+            "abi": "sysv",
+            "vlen_bits": 0,
+            "backend": "weft"
+          }
+        }
+      }
+    },
     "weft-amx": {
       "factory": "weft_bench.adapters.triton_sequence:TritonAMXProjectionAdapter",
       "kind": "native",

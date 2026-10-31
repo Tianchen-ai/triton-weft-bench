@@ -185,3 +185,22 @@ def transpose_small_panels(tile, workspace, ROWS: tl.constexpr, COLS: tl.constex
                 tl.store(destination, values)
     else:
         transpose_panel(tile, workspace, ROWS, COLS, SOURCE_ROW, PACKED_ROW, 8, tl.f32)
+
+
+@triton.jit(model="weft", alias_groups={"Scratch": "weights", "Activation": "activation", "Y": "output"})
+def row_blocked_matmul_grid_f32(X: tl.View[tl.f32, (M, K)], W: tl.View[tl.f32, (N, K)],
+                                Y: tl.View[tl.f32, (M, N)],
+                                Scratch: tl.View[tl.f32, (PARTS, BK, BN)],
+                                Activation: tl.View[tl.f32, (PARTS, MB, BK, BM)],
+                                *, M: tl.constexpr, N: tl.constexpr, K: tl.constexpr,
+                                PARTS: tl.constexpr, GRAIN: tl.constexpr, MB: tl.constexpr,
+                                BM: tl.constexpr, BN: tl.constexpr, BK: tl.constexpr,
+                                UNROLL: tl.constexpr = 4):
+    tl.static_assert(M == PARTS * GRAIN and GRAIN % BM == 0)
+    part = tl.program_id(0)
+    tl.assume(part >= 0)
+    tl.assume(part < PARTS)
+    x = tl.subview(X, offsets=(part * GRAIN, 0), extents=(GRAIN, K))
+    y = tl.subview(Y, offsets=(part * GRAIN, 0), extents=(GRAIN, N))
+    row_blocked_matmul_f32(x, W, y, Scratch[part], Activation[part],
+        M=GRAIN, N=N, K=K, BM=BM, BN=BN, BK=BK, MB=MB, UNROLL=UNROLL)
