@@ -463,10 +463,13 @@ def source_integer_ranges_contract(root, options, compile_target=None):
     from triton.backends.compiler import CPUTarget
     from numerical_primitive_kernels import grouped_source_range, grouped_source_range_sum
 
-    def build(kernel, group, safe):
+    def build(kernel, group, safe, staged=False):
+        bindings = {"GROUP": group, "SAFE": safe}
+        if "STAGED" in kernel.arg_names:
+            bindings["STAGED"] = staged
         if compile_target is None:
-            return lambda *args: kernel[(1,)](*args, GROUP=group, SAFE=safe, **options)
-        compiled = compile(ASTSource(kernel, {}, {"GROUP": group, "SAFE": safe}),
+            return lambda *args: kernel[(1,)](*args, **bindings, **options)
+        compiled = compile(ASTSource(kernel, {}, bindings),
                            target=CPUTarget(backend="weft", **compile_target), options=options)
         return lambda *args: (compiled[(1,)](*args), compiled)[1]
 
@@ -490,6 +493,13 @@ def source_integer_ranges_contract(root, options, compile_target=None):
                 label = f"closed-source-range-{group}-{safe}-{size}"
                 save(root, label, left=left, right=right, expected=total, actual=output)
                 records.append({"group": group, "safe": safe, "size": size, "kind": "closed-reduction",
+                                "evidence": native_evidence(compiled, root, label, ["mac_groups"])})
+                storage.fill(-12345)
+                compiled = build(grouped_source_range_sum, group, safe, staged=True)(left, right, output)
+                exact(output, total); exact(storage[[0,1,-2,-1]], np.full(4, -12345, np.int32))
+                label = f"staged-source-range-{group}-{safe}-{size}"
+                save(root, label, left=left, right=right, expected=total, actual=output)
+                records.append({"group": group, "safe": safe, "size": size, "kind": "staged-closed-reduction",
                                 "evidence": native_evidence(compiled, root, label, ["mac_groups"])})
                 if size <= 32:
                     storages, flat = zip(*(guarded(4*(32//group), dtype) for dtype in (np.int16, np.int64, np.float32)))

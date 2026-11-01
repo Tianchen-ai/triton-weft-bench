@@ -1117,14 +1117,20 @@ def grouped_level_handoff(value, alternate, steps):
 @triton.jit(model="weft")
 def grouped_source_range_sum(A: tl.View[tl.i32, (M, N)], B: tl.View[tl.i32, (M, N)],
                              Out: tl.View[tl.i32, (M,)], SAFE: tl.constexpr,
-                             GROUP: tl.constexpr):
+                             GROUP: tl.constexpr, STAGED: tl.constexpr = False):
     with tl.level.rows(M, group=4) as rows:
         total = tl.state(tl.i32, [4], init=0)
         with tl.level.blocks(N, extent=32) as block:
             a = tl.i8(tl.load(A[rows, block]))
-            b = tl.i8(tl.load(B[rows, block]))
-            if SAFE:
-                b = tl.i8(tl.u8(b) & tl.u8(63)) - tl.i8(32)
+            if STAGED:
+                if SAFE:
+                    b = tl.stage(tl.i8(tl.u8(tl.load(B[rows, block])) & tl.u8(63)) - tl.i8(32))
+                else:
+                    b = tl.stage(tl.i8(tl.load(B[rows, block])))
+            else:
+                b = tl.i8(tl.load(B[rows, block]))
+                if SAFE:
+                    b = tl.i8(tl.u8(b) & tl.u8(63)) - tl.i8(32)
             partial = tl.mac_groups(a, b, n=GROUP, into=tl.i16)
             total += tl.reduce(tl.i32(partial))
         tl.store(Out[rows], total)
