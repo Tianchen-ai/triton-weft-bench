@@ -6,6 +6,51 @@ import triton.language as tl
 
 
 @triton.encoding
+class StagedGroupedWeights:
+    layout = (tl.bitorder.lsb_first, tl.byteorder.little)
+    alignment = 1
+    elements = 32
+    q: tl.u4[32] @ tl.grouped(elements=32) @ tl.bit_layers(elements=16, order=tl.lo_first)
+
+
+@triton.encoding
+class StagedGroupedInput:
+    layout = (tl.bitorder.lsb_first, tl.byteorder.little)
+    alignment = 1
+    elements = 32
+    q: tl.i8[32]
+
+
+@triton.jit(model="weft", alias_groups={"Out": "output"})
+def staged_grouped_choice(W: tl.View[StagedGroupedWeights, (N, K)],
+                          A: tl.View[StagedGroupedInput, (M, K)], Out: tl.View[tl.i32, (M, N)],
+                          *, MUTATE: tl.constexpr, SCALE: tl.constexpr):
+    for m in range(M):
+        for n in range(N):
+            tl.store(Out[m, n], tl.i32(0))
+    with tl.level.tiles(N, extent=16) as nc:
+        with tl.level.tiles(K, extent=64) as kc:
+            saved = tl.stage(tl.load(W[nc, kc]))
+            if MUTATE:
+                with tl.level.rows(nc, group=1) as wr:
+                    with tl.level.blocks(kc, extent=32) as wb:
+                        current = tl.load(W[wr, wb]).q
+                        tl.store(W[wr, wb].q, current ^ current)
+            with tl.level.tiles(M, extent=4) as mc:
+                with tl.level.rows(mc, group=1) as mb:
+                    with tl.level.cols(nc, group=16) as nb:
+                        total = tl.state(tl.i32, [1, 16], init=tl.load(Out[mb, nb]))
+                        with tl.level.blocks(kc, extent=32) as kb:
+                            weight = saved[nb, kb]
+                            data = tl.load(A[mb, kb])
+                            with tl.level.subtiles(extent=16) as part:
+                                q = weight.q[part] if SCALE == 1 else tl.u8(weight.q[part]) * tl.u8(SCALE)
+                                grouped = tl.mac_groups(data.q[part], q, n=4, into=tl.i16)
+                                total += tl.reduce(tl.widen(grouped, tl.i32))
+                        tl.store(Out[mb, nb], total)
+
+
+@triton.encoding
 class BitSigns:
     layout = (tl.bitorder.lsb_first, tl.byteorder.little)
     alignment = 1

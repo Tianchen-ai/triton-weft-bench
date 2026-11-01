@@ -90,6 +90,33 @@ def ime_activation(x, row_tile):
 
 
 def prepare(name, bindings, seed, Scenario):
+    if name == "staged_grouped_choice":
+        rng = np.random.default_rng(seed)
+        m, n, k = (bindings[key] for key in ("M", "N", "K"))
+        mutate, scale = bindings["MUTATE"], bindings["SCALE"]
+        q = rng.integers(0, 16, (n, k), dtype=np.uint8)
+        if n and k:
+            q[:, :4] = 15
+        blocks = q.reshape(n, k // 32, 32)
+        payload = (blocks[:, :, :16] | (blocks[:, :, 16:] << 4)).reshape(n, k // 2)
+        a = rng.integers(-128, 128, (m, k), dtype=np.int16).astype(np.int8)
+        if m and k:
+            a[:, :4] = 127
+        def reference(values):
+            raw = values["W"].reshape(n, k // 32, 16)
+            logical = np.concatenate((raw & 15, raw >> 4), axis=2).reshape(n, k).astype(np.int64) * scale
+            products = values["A"].astype(np.int64)[:, None, :] * logical[None, :, :]
+            partial = products.reshape(m, n, k // 4, 4).sum(axis=-1)
+            partial = ((partial + 32768) % 65536) - 32768
+            result = {"Out": partial.sum(axis=-1).astype(np.int32)}
+            if mutate:
+                result["W"] = np.zeros_like(values["W"])
+            return result
+        return Scenario({"W": payload.copy(), "A": a, "Out": np.full((m, n), -777, np.int32)},
+            ("W", "Out") if mutate else ("Out",), reference,
+            ("encoded-stage", "branch-selection", "zero-tail", "alias-write", "finite-width", "exact-integer"),
+            encodings={"W": ("StagedGroupedWeights", (n, k)),
+                       "A": ("StagedGroupedInput", (m, k))})
     rng = np.random.default_rng(seed)
     if name == "loop_read":
         m, k = bindings['M'], bindings['K']
