@@ -1115,6 +1115,48 @@ def grouped_level_handoff(value, alternate, steps):
 
 
 @triton.jit(model="weft")
+def grouped_source_range_sum(A: tl.View[tl.i32, (M, N)], B: tl.View[tl.i32, (M, N)],
+                             Out: tl.View[tl.i32, (M,)], SAFE: tl.constexpr,
+                             GROUP: tl.constexpr):
+    with tl.level.rows(M, group=4) as rows:
+        total = tl.state(tl.i32, [4], init=0)
+        with tl.level.blocks(N, extent=32) as block:
+            a = tl.i8(tl.load(A[rows, block]))
+            b = tl.i8(tl.load(B[rows, block]))
+            if SAFE:
+                b = tl.i8(tl.u8(b) & tl.u8(63)) - tl.i8(32)
+            partial = tl.mac_groups(a, b, n=GROUP, into=tl.i16)
+            total += tl.reduce(tl.i32(partial))
+        tl.store(Out[rows], total)
+
+
+@triton.jit(model="weft")
+def grouped_source_range(A: tl.View[tl.i32, (M, N)], B: tl.View[tl.i32, (M, N)],
+                         Narrow: tl.View[tl.i16, (ROWS, GROUPS)],
+                         Wide: tl.View[tl.i64, (ROWS, GROUPS)],
+                         Float: tl.View[tl.f32, (ROWS, GROUPS)],
+                         SAFE: tl.constexpr, GROUP: tl.constexpr):
+    with tl.level.rows(M, group=4) as rows:
+        with tl.level.blocks(N, extent=32) as block:
+            a = tl.i8(tl.load(A[rows, block]))
+            b = tl.i8(tl.load(B[rows, block]))
+            if SAFE:
+                b = tl.i8(tl.u8(b) & tl.u8(63)) - tl.i8(32)
+            partial = tl.mac_groups(a, b, n=GROUP, into=tl.i16)
+            # Three consumers observe the same finite-width result. The narrow
+            # store must survive even when widening uses an exact wide carrier.
+            narrow = tl.reshape(partial, shape=(4, 32//GROUP),
+                                axes=("ROWS", "GROUPS"), order=("M", "N"))
+            wide = tl.reshape(tl.i64(partial), shape=(4, 32//GROUP),
+                              axes=("ROWS", "GROUPS"), order=("M", "N"))
+            floating = tl.reshape(tl.f32(partial), shape=(4, 32//GROUP),
+                                  axes=("ROWS", "GROUPS"), order=("M", "N"))
+            tl.store(tl.subview(Narrow, offsets=(0, 0), extents=(4, 32//GROUP)), narrow)
+            tl.store(tl.subview(Wide, offsets=(0, 0), extents=(4, 32//GROUP)), wide)
+            tl.store(tl.subview(Float, offsets=(0, 0), extents=(4, 32//GROUP)), floating)
+
+
+@triton.jit(model="weft")
 def grouped_consumers(A: tl.View[tl.i32, (M, N)], B: tl.View[tl.i32, (M, N)],
                       Out: tl.View[tl.i32, (ROWS, GROUPS)], Totals: tl.View[tl.i32, (ROWS,)],
                       CONTROL: tl.constexpr, REDUCTION: tl.constexpr):

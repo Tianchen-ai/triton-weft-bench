@@ -457,6 +457,57 @@ def byte_mac_tails(root, options, control=False):
     return records
 
 
+def source_integer_ranges_contract(root, options, compile_target=None):
+    from triton import compile
+    from triton.compiler import ASTSource
+    from triton.backends.compiler import CPUTarget
+    from numerical_primitive_kernels import grouped_source_range, grouped_source_range_sum
+
+    def build(kernel, group, safe):
+        if compile_target is None:
+            return lambda *args: kernel[(1,)](*args, GROUP=group, SAFE=safe, **options)
+        compiled = compile(ASTSource(kernel, {}, {"GROUP": group, "SAFE": safe}),
+                           target=CPUTarget(backend="weft", **compile_target), options=options)
+        return lambda *args: (compiled[(1,)](*args), compiled)[1]
+
+    records = []
+    for group in (2, 4, 8):
+        for safe in (False, True):
+            for size in (0, 1, 3, 17, 32, 65):
+                left = np.resize([-128, -128, -128, -128, 127, 127, -1, 0, 1], 3*size).astype(np.int32).reshape(3, size)
+                right = np.resize([-128, -128, -128, -128, 127, 32, 0, -1, 63], 3*size).astype(np.int32).reshape(3, size)
+                inputs = [left.copy(), right.copy()]
+                expected = np.full((4, (size+group-1)//group), -12345, np.int64)
+                for row in range(3):
+                    for begin in range(0, size, group):
+                        expected[row, begin//group] = wrap_integer(sum(
+                            int(left[row,k]) * ((int(right[row,k]) & 63)-32 if safe else int(right[row,k]))
+                            for k in range(begin, min(begin+group, size))), 16)
+                storage, output = guarded(3, np.int32)
+                compiled = build(grouped_source_range_sum, group, safe)(left, right, output)
+                total = expected[:3].sum(axis=1).astype(np.int32)
+                exact(output, total); exact(storage[[0,1,-2,-1]], np.full(4, -12345, np.int32))
+                label = f"closed-source-range-{group}-{safe}-{size}"
+                save(root, label, left=left, right=right, expected=total, actual=output)
+                records.append({"group": group, "safe": safe, "size": size, "kind": "closed-reduction",
+                                "evidence": native_evidence(compiled, root, label, ["mac_groups"])})
+                if size <= 32:
+                    storages, flat = zip(*(guarded(4*(32//group), dtype) for dtype in (np.int16, np.int64, np.float32)))
+                    outputs = [x.reshape(4,32//group) for x in flat]
+                    compiled = build(grouped_source_range, group, safe)(left, right, *outputs)
+                    expected_open = np.full((4,32//group), -12345, np.int64)
+                    expected_open[:,:expected.shape[1]] = expected
+                    for actual, buffer in zip(outputs, storages):
+                        exact(actual, expected_open.astype(actual.dtype))
+                        exact(buffer[[0,1,-2,-1]], np.full(4, -12345, actual.dtype))
+                    label = f"open-source-range-{group}-{safe}-{size}"
+                    save(root, label, expected=expected_open, narrow=outputs[0], wide=outputs[1], floating=outputs[2])
+                    records.append({"group": group, "safe": safe, "size": size, "kind": "multiple-consumers",
+                                    "evidence": native_evidence(compiled, root, label, ["mac_groups"])})
+                exact(left, inputs[0]); exact(right, inputs[1])
+    return {"subcases": records, "integer_cases_exact": True, "narrow_and_wide_consumers_preserved": True}
+
+
 def grouped_consumers_contract(root, options):
     from numerical_primitive_kernels import grouped_consumers
     records = []
@@ -1109,6 +1160,8 @@ def run_scenario(name, root, options, close, compile_target=None):
         return narrow_mac_tails(root, options)
     if name == "grouped_consumers":
         return grouped_consumers_contract(root, options)
+    if name == "source_integer_ranges":
+        return source_integer_ranges_contract(root, options, compile_target)
     if name == "reduction_identity":
         return reduction_identity_contract(root, options)
     operations = {"sum_pairs": multi_axis_pairs,
