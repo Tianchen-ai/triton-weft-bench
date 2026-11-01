@@ -24,7 +24,8 @@ class StagedGroupedInput:
 @triton.jit(model="weft", alias_groups={"Out": "output"})
 def staged_grouped_choice(W: tl.View[StagedGroupedWeights, (N, K)],
                           A: tl.View[StagedGroupedInput, (M, K)], Out: tl.View[tl.i32, (M, N)],
-                          *, MUTATE: tl.constexpr, SCALE: tl.constexpr):
+                          *, MUTATE: tl.constexpr, SCALE: tl.constexpr,
+                          KEEP: tl.constexpr = False):
     for m in range(M):
         for n in range(N):
             tl.store(Out[m, n], tl.i32(0))
@@ -47,6 +48,8 @@ def staged_grouped_choice(W: tl.View[StagedGroupedWeights, (N, K)],
                                 q = weight.q[part] if SCALE == 1 else tl.u8(weight.q[part]) * tl.u8(SCALE)
                                 grouped = tl.mac_groups(data.q[part], q, n=4, into=tl.i16)
                                 total += tl.reduce(tl.widen(grouped, tl.i32))
+                                if KEEP:
+                                    total += tl.reduce(tl.widen(grouped + tl.i16(1), tl.i32))
                         tl.store(Out[mb, nb], total)
 
 

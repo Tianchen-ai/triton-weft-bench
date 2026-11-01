@@ -109,6 +109,9 @@ def prepare(name, bindings, seed, Scenario):
             partial = products.reshape(m, n, k // 4, 4).sum(axis=-1)
             partial = ((partial + 32768) % 65536) - 32768
             result = {"Out": partial.sum(axis=-1).astype(np.int32)}
+            if bindings.get("KEEP", False):
+                shifted = ((partial + 1 + 32768) % 65536) - 32768
+                result["Out"] += shifted.sum(axis=-1).astype(np.int32)
             if mutate:
                 result["W"] = np.zeros_like(values["W"])
             return result
