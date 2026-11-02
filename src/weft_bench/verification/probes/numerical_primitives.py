@@ -457,6 +457,79 @@ def byte_mac_tails(root, options, control=False):
     return records
 
 
+def deferred_integer_state_contract(root, options, compile_target=None):
+    from triton import compile
+    from triton.compiler import ASTSource
+    from triton.backends.compiler import CPUTarget
+    from numerical_primitive_kernels import weighted_integer_state, nested_state_origin
+
+    records = []
+    for initial in (0, 2147483647, -2147483648):
+        for observed in (False, True):
+            for safe in (False, True):
+                constants = {'INITIAL': initial, 'OBSERVE': observed, 'SAFE': safe, 'K': 32}
+                compiled = (compile(ASTSource(weighted_integer_state, {}, constants),
+                    target=CPUTarget(backend='weft', **compile_target), options=options)
+                    if compile_target else None)
+                for m, steps in ((0, 0), (1, 0), (3, 1), (3, 7), (4, 5)):
+                    shape = (m, steps, 32)
+                    count = int(np.prod(shape))
+                    a = np.resize([-128, -128, -128, -128, 127, 0, 1, -1], count).astype(np.int32).reshape(shape)
+                    b = np.resize([-128, -128, -128, -128, 127, 63, -1, 1], count).astype(np.int32).reshape(shape)
+                    scale = np.resize([2147483647, -2147483648, 3, 0, -7], m*steps).astype(np.int32).reshape(m, steps)
+                    previous = [x.copy() for x in (a, b, scale)]
+                    storage, out = guarded(m, np.int32)
+                    trace_store, trace = guarded(m*steps, np.int32)
+                    trace = trace.reshape(m, steps)
+                    expected = np.full(m, initial, np.int32)
+                    expected_trace = np.full((m, steps), -12345, np.int32)
+                    for row in range(m):
+                        value = initial
+                        for step in range(steps):
+                            if observed: expected_trace[row, step] = value
+                            total = 0
+                            for k in range(0, 32, 4):
+                                total += wrap_integer(sum(int(a[row, step, j]) *
+                                    ((int(b[row, step, j]) & 63)-32 if safe else int(b[row, step, j]))
+                                    for j in range(k, k+4)), 16)
+                            value = wrap_integer(value + total*int(scale[row, step]), 32)
+                        expected[row] = value
+                    if compile_target:
+                        compiled[(1,)](a, b, scale, out, trace)
+                    else:
+                        compiled = weighted_integer_state[(1,)](a, b, scale, out, trace, **constants, **options)
+                    exact(out, expected); exact(trace, expected_trace)
+                    for actual, prior in zip((a, b, scale), previous): exact(actual, prior)
+                    for guard in (storage, trace_store):
+                        exact(guard[[0, 1, -2, -1]], np.full(4, -12345, np.int32))
+                    name = f'deferred-state-{initial}-{observed}-{safe}-{m}-{steps}'
+                    save(root, name, a=a, b=b, scale=scale, actual=out, expected=expected, trace=trace)
+                    records.append({'initial': initial, 'observed': observed, 'safe': safe,
+                        'M': m, 'T': steps, 'integer_exact': True})
+                native_evidence(compiled, root, f'deferred-state-{initial}-{observed}-{safe}', ['level', 'mac_groups'])
+    origins = []
+    for mc, mr, nc in ((4, 1, 4), (4, 4, 4), (16, 4, 8)):
+        constants = {'MC': mc, 'MR': mr, 'NC': nc}
+        compiled = (compile(ASTSource(nested_state_origin, {}, constants),
+            target=CPUTarget(backend='weft', **compile_target), options=options)
+            if compile_target else None)
+        for m, n in ((0, 0), (1, 3), (7, 5), (19, 17), (32, 24)):
+            x = (np.arange(m*n, dtype=np.int32) % 41 - 20).reshape(m, n)
+            storage, output = guarded(m*n, np.int32)
+            output = output.reshape(m, n)
+            if compile_target:
+                compiled[(1,)](x, output)
+            else:
+                compiled = nested_state_origin[(1,)](x, output, **constants, **options)
+            exact(output, x*3 + 17)
+            exact(storage[[0, 1, -2, -1]], np.full(4, -12345, np.int32))
+            origins.append({'MC': mc, 'MR': mr, 'NC': nc, 'M': m, 'N': n, 'integer_exact': True})
+        native_evidence(compiled, root, f'nested-state-origin-{mc}-{mr}-{nc}', ['level', 'new', 'update'])
+    return {'subcases': records, 'integer_exact': True, 'guarded_outputs': True,
+            'nested_state_origins': origins,
+            'coverage': 'zero rows/trips; row/column tails; nested state origins; nonzero seeds; i16 and i32 wrap; observed intermediate states'}
+
+
 def source_integer_ranges_contract(root, options, compile_target=None):
     from triton import compile
     from triton.compiler import ASTSource
@@ -933,7 +1006,9 @@ def streaming_store_contract(root, options, compile_target):
     windows = []
     for block in (256, 1024, 4096):
         wide = compile(ASTSource(streaming_copy, {}, {"BLOCK": block}), target=target, options=options)
-        for n in (0, block - 1, block, block + 1, 3 * block, 3 * block + 1, 5 * block + 1):
+        for n in (0, block - 1, block, block + 1, 3 * block, 3 * block + 1,
+                  5 * block + 1, 8 * block, 8 * block + 1, 16 * block,
+                  16 * block + 1, 33 * block + 1):
             source = (np.arange(n, dtype=np.uint32) * 65537).view(np.float32)
             backing = np.full(n + 2, -777, np.float32)
             wide[(1,)](source, backing[1:-1])
@@ -1172,6 +1247,8 @@ def run_scenario(name, root, options, close, compile_target=None):
         return grouped_consumers_contract(root, options)
     if name == "source_integer_ranges":
         return source_integer_ranges_contract(root, options, compile_target)
+    if name == "deferred_integer_state":
+        return deferred_integer_state_contract(root, options, compile_target)
     if name == "reduction_identity":
         return reduction_identity_contract(root, options)
     operations = {"sum_pairs": multi_axis_pairs,

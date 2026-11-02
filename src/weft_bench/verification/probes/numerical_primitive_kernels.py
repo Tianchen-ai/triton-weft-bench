@@ -148,6 +148,40 @@ def pipelined_scaled_groups(A: tl.View[tl.i8, (B, G, K)],
     tl.store(Y[0], total)
 
 
+@triton.jit(model="weft", alias_groups={"A": "input-a", "B": "input-b", "Scale": "scale", "Out": "output", "Trace": "trace"})
+def weighted_integer_state(A: tl.View[tl.i32, (M, T, K)],
+                           B: tl.View[tl.i32, (M, T, K)],
+                           Scale: tl.View[tl.i32, (M, T)],
+                           Out: tl.View[tl.i32, (M,)],
+                           Trace: tl.View[tl.i32, (M, T)],
+                           INITIAL: tl.constexpr, OBSERVE: tl.constexpr,
+                           SAFE: tl.constexpr, K: tl.constexpr = 32):
+    with tl.level.rows(M, group=2) as rows:
+        total = tl.state(tl.i32, [2], init=INITIAL)
+        for step in range(T):
+            a = tl.i8(tl.load(A[rows, step]))
+            b = tl.i8(tl.load(B[rows, step]))
+            if SAFE:
+                b = tl.i8(tl.u8(b) & tl.u8(63)) - tl.i8(32)
+            if OBSERVE:
+                tl.store(Trace[rows, step], total)
+            partial = tl.mac_groups(a, b, n=4, into=tl.i16)
+            total += tl.reduce(tl.i32(partial)) * tl.load(Scale[rows, step])
+        tl.store(Out[rows], total)
+
+
+@triton.jit(model="weft", alias_groups={"X": "input", "Y": "output"})
+def nested_state_origin(X: tl.View[tl.i32, (M, N)], Y: tl.View[tl.i32, (M, N)],
+                        MC: tl.constexpr, MR: tl.constexpr, NC: tl.constexpr):
+    with tl.level.rows(M, group=MC) as cohort:
+        with tl.level.cols(N, group=NC) as columns:
+            state = tl.state(tl.i32, [MC, NC], init=17)
+            for step in range(3):
+                with tl.level.rows(cohort, group=MR) as rows:
+                    state[rows] = state[rows] + tl.load(X[rows, columns])
+            tl.store(Y[cohort, columns], state)
+
+
 @triton.jit(model="weft", alias_groups={"Y": "output"})
 def pipelined_multiple_carries(A: tl.View[tl.i8, (B, G, K)],
                               X: tl.View[tl.i8, (B, G, K)],
