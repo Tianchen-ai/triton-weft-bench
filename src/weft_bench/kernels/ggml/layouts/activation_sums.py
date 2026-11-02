@@ -1,13 +1,3 @@
-"""Author-declared storage layouts used by the activation sums kernels."""
-from __future__ import annotations
-
-import triton
-import triton.language as tl
-
-
-@triton.encoding
-class BlockSum32:
-    layout = (tl.bitorder.lsb_first, tl.byteorder.little)
-    alignment = 2
-    elements = 32
-    value: tl.i16
+"""Compatibility import; implementations live in the installed Triton product."""
+from importlib import import_module as _import_module
+globals().update({name: value for name, value in vars(_import_module('triton.kernels.weft.ggml.layouts.activation_sums')).items() if not name.startswith("__")})

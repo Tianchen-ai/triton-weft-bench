@@ -1,14 +1,3 @@
-from __future__ import annotations
-
-from triton.integrations import ggml_formats
-from ....functions import quantization as qf
-import triton
-import triton.language as tl
-
-
-@triton.jit(model="weft")
-def row_dequantize_q5_0(W: tl.View[ggml_formats.Q5_0, (K,)], Y: tl.View[tl.f32, (K,)]):
-    with tl.level.blocks(K, extent=32) as kb:
-        w = tl.load(W[kb])
-        q = tl.i32(tl.u8(w.q) | tl.u8(w.qh) << tl.u8(4)) - tl.i32(16)
-        tl.store(Y[kb], qf.symmetric_integer(q, w.d))
+"""Compatibility import; implementations live in the installed Triton product."""
+from importlib import import_module as _import_module
+globals().update({name: value for name, value in vars(_import_module('triton.kernels.weft.ggml.blocks.dequantize.q5_0')).items() if not name.startswith("__")})

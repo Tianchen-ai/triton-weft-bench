@@ -10,6 +10,17 @@ import sys
 
 def load_kernel(path, symbol):
     path = Path(path).expanduser().resolve(strict=True)
+    import triton.kernels.weft
+    product = Path(triton.kernels.weft.__file__).resolve().parent
+    if path.is_relative_to(product):
+        parts = path.relative_to(product).with_suffix("").parts
+        if parts[-1] == "__init__":
+            parts = parts[:-1]
+        module = importlib.import_module("triton.kernels.weft" + ("." + ".".join(parts) if parts else ""))
+        kernel = getattr(module, symbol)
+        if getattr(kernel, "model", None) != "weft":
+            raise ValueError("Triton candidate must use @triton.jit(model='weft')")
+        return kernel
     parts = [] if path.name == "__init__.py" else [path.stem]
     root = path.parent
     while (root / "__init__.py").is_file():
@@ -33,6 +44,11 @@ def load_kernel(path, symbol):
 def deploy_source(executor, source):
     """Resolve installed corpus modules or transfer a complete custom package."""
     source = Path(source).expanduser().resolve(strict=True)
+    import triton.kernels.weft
+    product = Path(triton.kernels.weft.__file__).resolve().parent
+    if source.is_relative_to(product):
+        return {"source": str(source), "source_module": "triton.kernels.weft." +
+                ".".join(source.relative_to(product).with_suffix("").parts)}
     package = Path(__file__).resolve().parents[1]
     try:
         installed = distribution("triton-weft-bench")

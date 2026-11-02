@@ -1,5 +1,3 @@
-"""Explicit candidate encodings and derived layouts.
-
-GGML base storage contracts live in triton.integrations.ggml_formats.
-These modules describe author-owned preparations; importing them performs no packing.
-"""
+"""Compatibility import; implementations live in the installed Triton product."""
+from importlib import import_module as _import_module
+globals().update({name: value for name, value in vars(_import_module('triton.kernels.weft.ggml.layouts')).items() if not name.startswith("__")})

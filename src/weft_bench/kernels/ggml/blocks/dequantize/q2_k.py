@@ -1,17 +1,3 @@
-from __future__ import annotations
-
-from triton.integrations import ggml_formats
-from ....functions import quantization as qf
-import triton
-import triton.language as tl
-
-
-@triton.jit(model="weft", alias_groups={"Y": "output"})
-def row_dequantize_q2_k(W: tl.View[ggml_formats.Q2_K, (K,)], Y: tl.View[tl.f32, (K,)]):
-    with tl.level.blocks(K, extent=256) as kb:
-        w = tl.load(W[kb])
-        with tl.level.subtiles(kb, extent=16) as sub:
-            metadata = w.scales[sub]
-            scale = qf.extract_bits(metadata, 0, 4)
-            minimum = qf.extract_bits(metadata, 4, 4)
-            tl.store(Y[kb][sub], qf.k_superblock(w.q[sub], scale, w.d, minimum, w.dmin))
+"""Compatibility import; implementations live in the installed Triton product."""
+from importlib import import_module as _import_module
+globals().update({name: value for name, value in vars(_import_module('triton.kernels.weft.ggml.blocks.dequantize.q2_k')).items() if not name.startswith("__")})

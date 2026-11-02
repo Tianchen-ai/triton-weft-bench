@@ -22,7 +22,8 @@ def resolve_source(source):
     relative = Path(source.removeprefix("package:"))
     if relative.is_absolute() or ".." in relative.parts or relative.parts[0] != "kernels":
         raise ValueError("catalog source must name a kernel inside the Bench package")
-    result = ROOT.parent / relative
+    from triton.kernels import weft
+    result = Path(weft.__file__).parent.joinpath(*relative.parts[1:])
     if not result.is_file():
         raise FileNotFoundError(result)
     return str(result)

@@ -1,9 +1,3 @@
-import triton
-import triton.language as tl
-
-
-@triton.jit
-def select(field, coordinates, ROWS: tl.constexpr):
-    if ROWS:
-        return field[:, coordinates]
-    return field[coordinates]
+"""Compatibility import; implementations live in the installed Triton product."""
+from importlib import import_module as _import_module
+globals().update({name: value for name, value in vars(_import_module('triton.kernels.weft.ggml.vec_dot.x86.fields')).items() if not name.startswith("__")})

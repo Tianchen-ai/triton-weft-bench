@@ -1,13 +1,3 @@
-from __future__ import annotations
-
-import triton
-import triton.language as tl
-
-
-@triton.jit(model="weft", strided=("Grad", "DX"))
-def affine_backward(Grad: tl.View[tl.f32, (M, N)], DX: tl.View[tl.f32, (M, N)],
-                    scale: tl.f32 = 1.0):
-    # Zero-stride broadcast gradients are ordinary read-only dense Views.
-    with tl.level.rows(M, group=1) as row:
-        with tl.level.blocks(N, extent=tl.auto(64)) as block:
-            tl.store(DX[row, block], tl.load(Grad[row, block]) * scale)
+"""Compatibility import; implementations live in the installed Triton product."""
+from importlib import import_module as _import_module
+globals().update({name: value for name, value in vars(_import_module('triton.kernels.weft.dense.affine_backward')).items() if not name.startswith("__")})
