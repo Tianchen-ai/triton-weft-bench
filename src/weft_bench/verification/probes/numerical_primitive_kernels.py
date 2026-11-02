@@ -1149,6 +1149,23 @@ def grouped_level_handoff(value, alternate, steps):
 
 
 @triton.jit(model="weft")
+def shared_subbyte_rows(W: tl.View[tl.i32, (N,)], X: tl.View[tl.i8, (M, N)],
+                        Out: tl.View[tl.i32, (M,)], SIGNED: tl.constexpr):
+    # Immutable field packets cross an output-store loop. The source field
+    # stays at the block owner while multiple row consumers use its slices.
+    for row in range(M):
+        tl.store(Out[row], tl.i32(0))
+    with tl.level.blocks(N, extent=256) as block:
+        if SIGNED:
+            field = tl.stage(tl.i4(tl.load(W[block])))
+        else:
+            field = tl.stage(tl.u4(tl.load(W[block])))
+        for row in range(M):
+            partial = tl.mac_groups(tl.i8(field), tl.load(X[row, block]), n=4, into=tl.i16)
+            tl.store(Out[row], tl.load(Out[row]) + tl.reduce(tl.i32(partial)))
+
+
+@triton.jit(model="weft")
 def grouped_source_range_sum(A: tl.View[tl.i32, (M, N)], B: tl.View[tl.i32, (M, N)],
                              Out: tl.View[tl.i32, (M,)], SAFE: tl.constexpr,
                              GROUP: tl.constexpr, STAGED: tl.constexpr = False):

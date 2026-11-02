@@ -534,7 +534,7 @@ def source_integer_ranges_contract(root, options, compile_target=None):
     from triton import compile
     from triton.compiler import ASTSource
     from triton.backends.compiler import CPUTarget
-    from numerical_primitive_kernels import grouped_source_range, grouped_source_range_sum
+    from numerical_primitive_kernels import grouped_source_range, grouped_source_range_sum, shared_subbyte_rows
 
     def build(kernel, group, safe, staged=False):
         bindings = {"GROUP": group, "SAFE": safe}
@@ -588,6 +588,28 @@ def source_integer_ranges_contract(root, options, compile_target=None):
                     records.append({"group": group, "safe": safe, "size": size, "kind": "multiple-consumers",
                                     "evidence": native_evidence(compiled, root, label, ["mac_groups"])})
                 exact(left, inputs[0]); exact(right, inputs[1])
+    for signed in (False, True):
+        for size in (0, 1, 255, 256, 513):
+            weights = np.resize([-17, -8, -1, 0, 1, 7, 15, 32], size).astype(np.int32)
+            inputs = np.resize([-128, 127, -1, 0, 7], 3*size).astype(np.int8).reshape(3, size)
+            storage, output = guarded(3, np.int32)
+            values = (weights.astype(np.int64) & 15)
+            if signed:
+                values = np.where(values >= 8, values-16, values)
+            expected = (inputs.astype(np.int64)*values).sum(axis=1).astype(np.int32)
+            constants = {"SIGNED": signed}
+            if compile_target is None:
+                compiled = shared_subbyte_rows[(1,)](weights, inputs, output, **constants, **options)
+            else:
+                compiled = compile(ASTSource(shared_subbyte_rows, {}, constants),
+                                   target=CPUTarget(backend="weft", **compile_target), options=options)
+                compiled[(1,)](weights, inputs, output)
+            exact(output, expected)
+            exact(storage[[0,1,-2,-1]], np.full(4, -12345, np.int32))
+            name = f"shared-subbyte-store-consumers-{signed}-{size}"
+            save(root, name, weights=weights, inputs=inputs, actual=output, expected=expected)
+            records.append({"kind": "shared-subbyte-store-consumers", "signed": signed, "size": size,
+                            "evidence": native_evidence(compiled, root, name, ["mac_groups"])})
     return {"subcases": records, "integer_cases_exact": True, "narrow_and_wide_consumers_preserved": True}
 
 
