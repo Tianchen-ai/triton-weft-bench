@@ -183,6 +183,7 @@ and `e2e` for performance. Neither workflow requires a per-run benchmark script.
 | [Environment setup](docs/targets.md) | GGML, Weft, llama.cpp, RVV/IME and SSH |
 | [x86 references](docs/x86-references.md) | GGML/OpenBLAS/oneDNN, NUMA, actual dispatch and reference-only models |
 | [Triton–Weft integration](docs/triton-weft-integration.md) | Source/AOT, native grid, Python JIT and model packages |
+| [TileLang–Weft integration](docs/tilelang-weft-integration.md) | Native TileLang source JIT, packed Views and shared deployment |
 | [Ownership and migration](docs/migration.md) | Core versus orchestration; older saved results |
 | [Codex plugin](docs/codex-plugin.md) | Install the agent workflow and connect local configuration |
 | [Maturity verification](docs/verification.md) | Enumerate configured source/AOT, Program, runtime and framework checks |

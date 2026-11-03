@@ -31,6 +31,7 @@ SG2044、K1、K3、Xeon 8470Q 相对优化参考的几何平均加速依次为
 | 理解正常内核归属 | [产品与 Bench](migration.zh-CN.md) |
 | 查看登记的源码与参考 | [目录](catalogs.zh-CN.md) |
 | 使用 JIT、AOT、grid 和模型 | [产品集成](triton-weft-integration.zh-CN.md) |
+| 使用 TileLang 源码 JIT 和原生包 | [TileLang 接入](tilelang-weft-integration.zh-CN.md) |
 | 建立优化的原生参考 | [x86 参考库](x86-references.zh-CN.md) |
 | 验证语义与部署 | [正确性验证](verification.zh-CN.md) |
 | 从 Codex 调用 CLI | [插件](codex-plugin.zh-CN.md) |

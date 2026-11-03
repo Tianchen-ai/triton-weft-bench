@@ -86,6 +86,7 @@ nav:
       - Catalogs: catalogs.md
       - Native references: x86-references.md
       - Product integration: triton-weft-integration.md
+      - TileLang integration: tilelang-weft-integration.md
       - Verification: verification.md
       - Product and Bench: migration.md
       - Codex plugin: codex-plugin.md

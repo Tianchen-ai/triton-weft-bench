@@ -54,8 +54,8 @@ def check_jit_target(architecture, expected, detected):
                 raise ValueError(f"native JIT {key}: detected {actual[key]!r}, required {wanted[key]!r}")
         if wanted["matrix_extension"] != "none" and actual["matrix_extension"] != wanted["matrix_extension"]:
             raise ValueError("selected execution cores lack the requested matrix extension")
-        from triton.backends.compiler import CPUTarget
-        from triton.backends.weft.target import target_capabilities
+        from weft_core.target import CPUTarget
+        from weft_core.target import target_capabilities
         required = target_capabilities(CPUTarget(**wanted), matrix_extension=wanted["matrix_extension"])["isa_extensions"]
         available = target_capabilities(CPUTarget(**actual), matrix_extension=actual["matrix_extension"])["isa_extensions"]
         missing = ([name for name, version in required.items()

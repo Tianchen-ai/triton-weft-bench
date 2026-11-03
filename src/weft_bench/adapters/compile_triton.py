@@ -54,6 +54,9 @@ def save_backend_failures(error, directory, prefix="compile-failure"):
 def main():
     request = json.loads(Path(sys.argv[1]).read_text())
     output = Path(request["output"])
+    if request.get("engine", "triton") == "tilelang":
+        compile_tilelang(request, output)
+        return
     cache = output.parent / "triton-cache"
     os.environ["TRITON_CACHE_DIR"] = str(cache)
     os.environ["TRITON_DUMP_DIR"] = str(output.parent / "triton-dump")
@@ -69,10 +72,10 @@ def main():
     knobs.compilation.listener = compilation_event
 
     if __package__:
-        from .triton_source import load_kernel
+        from .source import load_kernel
         from .cpu_target import compiler_target, check_jit_target
     else:
-        from triton_source import load_kernel
+        from source import load_kernel
         from cpu_target import compiler_target, check_jit_target
     source = request["source"]
     if request.get("source_module"):
@@ -119,6 +122,43 @@ def main():
         "export_ms": (time.perf_counter_ns()-export_started)/1e6, "compilations": events,
         "scope": "selected compiler API and artifact export; source import and benchmark worker build excluded"},indent=2))
     print(json.dumps({"engine": "triton", "artifact": str(output)}))
+
+
+def compile_tilelang(request, output):
+    """Source AOT through TileLang's own compilation and native export API."""
+    os.environ["TILELANG_CACHE_DIR"] = str(output.parent / "tilelang-cache")
+    import tilelang
+    from tilelang.weft.target import target_from_descriptor, normalize, descriptor
+    from weft_core.target import CPUTarget
+    if __package__:
+        from .source import load_kernel
+        from .cpu_target import compiler_target, check_jit_target
+    else:
+        from source import load_kernel
+        from cpu_target import compiler_target, check_jit_target
+    source = request["source"]
+    if request.get("source_module"):
+        import importlib
+        source = importlib.import_module(request["source_module"]).__file__
+    factory = load_kernel(source, request["symbol"], producer="tilelang")
+    if request.get("target_native"):
+        native_target = descriptor(normalize("weft"))
+        check_jit_target(None, request["target"], vars(native_target))
+    else:
+        native_target = CPUTarget(**compiler_target(request["target"]))
+    target = target_from_descriptor(native_target, toolchain=request["toolchain"], backend_options=request["backend_options"])
+    started = time.perf_counter_ns()
+    try:
+        function = factory.get_tir(**request["constexprs"])
+        kernel = tilelang.compile(function, target=target)
+        compiled_ms = (time.perf_counter_ns() - started) / 1e6
+        kernel.export_native(output)
+    except Exception as error:
+        save_backend_failures(error, output.parent)
+        raise
+    (output / "compile-timings.json").write_text(json.dumps({"compile_ms": compiled_ms,
+        "scope": "TileLang source compilation and native export before application execution"}, indent=2))
+    print(json.dumps({"engine": "tilelang", "artifact": str(output)}))
 
 
 if __name__ == "__main__":

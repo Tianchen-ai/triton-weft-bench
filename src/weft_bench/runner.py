@@ -26,6 +26,8 @@ BUILTINS = {
     "weft_bench.adapters.native:GGMLAdapter": "ggml",
     "weft_bench.adapters.triton_native:TritonAdapter": "triton",
     "weft_bench.adapters.triton_jit:TritonJitAdapter": "triton_jit",
+    "weft_bench.adapters.triton_jit:TileLangJitAdapter": "tilelang_jit",
+    "weft_bench.adapters.triton_native:TileLangArtifactAdapter": "native",
 }
 
 
@@ -127,15 +129,16 @@ def run_operator(
         raise ValueError("implementation names must be distinct")
     if any(not re.fullmatch(r"[A-Za-z0-9_-]+", n) for n in implementations):
         raise ValueError("implementation names must be identifiers")
-    if any(mode(n, target) == "triton_jit" for n in implementations):
+    if any(mode(n, target) in ("triton_jit", "tilelang_jit") for n in implementations):
         if measurement.sample_order == "alternating":
             raise ValueError("alternating samples require prepared native artifacts in the shared worker")
-        from .adapters.triton_jit import TritonJitAdapter
+        from .adapters.triton_jit import TritonJitAdapter, TileLangJitAdapter
 
         rows = []
         for name in implementations:
-            if mode(name, target) == "triton_jit":
-                rows.extend(TritonJitAdapter().run(case, name, target, measurement, output=root,
+            if mode(name, target) in ("triton_jit", "tilelang_jit"):
+                adapter = TileLangJitAdapter() if mode(name, target) == "tilelang_jit" else TritonJitAdapter()
+                rows.extend(adapter.run(case, name, target, measurement, output=root,
                                                  inputs=inputs, save_outputs=save_outputs))
             else:
                 rows.extend(run_operator(case, [name], target, measurement, output=root,

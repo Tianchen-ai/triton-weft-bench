@@ -10,7 +10,7 @@ import sys
 import time
 from pathlib import Path
 
-from .triton_source import load_kernel
+from .source import load_kernel
 from .cpu_target import check_jit_target
 
 
@@ -29,18 +29,29 @@ def source_kernel(request):
     source = request["source"]
     if request.get("source_module"):
         source = importlib.import_module(request["source_module"]).__file__
-    return load_kernel(source, request["symbol"])
+    return load_kernel(source, request["symbol"], producer=request.get("producer", "triton"))
 
 
 def detect(request):
-    from triton.runtime.driver import driver
     if platform.machine() != request["architecture"]:
         raise RuntimeError("native JIT requires execution on " + request["architecture"])
-    return check_jit_target(request["architecture"], request.get("compile_target"),
-                            vars(driver.for_model("weft").get_current_target()))
+    if request.get("producer") == "tilelang":
+        from weft_core.cpu import target
+        actual = vars(target())
+    else:
+        from triton.runtime.driver import driver
+        actual = vars(driver.for_model("weft").get_current_target())
+    return check_jit_target(request["architecture"], request.get("compile_target"), actual)
 
 
 def describe(request):
+    if request.get("producer") == "tilelang":
+        from .tilelang_frontend import TileLangFrontend
+        frontend = TileLangFrontend(source_kernel(request), request)
+        interface, _ = frontend.describe()
+        return {"interface": interface, "target": detect(request), "source": request["source"],
+                "tilelang_package": frontend.package, "bench_package": str(Path(__file__).resolve()),
+                "cpus": sorted(os.sched_getaffinity(0))}
     import triton
     from triton.compiler.weft.interface import describe as interface
     kernel = source_kernel(request)
@@ -58,12 +69,16 @@ def describe(request):
 
 def run(request):
     preparation_started = time.perf_counter_ns()
-    import triton
-    import triton.language as tl
-    from triton import knobs
-
     target = detect(request)
     kernel = source_kernel(request)
+    frontend = None
+    if request.get("producer") == "tilelang":
+        from .tilelang_frontend import TileLangFrontend
+        frontend = TileLangFrontend(kernel, request)
+    else:
+        import triton
+        import triton.language as tl
+        from triton import knobs
     fixture = ctypes.CDLL(request["fixture"])
     pointer = ctypes.c_void_p
     launch_type = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.POINTER(pointer))
@@ -89,17 +104,18 @@ def run(request):
     grid = tuple(request["grid"])
     options = {**request["backend_options"], "toolchain": request["toolchain"],
                "num_cpu_threads": request["num_cpu_threads"]}
-    if hasattr(kernel,"configs"):
+    if frontend is None and hasattr(kernel,"configs"):
         if any(config.num_cpu_threads != request["num_cpu_threads"] for config in kernel.configs):
             raise ValueError("tuning configs must preserve the selected worker count")
         options.pop("num_cpu_threads")
     buffers = {}
-    compilations = []
+    compilations = frontend.events() if frontend else []
     def compilation_event(**event):
         times=event["times"]
         compilations.append({"cache_hit":event["cache_hit"],"ir_initialization_us":times.ir_initialization,
                              "lowering_stages_us":list(times.lowering_stages),"store_results_us":times.store_results})
-    knobs.compilation.listener = compilation_event
+    if frontend is None:
+        knobs.compilation.listener = compilation_event
 
     def arguments(addresses):
         bound = dict(request["constexprs"])
@@ -113,8 +129,8 @@ def run(request):
                 storage = (ctypes.c_ubyte * spec["bytes"]).from_address(address)
                 # Borrow the original addresses. Overlapping parameters remain
                 # overlapping; neither input nor state is independently cloned.
-                buffers[key] = tl.View(storage, encoding=spec["encoding"],
-                                       shape=tuple(spec["shape"]), strides=spec.get("strides"))
+                buffers[key] = (frontend.buffer(storage, spec) if frontend else
+                                tl.View(storage, encoding=spec["encoding"], shape=tuple(spec["shape"]), strides=spec.get("strides")))
             bound[spec["name"]] = buffers[key]
         return bound
 
@@ -194,13 +210,15 @@ def run(request):
                         raise OSError(ctypes.get_errno(), "cannot protect the input boundary")
                     storage = (ctypes.c_ubyte * size).from_address(address)
                     protected_storage.extend((memory, storage))
-                    bound_calls[0][name] = tl.View(storage, encoding=spec["encoding"],
-                        shape=tuple(spec["shape"]), strides=spec.get("strides"))
+                    bound_calls[0][name] = (frontend.buffer(storage, spec) if frontend else
+                        tl.View(storage, encoding=spec["encoding"], shape=tuple(spec["shape"]), strides=spec.get("strides")))
                     result["input_end_guards"].append({"argument": name, "bytes": size,
                         "page_bytes": page, "readonly": True, "end": "PROT_NONE"})
                 print("WB_INPUT_GUARDS " + json.dumps(result["input_end_guards"]), flush=True)
 
             def call_arguments(bound):
+                if frontend:
+                    return (), {name: value for name, value in bound.items() if name not in request["constexprs"]}
                 signature = getattr(kernel, "jit_fn", kernel).signature
                 if hasattr(kernel, "configs"):
                     binding = signature.bind_partial(**bound)
@@ -214,7 +232,7 @@ def run(request):
             def invoke():
                 compiled = []
                 for args, keywords in calls:
-                    compiled.append(kernel[grid](*args, **keywords, **options))
+                    compiled.append(frontend.call(keywords, grid, options) if frontend else kernel[grid](*args, **keywords, **options))
                 return compiled
 
             def timed(*, cold_data=False):
@@ -228,6 +246,9 @@ def run(request):
             phase = "cold_launch"
             child_start = child_cpu_ms()
             cold_ms, first = timed()
+            if frontend:
+                frontend.cache_evidence()
+                result["source_grid"] = list(frontend.grid)
             cold_children = child_cpu_ms() - child_start
             compile_us=sum(item["ir_initialization_us"]+item["store_results_us"]+
                            sum(duration for _,duration in item["lowering_stages_us"]) for item in compilations)
@@ -249,7 +270,10 @@ def run(request):
             action(1)
             phase = "export"
             if request.get("export", True):
-                first[0].export(request["artifact"])
+                if frontend:
+                    frontend.export(first[0], request["artifact"])
+                else:
+                    first[0].export(request["artifact"])
             phase = "measure"
             measurement = request["measurement"]
             cold_data = measurement["cache"] == "cold"
@@ -280,14 +304,19 @@ def run(request):
                 phase = "python_aot"
                 action(0)
                 start = time.perf_counter_ns()
-                loaded = triton.load(request["artifact"])
-                for bound in bound_calls:
-                    loaded[grid](**{name: value for name, value in bound.items() if name not in request["constexprs"]})
+                if frontend:
+                    frontend.aot(request["artifact"], bound_calls, grid)
+                else:
+                    loaded = triton.load(request["artifact"])
+                    for bound in bound_calls:
+                        loaded[grid](**{name: value for name, value in bound.items() if name not in request["constexprs"]})
                 framework["python_aot_load_launch_ms"] = (time.perf_counter_ns() - start) / 1e6
                 phase = "check"
                 action(1)
                 framework["python_aot_correct"] = True
             if request.get("check_torch_compile"):
+                if frontend:
+                    raise NotImplementedError("TileLang torch.compile capture is a separate framework integration")
                 import torch
                 tensor_calls = []
                 for bound in bound_calls:
@@ -317,6 +346,8 @@ def run(request):
                     action(1)
                 framework["torch_compile_fullgraph_correct"] = True
             if request.get("profile_runtime"):
+                if frontend:
+                    raise NotImplementedError("Triton runtime component profiling does not describe TileLang's launcher")
                 from .runtime_profile import profile_runtime
                 if cold_data:
                     raise NotImplementedError("runtime component profiling uses prepared-data reuse")
@@ -339,7 +370,7 @@ def run(request):
                           first_call_outside_compiler_ms=cold_ms-compile_us/1000,
                           cold_child_cpu_ms=cold_children, cache_hit_child_cpu_ms=hit_children,
                           same_compiled_kernel=True, launches_per_workload=len(bound_calls),
-                          correctness=request["correctness"], native_build=first[0].metadata.native_build,
+                          correctness=request["correctness"], native_build=(frontend.metadata(first[0]) if frontend else first[0].metadata).native_build,
                           compilations=compilations, **framework)
             if hasattr(kernel, "best_config"):
                 result["autotune"] = {"selected_kwargs": kernel.best_config.kwargs,
@@ -363,11 +394,13 @@ def run(request):
         traceback.print_exception(type(exception), exception, exception.__traceback__)
         return {"status": "check_failed" if phase == "check" else "run_failed",
                 "stage": phase, "error": str(exception), "samples_ms": []}
-    result.update(machine=platform.machine(), triton=triton.__version__, triton_package=triton.__file__,
+    producer = request.get("producer", "triton")
+    result.update(machine=platform.machine(), **({producer: frontend.version, producer + "_package": frontend.package} if frontend else
+                                               {"triton": triton.__version__, "triton_package": triton.__file__}),
                   bench_package=str(Path(__file__).resolve()), cpus=sorted(os.sched_getaffinity(0)),
                   compile_target=target, target_selection="product-native-detection",
                   artifact=request["artifact"],
-                  boundary="Python kernel[grid] calls covering the complete workload; reset excluded")
+                  boundary="Python source JIT calls covering the complete workload; reset excluded")
     return result
 
 

@@ -49,7 +49,7 @@ def bind_metadata(metadata, pointers, dimensions, scalars=None, aliases=None, bu
                     raise ValueError("workload stride rank differs from native View " + name)
                 strides.extend(str(value) for value in selected)
         elif parameter["kind"] == "scalar":
-            args.append(str(scalars[name]))
+            args.append(str(dims[name] if parameter.get("shape_parameter") else scalars[name]))
         else:
             raise ValueError(f"unsupported ABI kind {parameter['kind']}")
     args.extend(str(dims[d]) for d in metadata["shape_parameters"])

@@ -50,15 +50,18 @@ def prepare(case, workload, interface, options):
         spec = dict(argument)
         role = aliases.get(spec["name"], spec["name"])
         if spec["kind"] != "scalar":
-            shape = ([int(x) if str(x).isdecimal() else dimensions[x] for x in spec["shape"]]
+            shape = ([int(x) if str(x).isdecimal() else dimensions[x] for x in spec["tensor_shape"]]
+                     if "tensor_shape" in spec else
+                     [int(x) if str(x).isdecimal() else dimensions[x] for x in spec["shape"]]
                      if spec["kind"] == "view" else list(workload.pointer_shapes.get(role, declared[role].shape)))
             strides = workload.strides.get(role, tuple(math.prod(shape[i + 1:]) for i in range(len(shape))))
             if spec["encoding"].startswith("dense."):
                 size = (1 + sum((n - 1) * s for n, s in zip(shape, strides))) * spec["storage_bytes"] if math.prod(shape) else 0
             else:
-                if shape[-1] % spec["record_elements"]:
+                logical = [int(x) if str(x).isdecimal() else dimensions[x] for x in argument["shape"]]
+                if logical[-1] % spec["record_elements"]:
                     raise ValueError("JIT View must cover complete packed records")
-                size = math.prod(shape) // spec["record_elements"] * spec["storage_bytes"]
+                size = math.prod(logical) // spec["record_elements"] * spec["storage_bytes"]
             spec.update(shape=shape, bytes=size)
             if spec.get("strided"):
                 spec["strides"] = list(strides)

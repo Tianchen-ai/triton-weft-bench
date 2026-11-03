@@ -27,7 +27,9 @@ def prepare_native_replacements(mapping, target, output):
 
     directory = Path(output)
     directory.mkdir(parents=True, exist_ok=True)
-    runtime = {"compilation_host": "target", **target.settings["llama"]["triton"]}
+    configuration = target.settings["llama"]
+    selected = configuration.get("producer", "triton")
+    runtime = {"compilation_host": "target", **configuration[selected], "producer": selected}
     if runtime["compilation_host"] not in ("host", "target"):
         raise ValueError("model compilation_host must be host or target")
     artifacts, remote_artifacts, bindings, spec = {}, {}, {}, {}
@@ -68,13 +70,13 @@ def prepare_native_replacements(mapping, target, output):
             if runtime.get("compilation_host") == "target":
                 remote_artifacts[name] = json.loads((build / "triton-compile.json").read_text())["output"]
         description = json.loads((artifact / "manifest.json").read_text())
-        if description.get("producer") != "triton" or description.get("dispatch") != "triton_weft_instance_dispatch":
-            raise ValueError("Triton model roles require exported native single-instance artifacts")
+        if description.get("producer") != selected or description.get("dispatch") != "triton_weft_instance_dispatch":
+            raise ValueError("model roles require exported native single-instance artifacts from the selected frontend")
         artifacts[name] = str(artifact)
         group, entry = role.split("/", 1)
         bindings.setdefault(group, {})[entry] = name
     if runtime.get("compilation_host") == "target":
-        from ..adapters.triton_source import collect_artifact
+        from ..adapters.source import collect_artifact
         executor = Executor(target, directory / "deployment")
         for name, artifact in artifacts.items():
             if name in remote_artifacts:
@@ -86,7 +88,7 @@ def prepare_native_replacements(mapping, target, output):
             executor.command(["tar", "-xf", remote, "-C", executor.workspace], stage="deploy")
             remote_artifacts[name] = executor.workspace + "/" + name
             archive.unlink()
-        request = {"producer": "triton", "artifacts": remote_artifacts,
+        request = {"producer": selected, "artifacts": remote_artifacts,
                    "bindings": bindings, "output": executor.workspace + "/package"}
         request_path = executor.write("package-request.json", json.dumps(request, indent=2))
         done = executor.command([runtime["python"], "-m", "weft_bench.models.package_triton", request_path],
@@ -100,7 +102,7 @@ def prepare_native_replacements(mapping, target, output):
         if package.exists():
             shutil.rmtree(package)
         (executor.local / "package").rename(package)
-        manifest = {"producer": "triton", "replacements": retained_replacements(spec, bindings, package), "bindings": bindings,
+        manifest = {"producer": selected, "replacements": retained_replacements(spec, bindings, package), "bindings": bindings,
                     "package": request["output"] if executor.host else str(package.resolve()),
                     "source_package": str(package.resolve()), "compilation_host": "target",
                     "native_link": "compiled and packaged on the execution target before inference"}
@@ -113,7 +115,7 @@ def prepare_native_replacements(mapping, target, output):
     package = directory / "native-package"
     with tempfile.TemporaryDirectory(prefix=".native-package-", dir=directory) as temporary:
         staging = Path(temporary) / "package"
-        request = {"producer": "triton", "artifacts": artifacts, "bindings": bindings, "output": str(staging.resolve())}
+        request = {"producer": selected, "artifacts": artifacts, "bindings": bindings, "output": str(staging.resolve())}
         request_path = directory / "package-request.json"
         request_path.write_text(json.dumps(request, indent=2))
         command = [runtime["python"], str(Path(__file__).with_name("package_triton.py")), str(request_path.resolve())]
@@ -132,9 +134,9 @@ def prepare_native_replacements(mapping, target, output):
         bundle.add(package, arcname="package")
     remote = executor.upload(archive, "package.tar.gz")
     executor.command(["tar", "-xf", remote, "-C", executor.workspace], stage="deploy")
-    manifest = {"producer": "triton", "replacements": retained_replacements(spec, bindings, package), "bindings": bindings,
+    manifest = {"producer": selected, "replacements": retained_replacements(spec, bindings, package), "bindings": bindings,
                 "package": executor.workspace + "/package", "source_package": str(package.resolve()),
-                "native_link": "already linked by Triton; no target compiler invocation"}
+                "native_link": "already linked by the source frontend; no target compiler invocation"}
     (directory / "replacements.json").write_text(json.dumps(manifest, indent=2))
     (directory / "deployment/commands.json").write_text(json.dumps(executor.commands, indent=2))
     return manifest

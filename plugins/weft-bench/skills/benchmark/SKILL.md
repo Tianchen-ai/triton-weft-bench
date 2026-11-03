@@ -29,6 +29,8 @@ python3 "$BENCH_SKILL/scripts/bench.py" list
 `WEFT_BENCH_CONFIG`，CLI `--config` 仍可覆盖。`--plugin-info` 会列出已配置环境名称。
 正式环境通过 target 选择 sg2044、k1、k3-a100 或 x86-1t，不再依赖旧 Weft 默认路线。
 读取 [Triton native 接入](references/triton.md)，使用 `--plugin-info` 核对实际安装与配置。
+TileLang–Weft 使用同一 Bench：读取 [TileLang 接入](references/tilelang.md)，选择正常 source JIT
+或 native artifact adapter；目标环境安装匹配的 `tilelang` 和 `weft-core`，不导入隐藏 Triton 程序。
 `list --kind targets|kernels|baselines|models|suites` 展示正式登记项；
 `show CASE --target TARGET` 给出 DSL、物理参数、计时范围和保留产物证据。
 数学上属于矩阵乘法不表示执行矩阵指令；区分作者 engine、产物扩展与实际分支观察。

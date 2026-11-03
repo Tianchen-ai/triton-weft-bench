@@ -14,11 +14,12 @@ from ..types import Result
 from ..workloads import configured_workload, parameter_defaults, ports
 from .native import NATIVE, flags_for, ggml_flags
 from .cpu_target import compiler_target, target_architecture
-from .triton_source import deploy_source, collect_artifact
+from .source import deploy_source, collect_artifact
 
 
 class TritonJitAdapter:
     execution_mode = "jit"
+    producer = "triton"
 
     @staticmethod
     def configure_candidate(case, options, candidate):
@@ -36,8 +37,8 @@ class TritonJitAdapter:
         options = {**options, **options.get("bindings", {}).get(case.name, {})}
         row = Result(case.name, name, target.name, case.shape, case.scope, "pending")
         row.details = {
-            "measurement": {**asdict(measurement), "protocol": "triton-python-grid-v1"},
-            "dtype": case.dtype, "phase": case.phase, "producer": "triton",
+            "measurement": {**asdict(measurement), "protocol": self.producer + "-python-grid-v1"},
+            "dtype": case.dtype, "phase": case.phase, "producer": self.producer,
             "entry": "python-jit-grid", "diagnostics": str(directory.resolve()),
             "execution": {"cpus": executor.cpus, "threads": options.get("num_cpu_threads"),
                           "grid": options.get("grid"), "isa": target.settings["target"]},
@@ -69,7 +70,7 @@ class TritonJitAdapter:
             tools, flags = flags_for(target)
             fixture = executor.workspace + "/fixture.so"
             source = Path(options["source"]).expanduser().resolve()
-            source_request = deploy_source(executor, source)
+            source_request = deploy_source(executor, source, producer=self.producer)
             grid = options.get("grid", [1])
             threads = options.get("num_cpu_threads", target.settings.get("threads", 1))
             if not isinstance(grid, list) or not 1 <= len(grid) <= 3 or any(type(v) is not int or v < 1 for v in grid):
@@ -82,6 +83,7 @@ class TritonJitAdapter:
             if guards and not measurement.check_only:
                 raise ValueError("guard_input_ends is a correctness-only check, not a timing mode")
             request = {
+                "producer": self.producer,
                 **source_request,
                 "symbol": options["symbol"], "fixture": fixture, "signature": options.get("signature", {}),
                 "ports": [asdict(p) for p in declared], "shape": case.shape,
@@ -112,6 +114,9 @@ class TritonJitAdapter:
                            "TRITON_CACHE_DIR": executor.workspace + "/triton-cache",
                            "TORCHINDUCTOR_CACHE_DIR": executor.workspace + "/torch-cache",
                            "TRITON_DUMP_DIR": executor.workspace + "/triton-dump"}
+            if self.producer == "tilelang":
+                environment["TILELANG_CACHE_DIR"] = executor.workspace + "/tilelang-cache"
+                environment["TILELANG_JIT_DIAGNOSTICS"] = "1"
             # Clear an inherited controller overlay, but honor an explicitly
             # selected development environment on the execution machine.
             unset_environment = () if "PYTHONPATH" in environment else ("PYTHONPATH",)
@@ -191,11 +196,12 @@ class TritonJitAdapter:
                 # Compare only the native computation from this successful JIT
                 # invocation, using the original worker/oracle/timing contract.
                 from ..runner import run_operator
-                native_options = {**options, "factory": "weft_bench.adapters.triton_native:TritonAdapter",
+                native_factory = "TritonAdapter" if self.producer == "triton" else "TileLangArtifactAdapter"
+                native_options = {**options, "factory": "weft_bench.adapters.triton_native:" + native_factory,
                                   "artifact": str((directory / "artifact").resolve()),
                                   "compile_target": record["compile_target"],
-                                  "grid": grid, "num_cpu_threads": threads,
-                                  "entry": options.get("entry", "grid" if math.prod(grid) > 1 else "single")}
+                                  "grid": record.get("source_grid", grid), "num_cpu_threads": threads,
+                                  "entry": options.get("entry", "grid" if math.prod(record.get("source_grid", grid)) > 1 else "single")}
                 for key in ("source", "bindings", "path"):
                     native_options.pop(key, None)
                 native_target = replace(target, implementations={**target.implementations, name: native_options})
@@ -235,7 +241,7 @@ class TritonJitAdapter:
             try:
                 archive = executor.workspace + "/diagnostics.tar.gz"
                 collected = executor.command(["tar", "-czf", archive, "-C", executor.workspace,
-                                              "triton-cache", "triton-dump", "artifact", "failure"],
+                                              "triton-cache", "triton-dump", "tilelang-cache", "artifact", "failure"],
                                              stage="collect", check=False)
                 if collected.returncode in (0, 1, 2):
                     destination = directory / "diagnostics.tar.gz"
@@ -245,3 +251,9 @@ class TritonJitAdapter:
                 row.details["collection_error"] = str(error)
         (directory / "commands.json").write_text(json.dumps(executor.commands, indent=2))
         return [row]
+
+
+class TileLangJitAdapter(TritonJitAdapter):
+    """TileLang frontend over the same workload, target process and native timer."""
+
+    producer = "tilelang"

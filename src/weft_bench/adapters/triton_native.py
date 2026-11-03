@@ -62,7 +62,8 @@ def grid_arguments(abi, workload, dimensions, aliases):
                 strides.extend(selected)
         elif arg["kind"] == "scalar":
             variable = "launch_scalar_" + str(index)
-            statements.append(arg["c_type"] + " " + variable + "=" + workload.scalars[role] + ";")
+            scalar = str(dimensions[role]) if arg.get("shape_parameter") else workload.scalars[role]
+            statements.append(arg["c_type"] + " " + variable + "=" + scalar + ";")
             values.append("&" + variable)
         else:
             raise ValueError("unsupported native launch argument " + arg["name"])
@@ -83,7 +84,7 @@ def compile_source(case, target, options, directory):
     if not options.get("python") or "signature" not in options:
         raise ValueError("Triton source needs its Python environment and ASTSource signature")
     request = {
-        "engine": "triton", "source": str(source), "symbol": options["symbol"],
+        "engine": options.get("producer", "triton"), "source": str(source), "symbol": options["symbol"],
         "signature": options["signature"], "constexprs": options.get("constexprs", {}),
         "backend_options": options.get("backend_options", {}),
         "toolchain": options["toolchain"], "target": selected_target(options, target.settings["target"]),
@@ -96,9 +97,9 @@ def compile_source(case, target, options, directory):
         raise ValueError("compilation_host must be host or target")
     if location == "target":
         from ..execution import Executor
-        from .triton_source import deploy_source, collect_artifact
+        from .source import deploy_source, collect_artifact
         executor = Executor(target, directory)
-        request.update(deploy_source(executor, source), target_native=True,
+        request.update(deploy_source(executor, source, producer=request["engine"]), target_native=True,
                        output=executor.workspace + "/artifact")
         artifact = directory / "artifact"
         if artifact.exists():
@@ -136,6 +137,7 @@ def compile_source(case, target, options, directory):
 
 
 class TritonAdapter:
+    producer = "triton"
     @staticmethod
     def configure_candidate(case, options, candidate):
         binding = options.get("bindings", {}).get(case.name, {})
@@ -193,9 +195,10 @@ class TritonAdapter:
         else:
             raise ValueError("Triton adapter needs source/symbol or an exported artifact")
         manifest = json.loads((artifact / "manifest.json").read_text())
-        metadata = json.loads((artifact / "triton.json").read_text())
-        if manifest.get("producer") != "triton" or manifest.get("native_library") is not True:
-            raise ValueError("candidate must be an exported Triton native artifact")
+        metadata_file = "triton.json" if self.producer == "triton" else "kernel.native.json"
+        metadata = json.loads((artifact / metadata_file).read_text())
+        if manifest.get("producer") != self.producer or manifest.get("native_library") is not True:
+            raise ValueError(f"candidate must be an exported {self.producer} native artifact")
         if manifest.get("dispatch") != "triton_weft_instance_dispatch":
             raise ValueError("candidate does not expose the Triton single-instance dispatch ABI")
         from .cpu_target import compiler_target
@@ -206,6 +209,16 @@ class TritonAdapter:
                 raise ValueError(f"Triton artifact target differs in {key}: "
                                  f"requested {value!r}, artifact {actual_target[key]!r}")
         abi = manifest["kernel"]
+        if self.producer == "tilelang":
+            implicit = set(metadata["tilelang"]["implicit_names"])
+            for argument in abi["arguments"]:
+                if argument["name"] in implicit:
+                    argument["shape_parameter"] = True
+                storage = metadata["source_storage"].get(argument["name"], [])
+                if storage:
+                    if len(storage) != 1:
+                        raise ValueError("measured buffer needs one explicit logical storage contract")
+                    argument["logical_view"] = storage[0]
         if any(a["name"].startswith("__triton_") for a in abi["arguments"]):
             raise ValueError("single-instance measurement cannot use the internal grid ABI")
         if not (artifact / "kernel.so").is_file():
@@ -240,6 +253,10 @@ class TritonAdapter:
                 raise NotImplementedError("re-export this Triton artifact with its grid manifest and launcher declaration")
             grid_manifest = manifest["grid"]
             abi = grid_manifest["kernel"]
+            if self.producer == "tilelang":
+                for argument in abi["arguments"]:
+                    if argument["name"] in implicit:
+                        argument["shape_parameter"] = True
             launcher = grid_manifest["launcher"]
             if not launcher.isascii() or not launcher.isidentifier():
                 raise ValueError("invalid exported grid launcher symbol")
@@ -276,7 +293,7 @@ class TritonAdapter:
         flags = ["-I" + runtime["include"], runtime["library"],
                  "-Wl,-rpath," + str(Path(runtime["library"]).parent), *runtime.get("ldflags", [])]
         return PreparedNative(call, flags, {
-            "producer": "triton", "entry": "single-instance" if entry == "single" else "grid",
+            "producer": self.producer, "entry": "single-instance" if entry == "single" else "grid",
             "native_call_boundary": "whole-workload" if call.whole_workload else "workload-traversal",
             "compile_target": expected_target,
             "capability_check": ("SDK check_worker before the bounded native measurement scope" if entry == "single"
@@ -294,3 +311,14 @@ class TritonAdapter:
             "used_extensions": abi["used_extensions"],
             "native_runtime": runtime,
         }, include_flags=["-DWB_GGML_MODEL_WEIGHTS=1"] if framework_weights else [])
+
+
+class TileLangArtifactAdapter(TritonAdapter):
+    """The same typed native worker consuming a TileLang-produced artifact."""
+
+    producer = "tilelang"
+
+    def prepare_native(self, case, target, options, directory, worker, workload, name):
+        options = {**options, "producer": "tilelang",
+                   "entry": options.get("entry", "grid" if math.prod(options.get("grid", [1])) > 1 else "single")}
+        return super().prepare(case, target, options, directory, worker, workload, name)

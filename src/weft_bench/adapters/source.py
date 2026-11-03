@@ -1,4 +1,4 @@
-"""Load a user kernel file identically for compilation and native JIT calls."""
+"""Load either native frontend's author source without importing the other."""
 import importlib
 import importlib.machinery
 import importlib.util
@@ -8,19 +8,37 @@ from pathlib import Path
 import sys
 
 
-def load_kernel(path, symbol):
+def product_package(producer):
+    package = {"triton": "triton.kernels.weft", "tilelang": "tilelang.weft.kernels"}.get(producer)
+    if package is None:
+        raise ValueError(f"unknown source frontend {producer!r}")
+    module = importlib.import_module(package)
+    return package, Path(module.__file__).resolve().parent
+
+
+def validate_kernel(kernel, producer):
+    if producer == "triton" and getattr(kernel, "model", None) != "weft":
+        raise ValueError("Triton candidate must use @triton.jit(model='weft')")
+    if producer == "tilelang":
+        from tilelang.jit import JITImpl
+        from tvm.target import Target
+        definition = getattr(kernel, "jit_impl", kernel)
+        target = definition.target
+        kind = target.kind.name if isinstance(target, Target) else str(target)
+        if not isinstance(definition, JITImpl) or kind != "weft":
+            raise ValueError("TileLang candidate must use @tilelang.jit(target='weft')")
+    return kernel
+
+
+def load_kernel(path, symbol, *, producer="triton"):
     path = Path(path).expanduser().resolve(strict=True)
-    import triton.kernels.weft
-    product = Path(triton.kernels.weft.__file__).resolve().parent
+    package, product = product_package(producer)
     if path.is_relative_to(product):
         parts = path.relative_to(product).with_suffix("").parts
         if parts[-1] == "__init__":
             parts = parts[:-1]
-        module = importlib.import_module("triton.kernels.weft" + ("." + ".".join(parts) if parts else ""))
-        kernel = getattr(module, symbol)
-        if getattr(kernel, "model", None) != "weft":
-            raise ValueError("Triton candidate must use @triton.jit(model='weft')")
-        return kernel
+        module = importlib.import_module(package + ("." + ".".join(parts) if parts else ""))
+        return validate_kernel(getattr(module, symbol), producer)
     parts = [] if path.name == "__init__.py" else [path.stem]
     root = path.parent
     while (root / "__init__.py").is_file():
@@ -35,19 +53,15 @@ def load_kernel(path, symbol):
         spec.submodule_search_locations = [str(root)]
         sys.modules[namespace] = importlib.util.module_from_spec(spec)
     module = importlib.import_module(".".join([namespace, *parts]))
-    kernel = getattr(module, symbol)
-    if getattr(kernel, "model", None) != "weft":
-        raise ValueError("Triton candidate must use @triton.jit(model='weft')")
-    return kernel
+    return validate_kernel(getattr(module, symbol), producer)
 
 
-def deploy_source(executor, source):
+def deploy_source(executor, source, *, producer="triton"):
     """Resolve installed corpus modules or transfer a complete custom package."""
     source = Path(source).expanduser().resolve(strict=True)
-    import triton.kernels.weft
-    product = Path(triton.kernels.weft.__file__).resolve().parent
+    package, product = product_package(producer)
     if source.is_relative_to(product):
-        return {"source": str(source), "source_module": "triton.kernels.weft." +
+        return {"source": str(source), "source_module": package + "." +
                 ".".join(source.relative_to(product).with_suffix("").parts)}
     package = Path(__file__).resolve().parents[1]
     try:

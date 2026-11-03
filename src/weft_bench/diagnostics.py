@@ -130,7 +130,7 @@ def replay(row, *, compiler=None, source=None, output):
     options = dict(target.implementations.get(name, {}))
     from .runner import mode
 
-    if mode(name, target) == "triton_jit":
+    if mode(name, target) in ("triton_jit", "tilelang_jit"):
         if compiler:
             raise ValueError("native Triton JIT replay uses its configured target Python/toolchain; --compiler selects the legacy Weft CLI")
         options = {**options, **options.get("bindings", {}).get(request["case"]["name"], {})}

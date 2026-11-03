@@ -67,7 +67,8 @@ def weft_call(name, case, workload, metadata, aliases=None, packed_inputs=None):
     if case.family == "ime":
         dimensions["M"] = case.data.get("tile_rows", 4)
     whole_workload = case.family in ("vec_dot", "dequantize") and any(
-        (aliases or {}).get(a["name"], a["name"]) == "W" and a["kind"] == "view" and len(a["shape"]) == 2
+        (aliases or {}).get(a["name"], a["name"]) == "W" and (
+            a["kind"] == "view" and len(a["shape"]) == 2 or len(a.get("logical_view", {}).get("shape", [])) == 2)
         for a in metadata["arguments"])
     if whole_workload and not workload.batch_buffers:
         raise ValueError("the workload has no complete row-batch binding")
@@ -170,13 +171,14 @@ def validate_binding(case, metadata, aliases, dimensions, packed_inputs=None, *,
         wanted, encoding = expected[role]
         if role in strided_ports and (arg["kind"] != "view" or not arg.get("strided")):
             raise ValueError(f"workload {role} requires an explicit strided View ABI")
-        actual_encoding = (packed_inputs or {}).get(arg["name"], arg["encoding"])
+        logical = arg.get("logical_view")
+        actual_encoding = (packed_inputs or {}).get(arg["name"], logical["encoding"] if logical else arg["encoding"])
         if actual_encoding != encoding:
             raise ValueError(
                 f"kernel buffer {arg['name']} is {arg['encoding']}; workload {role} requires {encoding}"
             )
-        if arg["kind"] == "view":
-            shape = tuple(int(x) if str(x).isdecimal() else dims[x] for x in arg["shape"])
+        if arg["kind"] == "view" or logical:
+            shape = tuple(int(x) if str(x).isdecimal() else dims[x] for x in (logical["shape"] if logical else arg["shape"]))
             if shape != wanted:
                 raise ValueError(
                     f"kernel buffer {arg['name']} shape is {shape}; workload {role} requires {wanted}"

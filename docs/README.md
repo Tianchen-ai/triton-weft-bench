@@ -36,6 +36,7 @@ programming model and installed kernel library.
 | Follow normal kernel ownership | [Product and Bench](migration.md) |
 | Inspect registered selections | [Catalogs](catalogs.md) |
 | Use JIT, AOT, grids and models | [Product integration](triton-weft-integration.md) |
+| Use TileLang source JIT and native packages | [TileLang integration](tilelang-weft-integration.md) |
 | Establish optimized native references | [x86 references](x86-references.md) |
 | Check selected semantics and deployments | [Verification](verification.md) |
 | Invoke the CLI from Codex | [Plugin](codex-plugin.md) |
