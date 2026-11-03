@@ -1,6 +1,6 @@
 # TileLang–Weft 源码 JIT 与原生部署
 
-[English](tilelang-weft-integration.md)
+[English](https://tianchen-ai.github.io/triton-weft-bench/tilelang-weft-integration/)
 
 目标环境安装 TileLang–Weft、匹配的 `weft-core` 和本 Bench wheel。
 源码 JIT 选择 `weft_bench.adapters.triton_jit:TileLangJitAdapter`，复用已有 fixture、

@@ -1,6 +1,6 @@
 # TileLang–Weft source JIT and native deployment
 
-[中文](tilelang-weft-integration.zh-CN.md)
+[中文](https://tianchen-ai.github.io/triton-weft-bench/zh-CN/tilelang-weft-integration/)
 
 Install TileLang–Weft, its matching `weft-core` and this Bench wheel in the target
 environment. Select `weft_bench.adapters.triton_jit:TileLangJitAdapter` for ordinary
