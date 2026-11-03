@@ -1,6 +1,6 @@
 # Programs, references and recorded evidence
 
-[中文](catalogs.zh-CN.md) · [Handbook](README.md)
+[中文](https://tianchen-ai.github.io/triton-weft-bench/zh-CN/catalogs/) · [Handbook](README.md)
 
 The Python package includes `catalogs/targets/*.json`, `references.json`,
 `models.json` and `packages.json`. These are explicit selections, not searches

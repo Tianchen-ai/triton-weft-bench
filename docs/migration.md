@@ -1,6 +1,6 @@
 # Mainline and benchmark boundary
 
-[中文](migration.zh-CN.md) · [Handbook](README.md)
+[中文](https://tianchen-ai.github.io/triton-weft-bench/zh-CN/migration/) · [Handbook](README.md)
 
 Weft 1.0 owns the programming model, compiler, runtime and normal kernel library
 in Triton–Weft. Bench consumes its public JIT, native artifact and launcher

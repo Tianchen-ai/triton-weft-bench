@@ -1,12 +1,12 @@
 # x86 reference libraries and model baselines
 
-[中文](x86-references.zh-CN.md) · [Handbook](README.md)
+[中文](https://tianchen-ai.github.io/triton-weft-bench/zh-CN/x86-references/) · [Handbook](README.md)
 
 Use the same inputs, native worker, timer and result files on x86. A reference-only
 environment needs a native compiler and the selected libraries; it does not need
 Weft, Triton, PyTorch or a working Weft x86 compiler backend.
 
-Copy [the configuration example](../configs/x86-reference.example.json) outside the
+Copy [the configuration example](https://github.com/Tianchen-ai/triton-weft-bench/blob/main/configs/x86-reference.example.json) outside the
 checkout and set library, compiler, model and output paths. Choose physical cores
 from one socket for the first comparison. `deployment.numa.command` may name a
 privately installed `numactl`; omit the NUMA object when no policy is requested.

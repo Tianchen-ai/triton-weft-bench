@@ -1,6 +1,6 @@
 # 配置驱动的正确性验证
 
-[English](verification.md) · [工具书](README.zh-CN.md)
+[English](https://tianchen-ai.github.io/triton-weft-bench/verification/) · [工具书](README.zh-CN.md)
 
 `verify` 枚举并执行配置中的产品验证计划，复用算子输入、数值 oracle 与原生适配器。
 该入口检查编译、输出和运行时功能，性能由 `op/e2e` 单独测量。

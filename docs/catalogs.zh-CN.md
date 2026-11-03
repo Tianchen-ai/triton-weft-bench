@@ -1,6 +1,6 @@
 # 程序、参考与实验目录
 
-[English](catalogs.md) · [工具书](README.zh-CN.md)
+[English](https://tianchen-ai.github.io/triton-weft-bench/catalogs/) · [工具书](README.zh-CN.md)
 
 `src/weft_bench/catalogs/` 登记目标、工作负载、参考库和模型配方。
 每项包含数学任务、shape、dtype、调用范围、源码及 symbol、
@@ -35,6 +35,6 @@ Encoding 描述存储，host 准备或显式 kernel 产生该存储。
 参考目录包括优化 GGML、IME/IME2、OpenBLAS、oneDNN 和正常 llama.cpp。
 配置提供具体 checkout、构建、工具链与模型位置；
 运行结果保存实际分派和构建信息。
-[论文数据](paper/README.zh-CN.md)与当前源码目录分开保存，包含十四份最终表。
+[论文数据](paper/README.zh-CN.md)与当前源码目录分开保存，包含十六份结果与源码表。
 模型 package 配方固定角色绑定，`prepare-model` 生成部署包，
 随后在模型 profile 中显式选择它。

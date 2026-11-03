@@ -1,6 +1,6 @@
 # Select, compare, inspect
 
-[中文](quickstart.zh-CN.md) · [Handbook](README.md)
+[中文](https://tianchen-ai.github.io/triton-weft-bench/zh-CN/quickstart/) · [Handbook](README.md)
 
 Follow [installation](install.md), then keep your configuration outside the checkout.
 Select the Triton–Weft or legacy adapter and fill in compiler/library/device paths:

@@ -1,6 +1,6 @@
 # Configured maturity verification
 
-[中文](verification.zh-CN.md) · [Handbook](README.md)
+[中文](https://tianchen-ai.github.io/triton-weft-bench/zh-CN/verification/) · [Handbook](README.md)
 
 `verify` enumerates and executes a selected product coverage plan. It uses the same
 operator workloads, input contracts, numerical oracles and native adapters as `op`.

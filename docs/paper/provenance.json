@@ -71,53 +71,158 @@
       "file": "state-algorithms.csv",
       "sha256": "fec071f8cc7d0afc6faa01df20a10bef900482c8b6b406a17dac7527c3ec648e",
       "rows": 36
+    },
+    {
+      "file": "increment-costs.csv",
+      "paper_source": "figures/increment-reuse/data-panel/increment-costs.csv",
+      "sha256": "65017804368640953a3496cdc3126213a74788913d1371da7c37988a125e8501",
+      "rows": 3
+    },
+    {
+      "file": "increment-definitions.csv",
+      "paper_source": "figures/increment-reuse/data-panel/increment-definitions.csv",
+      "sha256": "8a9db1938be2e58e2b73a8e7ad6c4b0db510c43f4b4c212e0b669b13f979741e",
+      "rows": 18
     }
   ],
   "figures": [
     {
-      "file": "model.svg",
-      "paper_source": "figure4.svg",
-      "sha256": "ef0916d5a7e9ec0611fcbe7ee47644c63525549f3a605e2063bea93aaebe34e3"
-    },
-    {
-      "file": "compiler.svg",
-      "paper_source": "figure5.svg",
-      "sha256": "7ba67c4e47767ca19773f7fca44e28d10824b9fc7f946283f3395b428447fef6"
-    },
-    {
-      "file": "state-partition.svg",
-      "paper_source": "figure6.svg",
-      "sha256": "74979efd2eb1f73dd02e50c5ed06ab1d2679130a19f3c12b85d7bf548891d025"
-    },
-    {
-      "file": "layout-logical.svg",
-      "paper_source": "figure7a.svg",
-      "sha256": "ce2c974e682e448affc1a9311aa8cbd2002e47f9a9eddfc09f4434e73d0c9683"
-    },
-    {
-      "file": "layout-physical.svg",
-      "paper_source": "figure7b.svg",
-      "sha256": "f83442e33aadfeef45eb33b3351f497c5d79c15478d51d663fbb2c23fac0ec02"
-    },
-    {
-      "file": "encoding-reuse.svg",
-      "paper_source": "reuse-model/output/reuse-model.svg",
-      "sha256": "7f98d714c0521423373eb57e286aa13651e45d8a03f6d0b0496dcd712ec3a125"
+      "file": "operators-ecdf.svg",
+      "paper_source": "overall-performance/operators-ecdf.svg",
+      "paper_figure": 9,
+      "sha256": "36d32b345fe7f567e64268c203b8bce847b22c6e62e7c5467b693f73c3ee5cdd"
     },
     {
       "file": "operators-heatmap.svg",
       "paper_source": "overall-performance/operators-heatmap.svg",
+      "paper_figure": 9,
       "sha256": "da588d6868d9d248f4a2b31ea1e9a611228a130fd92647c30e2d88f9757d1b3f"
     },
     {
-      "file": "operators-ecdf.svg",
-      "paper_source": "overall-performance/operators-ecdf.svg",
-      "sha256": "36d32b345fe7f567e64268c203b8bce847b22c6e62e7c5467b693f73c3ee5cdd"
+      "file": "hardware-riscv.svg",
+      "paper_source": "overall-performance/hardware-riscv.svg",
+      "paper_figure": 10,
+      "sha256": "a87f82172ebbb09ef138fc2ebaf9f73ea5e099d1e5c40e57cbbad513408dedc8"
+    },
+    {
+      "file": "hardware-x86.svg",
+      "paper_source": "overall-performance/hardware-x86.svg",
+      "paper_figure": 10,
+      "sha256": "53f565fa1722a62e19196e8ede37a5c9a8ab331e9fff35b19653ac6adcf50d06"
+    },
+    {
+      "file": "fp32-libraries.svg",
+      "paper_source": "overall-performance/fp32-libraries.svg",
+      "paper_figure": 11,
+      "sha256": "ffedc41ff0fe624ee88b357ad2b7757f83c4c9752d94d7a54ee037ff28301454"
+    },
+    {
+      "file": "threads-gemm_f32.svg",
+      "paper_source": "overall-performance/threads-gemm_f32.svg",
+      "paper_figure": 12,
+      "sha256": "80e9be328a4d207dedb7f6b6b0d479a3bbdb64bab79722b82b64bfd55676d70f"
+    },
+    {
+      "file": "threads-q4_k_projection_prefill.svg",
+      "paper_source": "overall-performance/threads-q4_k_projection_prefill.svg",
+      "paper_figure": 12,
+      "sha256": "b3bcb4faf4f0a40c00aebe69ef287dcc1fc43cf12593a6f25c10ea8745d59b42"
+    },
+    {
+      "file": "threads-welford.svg",
+      "paper_source": "overall-performance/threads-welford.svg",
+      "paper_figure": 12,
+      "sha256": "8ae046e3afa22719611fade9103c302721cce3fc764d54f2bd80697418aaef28"
     },
     {
       "file": "models.svg",
       "paper_source": "overall-performance/applications.svg",
+      "paper_figure": 13,
       "sha256": "72aab4b52d6ba3ce11759bc56a164dbae4032ecbddf27fd2ea0c1bb1fe27411a"
+    },
+    {
+      "file": "routes-q4.svg",
+      "paper_source": "control-performance/output/routes-q4.svg",
+      "paper_figure": 14,
+      "sha256": "96d085e111bba87a5bca8f41541d8aaffbecb64d90fdcc729cc779739c0af6c3"
+    },
+    {
+      "file": "routes-q6.svg",
+      "paper_source": "control-performance/output/routes-q6.svg",
+      "paper_figure": 14,
+      "sha256": "f25fff0d407b5deeb05afc5fd55a2e47db2bfbb18b63ba11926b5a13bb701d23"
+    },
+    {
+      "file": "routes-scale.svg",
+      "paper_source": "control-performance/output/routes-scale.svg",
+      "paper_figure": 14,
+      "sha256": "181f4b9ca211527412cc8906e4612c3cb660ad275d60061d81d20140a2259378"
+    },
+    {
+      "file": "organization-q4.svg",
+      "paper_source": "control-performance/output/organization-q4.svg",
+      "paper_figure": 15,
+      "sha256": "3e1179a90b56fba81211786b827727a66c53be94333d67c208ace4db165d9d74"
+    },
+    {
+      "file": "organization-q6.svg",
+      "paper_source": "control-performance/output/organization-q6.svg",
+      "paper_figure": 15,
+      "sha256": "ee556a688fcb1570de5d54462a17ffb71edca334eeb12bef331c0a0a4f8cc1ec"
+    },
+    {
+      "file": "controls-scale.svg",
+      "paper_source": "control-performance/output/controls-scale.svg",
+      "paper_figure": 16,
+      "sha256": "0bbe523d67630c333e94995a15776f87d80a1ae48788175e16d086f80f9bba70"
+    },
+    {
+      "file": "weft-controls.svg",
+      "paper_source": "control-performance/output/weft-controls.svg",
+      "paper_figure": 16,
+      "sha256": "8705c9df7e0429f84039b6710c5652bff77bf409d15aa99c9a439a1c4958fdb0"
+    },
+    {
+      "file": "increment-measurements.svg",
+      "paper_source": "increment-reuse/output/increment-measurements.svg",
+      "paper_figure": 17,
+      "sha256": "3b80cdc918479f757033eb595c51d72382ce85b4f3b0472945fd51d5a1c84b8f"
+    },
+    {
+      "file": "encoding-consumption.svg",
+      "paper_source": "compiler-effects/output/encoding-consumption.svg",
+      "paper_figure": 18,
+      "sha256": "ea8205159b4436536b7b345dbf2116c33d900651fef6911b238631ac9fdd6842"
+    },
+    {
+      "file": "values-state.svg",
+      "paper_source": "compiler-effects/output/values-state.svg",
+      "paper_figure": 18,
+      "sha256": "6d7b7ae1cc612742a9299537706c747891653a382dcb7a8c61b5fc0256d86756"
+    },
+    {
+      "file": "range-proof.svg",
+      "paper_source": "compiler-effects/output/range-proof.svg",
+      "paper_figure": 19,
+      "sha256": "5b4a99548c626e00209a5f3a4a8542bfcf493ab71ab8d01a7d9bbddac33f6215"
+    },
+    {
+      "file": "source-ranges.svg",
+      "paper_source": "compiler-effects/output/source-ranges.svg",
+      "paper_figure": 19,
+      "sha256": "1467e9dfdd01937c7a11e5b8d0bb583834f17ad92da90191417802b96eeb6237"
+    },
+    {
+      "file": "integrated-decode.svg",
+      "paper_source": "overall-performance/integrated-decode.svg",
+      "paper_figure": 20,
+      "sha256": "0190f94cdfa99acff7e53a42f0658cdc4587a9f1ab5a9cb0b684bef802269115"
+    },
+    {
+      "file": "integrated-prefill.svg",
+      "paper_source": "overall-performance/integrated-prefill.svg",
+      "paper_figure": 20,
+      "sha256": "a794679035447b40dc7102fab0809b6c458bfca084bc98a9ad50e8487d4aca95"
     }
   ],
   "inference_threads": {
@@ -126,5 +231,6 @@
     "k3": 8,
     "x86": 8
   },
-  "aggregation": "Geometric mean of ratios computed from matching unrounded times"
+  "aggregation": "Geometric mean of ratios computed from matching unrounded times",
+  "figure_root": "docs/paper"
 }

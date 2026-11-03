@@ -1,6 +1,6 @@
 # Triton–Weft integration
 
-[中文](triton-weft-integration.zh-CN.md) · [Handbook](README.md)
+[中文](https://tianchen-ai.github.io/triton-weft-bench/zh-CN/triton-weft-integration/) · [Handbook](README.md)
 
 Bench calls the installed Triton–Weft compiler through its public interfaces:
 `@triton.jit(model="weft")`, `triton.compile`, `CompiledKernel.export`, `triton.load`

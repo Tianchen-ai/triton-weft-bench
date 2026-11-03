@@ -1,6 +1,6 @@
 # 安装与选择执行环境
 
-[English](install.md) · [工具书](README.zh-CN.md)
+[English](https://tianchen-ai.github.io/triton-weft-bench/install/) · [工具书](README.zh-CN.md)
 
 先按照 [Triton–Weft 安装指南](https://tianchen-ai.github.io/triton-weft/zh/getting-started/installation/)
 安装产品，再安装 Bench 1.0。目标侧 Python 也需要能导入产品内核库。

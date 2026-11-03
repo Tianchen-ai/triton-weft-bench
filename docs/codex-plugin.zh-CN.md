@@ -1,6 +1,6 @@
 # 从 Codex 使用 Weft Bench
 
-[English](codex-plugin.md) · [工具书](README.zh-CN.md)
+[English](https://tianchen-ai.github.io/triton-weft-bench/codex-plugin/) · [工具书](README.zh-CN.md)
 
 插件为 agent 提供已有 CLI 的工作流与本机配置发现，不增加另一套测量引擎。
 先[安装 Bench](install.zh-CN.md)，再在仓库中注册：

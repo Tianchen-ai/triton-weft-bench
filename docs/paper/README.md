@@ -1,10 +1,12 @@
-# Final paper data
+# Paper results and data
 
-[中文](README.zh-CN.md) · [Reproduction workflow](https://tianchen-ai.github.io/triton-weft/experiments/reproduce/)
+[中文](https://tianchen-ai.github.io/triton-weft-bench/zh-CN/paper/) · [Complete figure gallery](gallery.md) · [Reproduction workflow](https://tianchen-ai.github.io/triton-weft/experiments/reproduce/)
 
-Fourteen CSVs preserve the final paper measurements. Figures use the approved
-vector SVGs. [Provenance](provenance.json) records the paper revision, hashes,
-row counts and thread settings.
+The [complete gallery](gallery.md) presents all paper result figures (Figures
+9–20): operator/application performance, author controls and reuse, and compiler
+mechanisms. The tables below preserve the final measurements and source counts.
+[Provenance](provenance.json) records the paper revision, hashes, row counts,
+thread settings and the source of every vector panel.
 
 | Table | Rows | Evidence |
 |---|---:|---|
@@ -22,6 +24,8 @@ row counts and thread settings.
 | [format-addition.csv](format-addition.csv) | 5 | Q4 construction and Q6 source increments |
 | [state-algorithms.csv](state-algorithms.csv) | 36 | Attention and Welford organizations |
 | [compiler-mechanisms.csv](compiler-mechanisms.csv) | 214 | Paired physical mechanisms |
+| [increment-costs.csv](increment-costs.csv) | 3 | Figure 17: added and reused SLOC per format |
+| [increment-definitions.csv](increment-definitions.csv) | 18 | Figure 17: individual source definitions and SLOC |
 
 ## Read the data
 
@@ -40,11 +44,13 @@ mechanisms. `disabled_over_enabled` and sample columns preserve paired values.
 
 ## Figures and reproduction
 
-[![Representative kernels](operators-heatmap.svg)](operators-heatmap.svg)
-
-[![Every matched distribution](operators-ecdf.svg)](operators-ecdf.svg)
-
-[![Complete inference](models.svg)](models.svg)
+The **[complete figure gallery](gallery.md)** contains 23 SVG panels across all
+12 result figures. Each figure has an explanation, timing boundary and data links.
+The two `increment-*.csv` files retain the source-definition snapshot used for
+Figure 17; identifiers name the measured definitions before their library move.
+`first` is dequantization source and `second` is additional dot source; their
+sum is the total source added for both operators. `format-addition.csv` measures
+the separate five-route Q4_K/Q6_K task in tokens.
 
 Install [Triton–Weft](https://github.com/Tianchen-ai/triton-weft) and Bench,
 configure references and targets, inspect `show`, then run `op`,

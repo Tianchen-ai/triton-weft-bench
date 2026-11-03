@@ -1,9 +1,10 @@
-# 最终论文数据
+# 论文结果与数据
 
-[English](README.md) · [复现流程](https://tianchen-ai.github.io/triton-weft/zh/experiments/reproduce/)
+[English](https://tianchen-ai.github.io/triton-weft-bench/paper/) · [完整结果图集](gallery.zh-CN.md) · [复现流程](https://tianchen-ai.github.io/triton-weft/zh/experiments/reproduce/)
 
-十四份 CSV 保留论文最终测量。图件使用最终认可的矢量 SVG，
-[来源清单](provenance.json)记录论文版本、文件哈希、行数与线程数。
+[完整图集](gallery.zh-CN.md)呈现论文全部结果图（图 9–20），依次解释算子／应用性能、
+作者控制与复用、编译机制。下表保留最终测量和源码计数，
+[来源清单](provenance.json)记录论文版本、哈希、行数、线程数与每个矢量面板的来源。
 
 | 表格 | 行数 | 内容 |
 |---|---:|---|
@@ -21,6 +22,8 @@
 | [format-addition.csv](format-addition.csv) | 5 | Q4 构造和新增 Q6 的源码增量 |
 | [state-algorithms.csv](state-algorithms.csv) | 36 | 注意力与 Welford 组织 |
 | [compiler-mechanisms.csv](compiler-mechanisms.csv) | 214 | 配对物理编译机制 |
+| [increment-costs.csv](increment-costs.csv) | 3 | 图 17：各格式新增与复用 SLOC |
+| [increment-definitions.csv](increment-definitions.csv) | 18 | 图 17：具体源码定义及 SLOC |
 
 ## 阅读数据
 
@@ -38,11 +41,11 @@
 
 ## 图件与复现
 
-[![代表算子](operators-heatmap.svg)](operators-heatmap.svg)
-
-[![全部匹配分布](operators-ecdf.svg)](operators-ecdf.svg)
-
-[![完整推理](models.svg)](models.svg)
+**[完整结果图集](gallery.zh-CN.md)**包含 12 幅结果图的 23 个 SVG 面板，
+每组图都附解释、计时范围与数据链接。两份 `increment-*.csv` 保留图 17 使用的
+源码定义快照，标识符对应移入产品库前测量的定义。`first` 为反量化源码，
+`second` 为新增 dot 源码，两者之和是两个算子合计新增量。
+`format-addition.csv` 用 token 度量另一组五路线 Q4_K／Q6_K 任务。
 
 安装 [Triton–Weft](https://github.com/Tianchen-ai/triton-weft)
 与本 Bench，配置参考库及目标环境，使用 `show` 查看工作负载，

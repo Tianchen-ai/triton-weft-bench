@@ -1,6 +1,6 @@
 # 产品与 Bench 的职责
 
-[English](migration.md) · [工具书](README.zh-CN.md)
+[English](https://tianchen-ai.github.io/triton-weft-bench/migration/) · [工具书](README.zh-CN.md)
 
 Weft 1.0 的正常实现由产品管理，Bench 通过公共编译、导出和运行接口消费它。
 

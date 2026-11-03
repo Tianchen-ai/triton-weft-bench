@@ -1,6 +1,6 @@
 # x86 参考库与模型基线
 
-[English](x86-references.md) · [工具书](README.zh-CN.md)
+[English](https://tianchen-ai.github.io/triton-weft-bench/x86-references/) · [工具书](README.zh-CN.md)
 
 按计算选择正常优化的原生库，候选和参考采用相同输入、线程与计时范围。
 

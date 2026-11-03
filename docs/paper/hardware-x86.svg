@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="192.755906pt" height="96.377953pt" viewBox="0 0 192.755906 96.377953" xmlns="http://www.w3.org/2000/svg" version="1.1">
+ <metadata>
+  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+   <cc:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:format>image/svg+xml</dc:format>
+    <dc:creator>
+     <cc:Agent>
+      <dc:title>Matplotlib v3.10.9, https://matplotlib.org/</dc:title>
+     </cc:Agent>
+    </dc:creator>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <defs>
+  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M 0 96.377953
+L 192.755906 96.377953
+L 192.755906 0
+L 0 0
+z
+" style="fill: #ffffff"/>
+  </g>
+  <g id="axes_1">
+   <g id="patch_2">
+    <path d="M 25.511811 75.968504
+L 189.92126 75.968504
+L 189.92126 19.275591
+L 25.511811 19.275591
+z
+" style="fill: #ffffff"/>
+   </g>
+   <g id="matplotlib.axis_1">
+    <g id="xtick_1">
+     <g id="line2d_1"/>
+     <g id="text_1">
+      <text style="font-size: 6.7px; font-family: 'Liberation Serif'; text-anchor: middle; fill: #202020" x="37.089941" y="83.617676" transform="rotate(-0 37.089941 83.617676)">Q4_0</text>
+     </g>
+    </g>
+    <g id="xtick_2">
+     <g id="line2d_2"/>
+     <g id="text_2">
+      <text style="font-size: 6.7px; font-family: 'Liberation Serif'; text-anchor: middle; fill: #202020" x="60.246202" y="83.617676" transform="rotate(-0 60.246202 83.617676)">Q4_K</text>
+     </g>
+    </g>
+    <g id="xtick_3">
+     <g id="line2d_3"/>
+     <g id="text_3">
+      <text style="font-size: 6.7px; font-family: 'Liberation Serif'; text-anchor: middle; fill: #202020" x="83.402462" y="83.617676" transform="rotate(-0 83.402462 83.617676)">Q6_K</text>
+     </g>
+    </g>
+    <g id="xtick_4">
+     <g id="line2d_4"/>
+     <g id="text_4">
+      <text style="font-size: 6.7px; font-family: 'Liberation Serif'; text-anchor: middle; fill: #202020" x="132.030609" y="83.617676" transform="rotate(-0 132.030609 83.617676)">Q4_0</text>
+     </g>
+    </g>
+    <g id="xtick_5">
+     <g id="line2d_5"/>
+     <g id="text_5">
+      <text style="font-size: 6.7px; font-family: 'Liberation Serif'; text-anchor: middle; fill: #202020" x="155.186869" y="83.617676" transform="rotate(-0 155.186869 83.617676)">Q4_K</text>
+     </g>
+    </g>
+    <g id="xtick_6">
+     <g id="line2d_6"/>
+     <g id="text_6">
+      <text style="font-size: 6.7px; font-family: 'Liberation Serif'; text-anchor: middle; fill: #202020" x="178.34313" y="83.617676" transform="rotate(-0 178.34313 83.617676)">Q6_K</text>
+     </g>
+    </g>
+   </g>
+   <g id="matplotlib.axis_2">
+    <g id="ytick_1">
+     <g id="line2d_7">
+      <path d="M 25.511811 75.968504
+L 189.92126 75.968504
+" clip-path="url(#p8a33dd2642)" style="fill: none; stroke: #e5e5e5; stroke-width: 0.45; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_8">
+      <defs>
+       <path id="m8416853379" d="M 0 0
+L -2.3 0
+" style="stroke: #202020; stroke-width: 0.8"/>
+      </defs>
+      <g>
+       <use xlink:href="#m8416853379" x="25.511811" y="75.968504" style="fill: #202020; stroke: #202020; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_7">
+      <text style="font-size: 6.7px; font-family: 'Liberation Serif'; text-anchor: end; fill: #202020" x="21.211811" y="78.29309" transform="rotate(-0 21.211811 78.29309)">0</text>
+     </g>
+    </g>
+    <g id="ytick_2">
+     <g id="line2d_9">
+      <path d="M 25.511811 52.129721
+L 189.92126 52.129721
+" clip-path="url(#p8a33dd2642)" style="fill: none; stroke: #e5e5e5; stroke-width: 0.45; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_10">
+      <g>
+       <use xlink:href="#m8416853379" x="25.511811" y="52.129721" style="fill: #202020; stroke: #202020; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_8">
+      <text style="font-size: 6.7px; font-family: 'Liberation Serif'; text-anchor: end; fill: #202020" x="21.211811" y="54.454307" transform="rotate(-0 21.211811 54.454307)">1</text>
+     </g>
+    </g>
+    <g id="ytick_3">
+     <g id="line2d_11">
+      <path d="M 25.511811 28.290937
+L 189.92126 28.290937
+" clip-path="url(#p8a33dd2642)" style="fill: none; stroke: #e5e5e5; stroke-width: 0.45; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_12">
+      <g>
+       <use xlink:href="#m8416853379" x="25.511811" y="28.290937" style="fill: #202020; stroke: #202020; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_9">
+      <text style="font-size: 6.7px; font-family: 'Liberation Serif'; text-anchor: end; fill: #202020" x="21.211811" y="30.615523" transform="rotate(-0 21.211811 30.615523)">2</text>
+     </g>
+    </g>
+    <g id="text_10">
+     <text style="font-size: 7.1px; font-family: 'Liberation Serif'; text-anchor: middle; fill: #202020" x="14.349733" y="47.622047" transform="rotate(-90 14.349733 47.622047)">Speedup (×)</text>
+    </g>
+   </g>
+   <g id="line2d_13">
+    <path d="M 25.511811 52.129721
+L 189.92126 52.129721
+" clip-path="url(#p8a33dd2642)" style="fill: none; stroke-dasharray: 1.95,1.3; stroke-dashoffset: 0; stroke: #777777; stroke-width: 0.65"/>
+   </g>
+   <g id="line2d_14">
+    <path d="M 107.716535 75.968504
+L 107.716535 19.275591
+" clip-path="url(#p8a33dd2642)" style="fill: none; stroke: #c9c9c9; stroke-width: 0.5; stroke-linecap: square"/>
+   </g>
+   <g id="patch_3">
+    <path d="M 25.511811 75.968504
+L 25.511811 19.275591
+" style="fill: none; stroke: #202020; stroke-width: 0.55; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_4">
+    <path d="M 25.511811 75.968504
+L 189.92126 75.968504
+" style="fill: none; stroke: #202020; stroke-width: 0.55; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_5">
+    <path d="M 32.690252 75.968504
+L 41.489631 75.968504
+L 41.489631 53.321517
+L 32.690252 53.321517
+z
+" clip-path="url(#p8a33dd2642)" style="fill: url(#h1da910741b); stroke: #202020; stroke-width: 0.45; stroke-linejoin: miter"/>
+   </g>
+   <g id="text_11">
+    <text style="font-size: 6.1px; font-family: 'Liberation Serif'; text-anchor: middle; fill: #202020" x="37.089941" y="50.605084" transform="rotate(-0 37.089941 50.605084)">0.950</text>
+   </g>
+   <g id="patch_6">
+    <path d="M 55.846512 75.968504
+L 64.645891 75.968504
+L 64.645891 43.632906
+L 55.846512 43.632906
+z
+" clip-path="url(#p8a33dd2642)" style="fill: url(#h1da910741b); stroke: #202020; stroke-width: 0.45; stroke-linejoin: miter"/>
+   </g>
+   <g id="text_12">
+    <text style="font-size: 6.1px; font-family: 'Liberation Serif'; text-anchor: middle; fill: #202020" x="60.246202" y="40.916474" transform="rotate(-0 60.246202 40.916474)">1.36</text>
+   </g>
+   <g id="patch_7">
+    <path d="M 79.002773 75.968504
+L 87.802151 75.968504
+L 87.802151 45.573667
+L 79.002773 45.573667
+z
+" clip-path="url(#p8a33dd2642)" style="fill: url(#h1da910741b); stroke: #202020; stroke-width: 0.45; stroke-linejoin: miter"/>
+   </g>
+   <g id="text_13">
+    <text style="font-size: 6.1px; font-family: 'Liberation Serif'; text-anchor: middle; fill: #202020" x="83.402462" y="42.857235" transform="rotate(-0 83.402462 42.857235)">1.28</text>
+   </g>
+   <g id="patch_8">
+    <path d="M 127.630919 75.968504
+L 136.430298 75.968504
+L 136.430298 31.328415
+L 127.630919 31.328415
+z
+" clip-path="url(#p8a33dd2642)" style="fill: #6d91aa; stroke: #202020; stroke-width: 0.45; stroke-linejoin: miter"/>
+   </g>
+   <g id="text_14">
+    <text style="font-size: 6.1px; font-family: 'Liberation Serif'; text-anchor: middle; fill: #202020" x="132.030609" y="28.611982" transform="rotate(-0 132.030609 28.611982)">1.87</text>
+   </g>
+   <g id="patch_9">
+    <path d="M 150.78718 75.968504
+L 159.586559 75.968504
+L 159.586559 47.033448
+L 150.78718 47.033448
+z
+" clip-path="url(#p8a33dd2642)" style="fill: #6d91aa; stroke: #202020; stroke-width: 0.45; stroke-linejoin: miter"/>
+   </g>
+   <g id="text_15">
+    <text style="font-size: 6.1px; font-family: 'Liberation Serif'; text-anchor: middle; fill: #202020" x="155.186869" y="44.317015" transform="rotate(-0 155.186869 44.317015)">1.21</text>
+   </g>
+   <g id="patch_10">
+    <path d="M 173.94344 75.968504
+L 182.742819 75.968504
+L 182.742819 35.337765
+L 173.94344 35.337765
+z
+" clip-path="url(#p8a33dd2642)" style="fill: #6d91aa; stroke: #202020; stroke-width: 0.45; stroke-linejoin: miter"/>
+   </g>
+   <g id="text_16">
+    <text style="font-size: 6.1px; font-family: 'Liberation Serif'; text-anchor: middle; fill: #202020" x="178.34313" y="32.621332" transform="rotate(-0 178.34313 32.621332)">1.70</text>
+   </g>
+   <g id="text_17">
+    <text style="font-size: 6.6px; font-family: 'Liberation Serif'; text-anchor: middle; fill: #202020" x="60.246202" y="14.740157" transform="rotate(-0 60.246202 14.740157)">VNNI · decode</text>
+   </g>
+   <g id="text_18">
+    <text style="font-size: 6.6px; font-family: 'Liberation Serif'; text-anchor: middle; fill: #202020" x="155.186869" y="14.740157" transform="rotate(-0 155.186869 14.740157)">AMX · prefill</text>
+   </g>
+  </g>
+ </g>
+ <defs>
+  <clipPath id="p8a33dd2642">
+   <rect x="25.511811" y="19.275591" width="164.409449" height="56.692913"/>
+  </clipPath>
+ </defs>
+ <defs>
+  <pattern id="h1da910741b" patternUnits="userSpaceOnUse" x="0" y="0" width="72" height="72">
+   <rect x="0" y="0" width="73" height="73" fill="#d1d1cc"/>
+   <path d="M -36 36
+L 36 -36
+M -24 48
+L 48 -24
+M -12 60
+L 60 -12
+M 0 72
+L 72 0
+M 12 84
+L 84 12
+M 24 96
+L 96 24
+M 36 108
+L 108 36
+" style="fill: #202020; stroke: #202020; stroke-width: 0.35; stroke-linecap: butt; stroke-linejoin: miter"/>
+  </pattern>
+ </defs>
+</svg>

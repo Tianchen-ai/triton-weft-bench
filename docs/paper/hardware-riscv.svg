@@ -1,0 +1,265 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="195.590551pt" height="96.377953pt" viewBox="0 0 195.590551 96.377953" xmlns="http://www.w3.org/2000/svg" version="1.1">
+ <metadata>
+  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+   <cc:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:format>image/svg+xml</dc:format>
+    <dc:creator>
+     <cc:Agent>
+      <dc:title>Matplotlib v3.10.9, https://matplotlib.org/</dc:title>
+     </cc:Agent>
+    </dc:creator>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <defs>
+  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M 0 96.377953
+L 195.590551 96.377953
+L 195.590551 0
+L 0 0
+z
+" style="fill: #ffffff"/>
+  </g>
+  <g id="axes_1">
+   <g id="patch_2">
+    <path d="M 25.511811 75.968504
+L 192.755906 75.968504
+L 192.755906 19.275591
+L 25.511811 19.275591
+z
+" style="fill: #ffffff"/>
+   </g>
+   <g id="matplotlib.axis_1">
+    <g id="xtick_1">
+     <g id="line2d_1"/>
+     <g id="text_1">
+      <text style="font-size: 6.7px; font-family: 'Liberation Serif'; text-anchor: middle; fill: #202020" x="40.71582" y="83.617676" transform="rotate(-0 40.71582 83.617676)">Affine</text>
+     </g>
+    </g>
+    <g id="xtick_2">
+     <g id="line2d_2"/>
+     <g id="text_2">
+      <text style="font-size: 6.7px; font-family: 'Liberation Serif'; text-anchor: middle; fill: #202020" x="80.246242" y="83.617676" transform="rotate(-0 80.246242 83.617676)">Centered</text>
+     </g>
+    </g>
+    <g id="xtick_3">
+     <g id="line2d_3"/>
+     <g id="text_3">
+      <text style="font-size: 6.7px; font-family: 'Liberation Serif'; text-anchor: middle; fill: #202020" x="134.980673" y="83.617676" transform="rotate(-0 134.980673 83.617676)">i8</text>
+     </g>
+    </g>
+    <g id="xtick_4">
+     <g id="line2d_4"/>
+     <g id="text_4">
+      <text style="font-size: 6.7px; font-family: 'Liberation Serif'; text-anchor: middle; fill: #202020" x="177.551897" y="83.617676" transform="rotate(-0 177.551897 83.617676)">u4×i8</text>
+     </g>
+    </g>
+   </g>
+   <g id="matplotlib.axis_2">
+    <g id="ytick_1">
+     <g id="line2d_5">
+      <path d="M 25.511811 75.968504
+L 192.755906 75.968504
+" clip-path="url(#p1963139f59)" style="fill: none; stroke: #e5e5e5; stroke-width: 0.45; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_6">
+      <defs>
+       <path id="m8416853379" d="M 0 0
+L -2.3 0
+" style="stroke: #202020; stroke-width: 0.8"/>
+      </defs>
+      <g>
+       <use xlink:href="#m8416853379" x="25.511811" y="75.968504" style="fill: #202020; stroke: #202020; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_5">
+      <text style="font-size: 6.7px; font-family: 'Liberation Serif'; text-anchor: end; fill: #202020" x="21.211811" y="78.29309" transform="rotate(-0 21.211811 78.29309)">0.0</text>
+     </g>
+    </g>
+    <g id="ytick_2">
+     <g id="line2d_7">
+      <path d="M 25.511811 58.752048
+L 192.755906 58.752048
+" clip-path="url(#p1963139f59)" style="fill: none; stroke: #e5e5e5; stroke-width: 0.45; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_8">
+      <g>
+       <use xlink:href="#m8416853379" x="25.511811" y="58.752048" style="fill: #202020; stroke: #202020; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_6">
+      <text style="font-size: 6.7px; font-family: 'Liberation Serif'; text-anchor: end; fill: #202020" x="21.211811" y="61.076634" transform="rotate(-0 21.211811 61.076634)">0.5</text>
+     </g>
+    </g>
+    <g id="ytick_3">
+     <g id="line2d_9">
+      <path d="M 25.511811 41.535592
+L 192.755906 41.535592
+" clip-path="url(#p1963139f59)" style="fill: none; stroke: #e5e5e5; stroke-width: 0.45; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_10">
+      <g>
+       <use xlink:href="#m8416853379" x="25.511811" y="41.535592" style="fill: #202020; stroke: #202020; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_7">
+      <text style="font-size: 6.7px; font-family: 'Liberation Serif'; text-anchor: end; fill: #202020" x="21.211811" y="43.860178" transform="rotate(-0 21.211811 43.860178)">1.0</text>
+     </g>
+    </g>
+    <g id="ytick_4">
+     <g id="line2d_11">
+      <path d="M 25.511811 24.319136
+L 192.755906 24.319136
+" clip-path="url(#p1963139f59)" style="fill: none; stroke: #e5e5e5; stroke-width: 0.45; stroke-linecap: square"/>
+     </g>
+     <g id="line2d_12">
+      <g>
+       <use xlink:href="#m8416853379" x="25.511811" y="24.319136" style="fill: #202020; stroke: #202020; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_8">
+      <text style="font-size: 6.7px; font-family: 'Liberation Serif'; text-anchor: end; fill: #202020" x="21.211811" y="26.643722" transform="rotate(-0 21.211811 26.643722)">1.5</text>
+     </g>
+    </g>
+    <g id="text_9">
+     <text style="font-size: 7.1px; font-family: 'Liberation Serif'; text-anchor: middle; fill: #202020" x="9.324733" y="47.622047" transform="rotate(-90 9.324733 47.622047)">Speedup (×)</text>
+    </g>
+   </g>
+   <g id="line2d_13">
+    <path d="M 25.511811 41.535592
+L 192.755906 41.535592
+" clip-path="url(#p1963139f59)" style="fill: none; stroke-dasharray: 1.95,1.3; stroke-dashoffset: 0; stroke: #777777; stroke-width: 0.65"/>
+   </g>
+   <g id="line2d_14">
+    <path d="M 107.613457 75.968504
+L 107.613457 19.275591
+" clip-path="url(#p1963139f59)" style="fill: none; stroke: #c9c9c9; stroke-width: 0.5; stroke-linecap: square"/>
+   </g>
+   <g id="patch_3">
+    <path d="M 25.511811 75.968504
+L 25.511811 19.275591
+" style="fill: none; stroke: #202020; stroke-width: 0.55; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_4">
+    <path d="M 25.511811 75.968504
+L 192.755906 75.968504
+" style="fill: none; stroke: #202020; stroke-width: 0.55; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_5">
+    <path d="M 31.745455 75.968504
+L 39.347459 75.968504
+L 39.347459 38.620922
+L 31.745455 38.620922
+z
+" clip-path="url(#p1963139f59)" style="fill: #6d91aa; stroke: #202020; stroke-width: 0.45; stroke-linejoin: miter"/>
+   </g>
+   <g id="text_10">
+    <text style="font-size: 6.1px; font-family: 'Liberation Serif'; text-anchor: middle; fill: #202020" x="35.546457" y="30.127356" transform="rotate(-0 35.546457 30.127356)">1.08</text>
+   </g>
+   <g id="patch_6">
+    <path d="M 42.08418 75.968504
+L 49.686185 75.968504
+L 49.686185 39.646937
+L 42.08418 39.646937
+z
+" clip-path="url(#p1963139f59)" style="fill: url(#h1da910741b); stroke: #202020; stroke-width: 0.45; stroke-linejoin: miter"/>
+   </g>
+   <g id="text_11">
+    <text style="font-size: 6.1px; font-family: 'Liberation Serif'; text-anchor: middle; fill: #202020" x="45.885183" y="36.930505" transform="rotate(-0 45.885183 36.930505)">1.05</text>
+   </g>
+   <g id="patch_7">
+    <path d="M 71.275877 75.968504
+L 78.877881 75.968504
+L 78.877881 37.018996
+L 71.275877 37.018996
+z
+" clip-path="url(#p1963139f59)" style="fill: #6d91aa; stroke: #202020; stroke-width: 0.45; stroke-linejoin: miter"/>
+   </g>
+   <g id="text_12">
+    <text style="font-size: 6.1px; font-family: 'Liberation Serif'; text-anchor: middle; fill: #202020" x="75.076879" y="33.376911" transform="rotate(-0 75.076879 33.376911)">1.13</text>
+   </g>
+   <g id="patch_8">
+    <path d="M 81.614603 75.968504
+L 89.216607 75.968504
+L 89.216607 42.896493
+L 81.614603 42.896493
+z
+" clip-path="url(#p1963139f59)" style="fill: url(#h1da910741b); stroke: #202020; stroke-width: 0.45; stroke-linejoin: miter"/>
+   </g>
+   <g id="text_13">
+    <text style="font-size: 6.1px; font-family: 'Liberation Serif'; text-anchor: middle; fill: #202020" x="85.415605" y="40.180061" transform="rotate(-0 85.415605 40.180061)">0.960</text>
+   </g>
+   <g id="patch_9">
+    <path d="M 126.010308 75.968504
+L 133.612312 75.968504
+L 133.612312 41.311932
+L 126.010308 41.311932
+z
+" clip-path="url(#p1963139f59)" style="fill: #6d91aa; stroke: #202020; stroke-width: 0.45; stroke-linejoin: miter"/>
+   </g>
+   <g id="text_14">
+    <text style="font-size: 6.1px; font-family: 'Liberation Serif'; text-anchor: middle; fill: #202020" x="129.81131" y="38.5955" transform="rotate(-0 129.81131 38.5955)">1.01</text>
+   </g>
+   <g id="patch_10">
+    <path d="M 136.349034 75.968504
+L 143.951038 75.968504
+L 143.951038 40.378473
+L 136.349034 40.378473
+z
+" clip-path="url(#p1963139f59)" style="fill: url(#h1da910741b); stroke: #202020; stroke-width: 0.45; stroke-linejoin: miter"/>
+   </g>
+   <g id="text_15">
+    <text style="font-size: 6.1px; font-family: 'Liberation Serif'; text-anchor: middle; fill: #202020" x="140.150036" y="31.79235" transform="rotate(-0 140.150036 31.79235)">1.03</text>
+   </g>
+   <g id="patch_11">
+    <path d="M 173.750895 75.968504
+L 181.352899 75.968504
+L 181.352899 32.358571
+L 173.750895 32.358571
+z
+" clip-path="url(#p1963139f59)" style="fill: #6d91aa; stroke: #202020; stroke-width: 0.45; stroke-linejoin: miter"/>
+   </g>
+   <g id="text_16">
+    <text style="font-size: 6.1px; font-family: 'Liberation Serif'; text-anchor: middle; fill: #202020" x="177.551897" y="29.642138" transform="rotate(-0 177.551897 29.642138)">1.27</text>
+   </g>
+   <g id="text_17">
+    <text style="font-size: 6.6px; font-family: 'Liberation Serif'; text-anchor: middle; fill: #202020" x="60.481031" y="14.740157" transform="rotate(-0 60.481031 14.740157)">K1 · IME</text>
+   </g>
+   <g id="text_18">
+    <text style="font-size: 6.6px; font-family: 'Liberation Serif'; text-anchor: middle; fill: #202020" x="156.266285" y="14.740157" transform="rotate(-0 156.266285 14.740157)">K3 · IME2</text>
+   </g>
+  </g>
+ </g>
+ <defs>
+  <clipPath id="p1963139f59">
+   <rect x="25.511811" y="19.275591" width="167.244094" height="56.692913"/>
+  </clipPath>
+ </defs>
+ <defs>
+  <pattern id="h1da910741b" patternUnits="userSpaceOnUse" x="0" y="0" width="72" height="72">
+   <rect x="0" y="0" width="73" height="73" fill="#d1d1cc"/>
+   <path d="M -36 36
+L 36 -36
+M -24 48
+L 48 -24
+M -12 60
+L 60 -12
+M 0 72
+L 72 0
+M 12 84
+L 84 12
+M 24 96
+L 96 24
+M 36 108
+L 108 36
+" style="fill: #202020; stroke: #202020; stroke-width: 0.35; stroke-linecap: butt; stroke-linejoin: miter"/>
+  </pattern>
+ </defs>
+</svg>

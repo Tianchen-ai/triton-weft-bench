@@ -1,6 +1,6 @@
 # Environment setup
 
-[中文](targets.zh-CN.md) · [Handbook](README.md)
+[中文](https://tianchen-ai.github.io/triton-weft-bench/zh-CN/targets/) · [Handbook](README.md)
 
 The benchmark core has no SSH or machine-name branches. CLI/Python convenience
 calls use a selected external target for building and deploying a native worker.

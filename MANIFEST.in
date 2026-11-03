@@ -1,4 +1,5 @@
 include README.md README.zh-CN.md LICENSE CONTRIBUTING.md
+include mkdocs.yml requirements-docs.txt
 graft docs
 graft configs
 graft examples

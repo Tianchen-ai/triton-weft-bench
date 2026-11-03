@@ -1,6 +1,6 @@
 # Install and choose an environment
 
-[中文](install.zh-CN.md) · [Handbook](README.md)
+[中文](https://tianchen-ai.github.io/triton-weft-bench/zh-CN/install/) · [Handbook](README.md)
 
 Bench is a Python CLI/library. Install version 1.0 from the source project in a virtual environment:
 

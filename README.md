@@ -1,17 +1,21 @@
 # Triton–Weft Bench 1.0
 
-[English/Chinese handbook](docs/README.md)
+[中文](README.zh-CN.md) · [Bench website](https://tianchen-ai.github.io/triton-weft-bench/) · [All paper figures](https://tianchen-ai.github.io/triton-weft-bench/paper/gallery/) · [Result tables](docs/paper/README.md) · [Triton–Weft](https://github.com/Tianchen-ai/triton-weft)
 
-[中文](README.zh-CN.md) · [Results](#paper-results) · [Reproduce the paper](https://tianchen-ai.github.io/triton-weft/experiments/reproduce/) · [Paper CSV tables](docs/paper/README.md)
+**From a Weft program to a matched CPU experiment.**
 
-**Reproduce the paper's kernel and llama.cpp experiments with Triton–Weft and this Bench project.**
-The catalogs identify author programs, shapes, references and model packages.
-The [bilingual workflow](https://tianchen-ai.github.io/triton-weft/experiments/reproduce/)
-covers target-side JIT, complete suites, native references and prefill/decode.
+Weft gives authors control over representation, arithmetic, sharing and state.
+Bench connects those programs to concrete workloads: the same inputs, optimized
+references, numerical checks and a common native timer. Select an installed
+kernel or your own implementation, then compare a complete operator or its
+effect inside llama.cpp.
 
-Compare Triton–Weft kernels with GGML, or compare normal llama.cpp with
-explicitly selected kernel replacements. Pick an operation, inputs and implementation;
-Bench prepares the shared inputs, checks outputs and measures the native call.
+The paper's results tell the same story at three scales: performance across
+operators and applications, the effect of composable author choices, and the
+compiler mechanisms that realize them. **[The complete result gallery](docs/paper/gallery.md)**
+includes all 12 result figures (23 vector panels), matching data links and
+timing explanations. The [reproduction workflow](https://tianchen-ai.github.io/triton-weft/experiments/reproduce/)
+takes you from product installation to native and application measurements.
 
 ## Paper results
 
@@ -55,6 +59,22 @@ SG2044 model runs use 64 threads; K1, K3 and x86 use eight. SG2044/K1/x86 use 12
 32-token decode after a 512-token context; K3 uses 32-token prefill and
 8-token decode after a 32-token context. [Model CSV](docs/paper/applications.csv)
 contains all 18 measured stages, reference policies and replacement counters.
+
+### What produces the performance?
+
+| Evidence | What to inspect |
+|---|---|
+| [Vector/matrix execution, FP32 libraries and thread scaling](docs/paper/gallery.md#vector-and-matrix-execution) | Hardware use, complete-call cost and multi-core execution |
+| [Five-route author controls](docs/paper/gallery.md#five-routes-for-the-same-control-tasks) | Q4_K/Q6_K preparation and precision choices in C, Triton CPU, Exo 2, TensorIR and Weft |
+| [Arithmetic and state scope](docs/paper/gallery.md#arithmetic-organization-and-output-state) | Source organization under the same compiler and physical binding |
+| [Source increments and reuse](docs/paper/gallery.md#source-increments-and-reuse) | New formats, a second operator, attention and streaming statistics |
+| [Compiler mechanisms](docs/paper/gallery.md#compiler-mechanisms-under-fixed-source-semantics) | Encoding, forwarding, fragment retention and source ranges with fixed source semantics |
+
+[![Source added and reused across two operators](docs/paper/increment-measurements.svg)](docs/paper/increment-measurements.svg)
+
+The [data guide](docs/paper/README.md) links every result table and the exact
+figure provenance. The [Triton–Weft handbook](https://tianchen-ai.github.io/triton-weft/)
+explains the model and compiler behind these experiments.
 
 Version **1.0.0**. First install the product using the [Triton–Weft installation guide](https://tianchen-ai.github.io/triton-weft/getting-started/installation/). Normal kernels come from `triton.kernels.weft`.
 
@@ -107,9 +127,9 @@ distinguishes declarations, numerical programs, preparation and reference adapte
 
 | Target catalog | Registered cases |
 |---|---:|
-ROWPLACEHOLDER
-ROWPLACEHOLDER
-ROWPLACEHOLDER
+| SG2044 / RVV128 | 133 |
+| K1 / RVV256 + IME | 137 |
+| K3 A100 / RVV1024 + IME2 | 136 |
 | x86 single-thread | 147 |
 
 The [catalog guide](docs/catalogs.md) explains these selections and the 9 model

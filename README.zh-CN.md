@@ -1,13 +1,18 @@
 # Triton–Weft Bench 1.0
 
-[中英文工具书](docs/README.zh-CN.md)
+[English](README.md) · [Bench 网站](https://tianchen-ai.github.io/triton-weft-bench/zh-CN/) · [全部论文图](https://tianchen-ai.github.io/triton-weft-bench/zh-CN/paper/gallery/) · [结果表](docs/paper/README.zh-CN.md) · [Triton–Weft](https://github.com/Tianchen-ai/triton-weft)
 
-[English](README.md) · [实验结果](#论文实验结果) · [论文实验复现](https://tianchen-ai.github.io/triton-weft/zh/experiments/reproduce/) · [论文 CSV](docs/paper/README.zh-CN.md)
+**从 Weft 程序，走到条件匹配的 CPU 实验。**
 
-**使用 Triton–Weft 与本 Bench 工程复现论文中的算子和 llama.cpp 实验。**
-Catalog 登记作者程序、shape、参考与模型 package，
-[双语复现流程](https://tianchen-ai.github.io/triton-weft/zh/experiments/reproduce/)
-覆盖目标机 JIT、完整套件、原生参考和 prefill／decode。
+Weft 让作者控制表示、算术、共享和状态。Bench 将这些程序接到具体工作负载，
+统一输入、优化参考、数值检查与原生计时器。选择产品内核或自己的实现，
+即可比较完整算子，或测量它在 llama.cpp 中的作用。
+
+论文结果沿着三个尺度解释这一过程：算子与应用的性能、可组合作者选择的作用，
+以及实现这些选择的编译机制。**[完整结果图集](docs/paper/gallery.zh-CN.md)**
+包含全部 12 幅结果图、23 个矢量面板、对应数据与计时说明。
+[复现流程](https://tianchen-ai.github.io/triton-weft/zh/experiments/reproduce/)
+从产品安装一直连接到原生调用和应用测量。
 
 ## 论文实验结果
 
@@ -48,6 +53,22 @@ Catalog 登记作者程序、shape、参考与模型 package，
 SG2044 模型使用 64 线程，K1、K3 和 x86 使用八线程。SG2044／K1／x86 为 128-token prefill、512-token context 后生成
 32 tokens；K3 为 32-token prefill、32-token context 后生成 8 tokens。
 [模型 CSV](docs/paper/applications.csv)保留全部 18 个阶段的耗时、参考策略和替换计数。
+
+### 性能来自哪里？
+
+| 证据 | 查看内容 |
+|---|---|
+| [向量／矩阵、FP32 库和线程扩展](docs/paper/gallery.zh-CN.md#向量与矩阵执行) | 硬件利用、完整调用成本与多核执行 |
+| [五路线作者控制](docs/paper/gallery.zh-CN.md#五条路线实现相同控制任务) | C、Triton CPU、Exo 2、TensorIR、Weft 中的 Q4_K／Q6_K 准备与精度选择 |
+| [算术与状态范围](docs/paper/gallery.zh-CN.md#算术组织与输出状态) | 同一编译器和物理绑定下的源程序组织 |
+| [源码增量与复用](docs/paper/gallery.zh-CN.md#源码增量与复用) | 新格式、第二个算子、注意力和流式统计 |
+| [编译机制](docs/paper/gallery.zh-CN.md#固定源语义的编译机制) | 固定源语义后的 Encoding、转发、片段保留与数值范围 |
+
+[![两个算子之间新增与复用的源码](docs/paper/increment-measurements.svg)](docs/paper/increment-measurements.svg)
+
+[数据指南](docs/paper/README.zh-CN.md)链接全部结果表与精确图件来源。
+[Triton–Weft 中文手册](https://tianchen-ai.github.io/triton-weft/zh/)
+说明这些实验背后的模型与编译器。
 
 版本 **1.0.0**。先按照 [Triton–Weft 安装指南](https://tianchen-ai.github.io/triton-weft/zh/getting-started/installation/)安装产品，正常内核由 `triton.kernels.weft` 提供。
 

@@ -1,6 +1,6 @@
 # Triton–Weft 集成
 
-[English](triton-weft-integration.md) · [工具书](README.zh-CN.md)
+[English](https://tianchen-ai.github.io/triton-weft-bench/triton-weft-integration/) · [工具书](README.zh-CN.md)
 
 Bench 使用产品公共接口：`@triton.jit(model="weft")`、
 `triton.compile`、`CompiledKernel.export`、`triton.load` 与

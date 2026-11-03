@@ -1,6 +1,6 @@
 # Use Weft Bench from Codex
 
-[中文](codex-plugin.zh-CN.md) · [Handbook](README.md)
+[中文](https://tianchen-ai.github.io/triton-weft-bench/zh-CN/codex-plugin/) · [Handbook](README.md)
 
 The `weft-bench` plugin gives a Codex agent the existing Triton–Weft and Weft
 operator/model workflows and configured numerical/runtime verification, plus a

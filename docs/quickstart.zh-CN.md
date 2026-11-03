@@ -1,6 +1,6 @@
 # 选择、比较与查看结果
 
-[English](quickstart.md) · [工具书](README.zh-CN.md)
+[English](https://tianchen-ai.github.io/triton-weft-bench/quickstart/) · [工具书](README.zh-CN.md)
 
 完成[安装](install.zh-CN.md)，选择外部配置：
 

@@ -1,6 +1,6 @@
 # 环境与目标配置
 
-[English](targets.md) · [工具书](README.zh-CN.md)
+[English](https://tianchen-ai.github.io/triton-weft-bench/targets/) · [工具书](README.zh-CN.md)
 
 以 `configs/example.json` 为起点，在外部配置中指定目标架构、允许的 CPU、
 线程数、工具链、工作目录、参考库和实现工厂。选定 catalog 后复用其工作负载与绑定。

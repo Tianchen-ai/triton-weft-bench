@@ -1,6 +1,6 @@
 # Inputs and implementations
 
-[中文](extending.zh-CN.md) · [Handbook](README.md)
+[中文](https://tianchen-ai.github.io/triton-weft-bench/zh-CN/extending/) · [Handbook](README.md)
 
 The shipped product compares Triton–Weft and Weft with GGML for predefined computations.
 A new implementation of one of these computations requires a kernel binding, not

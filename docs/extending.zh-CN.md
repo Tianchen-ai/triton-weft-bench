@@ -1,6 +1,6 @@
 # 输入与实现接口
 
-[English](extending.md) · [工具书](README.zh-CN.md)
+[English](https://tianchen-ai.github.io/triton-weft-bench/extending/) · [工具书](README.zh-CN.md)
 
 为已有任务换内核，只需提供实现绑定；输入生成、数值参考、计时和传输均由 Bench 复用。
 
