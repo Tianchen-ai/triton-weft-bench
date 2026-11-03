@@ -1,0 +1,8 @@
+include README.md README.zh-CN.md LICENSE CONTRIBUTING.md
+graft docs
+graft configs
+graft examples
+graft tests
+graft plugins
+graft .agents
+global-exclude __pycache__ *.py[cod]

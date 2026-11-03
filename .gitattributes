@@ -1,0 +1,2 @@
+# Preserve the frozen CSV byte snapshots, including their standard CRLF rows.
+docs/paper/*.csv -text whitespace=cr-at-eol

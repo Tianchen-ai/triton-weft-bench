@@ -1,5 +1,7 @@
 # Environment setup
 
+[中文](targets.zh-CN.md) · [Handbook](README.md)
+
 The benchmark core has no SSH or machine-name branches. CLI/Python convenience
 calls use a selected external target for building and deploying a native worker.
 Run `op` and `e2e` locally or select a configured SSH target without changing

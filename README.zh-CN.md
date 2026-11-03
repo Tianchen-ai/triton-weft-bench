@@ -1,4 +1,6 @@
-# Triton–Weft Bench
+# Triton–Weft Bench 1.0
+
+[中英文工具书](docs/README.zh-CN.md)
 
 [English](README.md) · [实验结果](#论文实验结果) · [论文实验复现](https://tianchen-ai.github.io/triton-weft/zh/experiments/reproduce/) · [论文 CSV](docs/paper/README.zh-CN.md)
 
@@ -15,37 +17,39 @@ Catalog 登记作者程序、shape、参考与模型 package，
 
 ### 算子性能
 
-[![代表算子与全部 543 项匹配原生比较](docs/paper/operators.png)](docs/paper/operators.png)
+[![代表算子与全部 543 项匹配原生比较](docs/paper/operators-ecdf.svg)](docs/paper/operators-ecdf.svg)
 
 | 平台 | 正式用例 | 匹配比较 | 几何平均加速 |
 |---|---:|---:|---:|
 | SG2044 · RVV128 | 133 | 132 | **1.60×** |
-| K1 · RVV256／IME1 | 137 | 136 | **1.55×** |
-| K3 A100 · RVV1024／IME2 | 136 | 135 | **1.82×** |
-| Xeon Platinum 8470Q · AVX-512／VNNI／AMX | 147 | 140 | **1.56×** |
+| K1 · RVV256／IME1 | 137 | 136 | **1.54×** |
+| K3 A100 · RVV1024／IME2 | 136 | 135 | **1.83×** |
+| Xeon Platinum 8470Q · AVX-512／VNNI／AMX | 147 | 140 | **1.32×** |
 
 参考包含 541 项 GGML 和两项 oneDNN。
 [算子 CSV](docs/paper/operators.csv)记录工作负载、数值检查、耗时、参考与 JIT 观察。
 
 ### 模型推理
 
-[![九组模型配置的 prefill 与 decode 配对结果](docs/paper/models.png)](docs/paper/models.png)
+[![九组模型配置的 prefill 与 decode 配对结果](docs/paper/models.svg)](docs/paper/models.svg)
 
 | 平台 | 模型 | 参考 | Prefill | Decode |
 |---|---|---|---:|---:|
-| x86 | Llama 2 7B Q4_0 | 正常 llama.cpp | 1.75× | 1.20× |
-| x86 | DeepSeek 8B Q4_K_M | 正常 llama.cpp | 1.23× | 1.27× |
-| x86 | Qwen 2.5 14B Q4_K_M | 正常 llama.cpp | 1.18× | 1.25× |
-| SG2044 | Llama 2 7B Q4_0 | 正常 llama.cpp | 1.26× | 1.02× |
-| SG2044 | DeepSeek 8B Q4_K_M | 正常 llama.cpp | 1.15× | 0.957× |
-| K1 | Llama 2 7B Q4_0 | 正常 llama.cpp | 1.62× | 0.997× |
-| K1 | DeepSeek 8B Q4_K_M | 正常 llama.cpp | 1.15× | 1.01× |
-| K3 A100 | DeepSeek 8B Q4_K_M | CPU–RVV | 1.93× | 1.92× |
-| K3 A100 | DeepSeek 8B Q4_K_M | 厂商 IME2 | 0.985× | 1.17× |
+| x86 | Llama 2 7B Q4_0 | llama.cpp | 1.705× | 1.217× |
+| x86 | DeepSeek 8B Q4_K_M | llama.cpp | 1.186× | 1.194× |
+| x86 | Qwen 2.5 14B Q4_K_M | llama.cpp | 1.154× | 1.179× |
+| SG2044 | Llama 2 7B Q4_0 | llama.cpp | 1.260× | 1.011× |
+| SG2044 | DeepSeek 8B Q4_K_M | llama.cpp | 1.167× | 1.016× |
+| K1 | Llama 2 7B Q4_0 | llama.cpp | 1.432× | 1.026× |
+| K1 | DeepSeek 8B Q4_K_M | llama.cpp | 1.188× | 1.168× |
+| K3 A100 | DeepSeek 8B Q4_K_M | vendor IME2 | 1.157× | 1.361× |
+| K3 A100 | DeepSeek 8B Q4_K_M | CPU-vector | 1.939× | 1.976× |
 
 SG2044 模型使用 64 线程，K1、K3 和 x86 使用八线程。SG2044／K1／x86 为 128-token prefill、512-token context 后生成
 32 tokens；K3 为 32-token prefill、32-token context 后生成 8 tokens。
-[模型 CSV](docs/paper/models.csv)保留全部 18 个阶段的耗时、参考策略和替换计数。
+[模型 CSV](docs/paper/applications.csv)保留全部 18 个阶段的耗时、参考策略和替换计数。
+
+版本 **1.0.0**。先按照 [Triton–Weft 安装指南](https://tianchen-ai.github.io/triton-weft/zh/getting-started/installation/)安装产品，正常内核由 `triton.kernels.weft` 提供。
 
 ## 安装与复现
 

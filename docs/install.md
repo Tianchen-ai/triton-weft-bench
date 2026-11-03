@@ -1,15 +1,22 @@
 # Install and choose an environment
 
-Bench is a Python CLI/library. Install the published wheel in a virtual environment:
+[中文](install.zh-CN.md) · [Handbook](README.md)
+
+Bench is a Python CLI/library. Install version 1.0 from the source project in a virtual environment:
 
 ```sh
+git clone https://github.com/Tianchen-ai/triton-weft-bench.git
+cd triton-weft-bench
 python3 -m venv .venv
-.venv/bin/python -m pip install https://github.com/Tianchen-ai/triton-weft-bench/releases/download/v0.4.1/triton_weft_bench-0.4.1-py3-none-any.whl
-.venv/bin/weft-bench list
+. .venv/bin/activate
+python -m pip install '.[verification]'
+weft-bench list
 ```
 
 Python 3.10 or newer is required. `list` and command help need no device connection
 or compiler. Use `.venv/bin/weft-bench` directly, or activate that environment.
+
+Install [Triton–Weft 1.0](https://tianchen-ai.github.io/triton-weft/getting-started/installation/) in the environment that resolves and executes its kernels. Bench owns catalogs and measurement; `triton.kernels.weft` supplies normal programs.
 
 ## Select the dependencies for the requested work
 
@@ -28,7 +35,7 @@ An x86 host compiler and a RISC-V runtime may use different Python versions and
 need separate wheels. Torch wheels must also match the target's libc requirement.
 Keep development/compiler environments separate from shared system packages.
 Install the `verification` extra in the Python that executes the probe, including
-on SSH targets: `python -m pip install './triton_weft_bench-0.4.1-py3-none-any.whl[verification]'`.
+on SSH targets: `python -m pip install '.[verification]'`.
 NumPy's extension modules must match that interpreter's Python ABI and architecture;
 an installation in another venv does not supply them.
 Use the compiler's supported PyTorch integration installer in the selected private

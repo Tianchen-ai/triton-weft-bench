@@ -1,5 +1,7 @@
 # Triton–Weft integration
 
+[中文](triton-weft-integration.zh-CN.md) · [Handbook](README.md)
+
 Bench calls the installed Triton–Weft compiler through its public interfaces:
 `@triton.jit(model="weft")`, `triton.compile`, `CompiledKernel.export`, `triton.load`
 and `triton.Package.create`. The compiler owns lowering, autotuning, caching and
@@ -71,7 +73,7 @@ comparison is meaningful. Mismatches remain visible in results and `explain`.
 `weft_bench.adapters.triton_jit:TritonJitAdapter` uses a configured target-side
 `python`, optional `environment` and `toolchain`, with source/symbol, signature,
 constexprs, grid and thread options. Install both packages on the target. Catalog
-sources are imported from that installed Bench package; custom source packages are
+sources resolve to the installed product's `triton.kernels.weft`; custom source packages are
 transferred with their relative imports. No host-produced kernel library is an
 input to this route. An empty toolchain configuration selects the target Triton
 wheel's bundled Clang and discovers the local system runtime.
@@ -97,7 +99,7 @@ mode retains batched hot calls; both modes honor the warmup time budget.
 For one Python call over a packed row batch, select an author grid entry whose
 weight View has shape `(rows, K)` and whose output View has shape `(rows,)`.
 The corpus provides `iq1_s_grid`, `iq1_m_grid`, `iq2_xs_grid` and `iq2_xxs_grid`
-in `weft_bench.kernels.ggml.vec_dot.grouped_lookup`. Each uses `tl.program_id(0)`
+in `triton.kernels.weft.ggml.vec_dot.grouped_lookup`. Each uses `tl.program_id(0)`
 to select its row and calls the same numerical helper as the leaf program.
 Configure `grid: [rows]`, `entry: "grid"` and an explicit `num_cpu_threads`;
 the source also guards excess grid instances. Both JIT and native grid measurement

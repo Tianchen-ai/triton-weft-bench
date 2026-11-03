@@ -1,5 +1,7 @@
 """Lightweight native timing; compiler dependencies are loaded only by adapters."""
 
+__version__ = "1.0.0"
+
 from .api import benchmark, compare
 from .inputs import Inputs
 from .libraries import GGML, WeftKernel

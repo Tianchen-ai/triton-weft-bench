@@ -1,4 +1,6 @@
-# Programs, references and retained evidence
+# Programs, references and recorded evidence
+
+[中文](catalogs.zh-CN.md) · [Handbook](README.md)
 
 The Python package includes `catalogs/targets/*.json`, `references.json`,
 `models.json` and `packages.json`. These are explicit selections, not searches
@@ -33,10 +35,10 @@ reference library.
 | Source location | Responsibility |
 |---|---|
 | Product `triton.integrations.ggml_formats` | Shared GGML base records, fields and byte layout contracts |
-| `weft_bench.kernels.ggml.layouts` | Author-owned IME1/IME2, AMX and row-interleaved Encodings and derive builders |
-| `weft_bench.kernels.ggml.blocks` | Encoded block arithmetic and composed full projections |
-| `weft_bench.kernels.ggml.vec_dot`, `mul_mat`, `quantize` | Explicit candidate algorithms and target-oriented source variants |
-| `weft_bench.kernels.programs` | Normalization, attention, MoE, Mamba and other ordered model programs |
+| `triton.kernels.weft.ggml.layouts` | Author-owned IME1/IME2, AMX and row-interleaved Encodings and derive builders |
+| `triton.kernels.weft.ggml.blocks` | Encoded block arithmetic and composed full projections |
+| `triton.kernels.weft.ggml.vec_dot`, `mul_mat`, `quantize` | Explicit candidate algorithms and target-oriented source variants |
+| `triton.kernels.weft.programs` | Normalization, attention, MoE, Mamba and other ordered model programs |
 | `weft_bench.libraries` and `adapters` | Native reference and candidate invocation contracts |
 
 Each layout consumer imports its declaration from `kernels.ggml.layouts`.

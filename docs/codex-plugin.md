@@ -1,5 +1,7 @@
 # Use Weft Bench from Codex
 
+[中文](codex-plugin.zh-CN.md) · [Handbook](README.md)
+
 The `weft-bench` plugin gives a Codex agent the existing Triton–Weft and Weft
 operator/model workflows and configured numerical/runtime verification, plus a
 launcher that finds this machine's CLI and configuration.
@@ -8,7 +10,7 @@ It does not introduce another benchmark engine or require an MCP service.
 
 ## Install
 
-Install the [published Bench wheel](install.md), then register the plugin from a
+Install [Bench 1.0 from source](install.md), then register the plugin from a
 checkout with Codex CLI installed:
 
 ```sh

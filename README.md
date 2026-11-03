@@ -1,4 +1,6 @@
-# Triton–Weft Bench
+# Triton–Weft Bench 1.0
+
+[English/Chinese handbook](docs/README.md)
 
 [中文](README.zh-CN.md) · [Results](#paper-results) · [Reproduce the paper](https://tianchen-ai.github.io/triton-weft/experiments/reproduce/) · [Paper CSV tables](docs/paper/README.md)
 
@@ -20,14 +22,14 @@ by Triton–Weft time.
 
 ### Operators
 
-[![Representative kernels and all 543 matched native comparisons](docs/paper/operators.png)](docs/paper/operators.png)
+[![Representative kernels and all 543 matched native comparisons](docs/paper/operators-ecdf.svg)](docs/paper/operators-ecdf.svg)
 
 | Platform | Registered cases | Matched comparisons | Geometric mean speedup |
 |---|---:|---:|---:|
 | SG2044 · RVV128 | 133 | 132 | **1.60×** |
-| K1 · RVV256 / IME1 | 137 | 136 | **1.55×** |
-| K3 A100 · RVV1024 / IME2 | 136 | 135 | **1.82×** |
-| Xeon Platinum 8470Q · AVX-512 / VNNI / AMX | 147 | 140 | **1.56×** |
+| K1 · RVV256 / IME1 | 137 | 136 | **1.54×** |
+| K3 A100 · RVV1024 / IME2 | 136 | 135 | **1.83×** |
+| Xeon Platinum 8470Q · AVX-512 / VNNI / AMX | 147 | 140 | **1.32×** |
 
 References comprise 541 GGML cases and two oneDNN cases.
 [Operator CSV](docs/paper/operators.csv) records workloads, numerical checks,
@@ -35,24 +37,26 @@ timings, references and JIT observations.
 
 ### Model inference
 
-[![Prefill and decode for all nine paired model configurations](docs/paper/models.png)](docs/paper/models.png)
+[![Prefill and decode for all nine paired model configurations](docs/paper/models.svg)](docs/paper/models.svg)
 
 | Platform | Model | Reference | Prefill | Decode |
 |---|---|---|---:|---:|
-| x86 | Llama 2 7B Q4_0 | normal llama.cpp | 1.75× | 1.20× |
-| x86 | DeepSeek 8B Q4_K_M | normal llama.cpp | 1.23× | 1.27× |
-| x86 | Qwen 2.5 14B Q4_K_M | normal llama.cpp | 1.18× | 1.25× |
-| SG2044 | Llama 2 7B Q4_0 | normal llama.cpp | 1.26× | 1.02× |
-| SG2044 | DeepSeek 8B Q4_K_M | normal llama.cpp | 1.15× | 0.957× |
-| K1 | Llama 2 7B Q4_0 | normal llama.cpp | 1.62× | 0.997× |
-| K1 | DeepSeek 8B Q4_K_M | normal llama.cpp | 1.15× | 1.01× |
-| K3 A100 | DeepSeek 8B Q4_K_M | CPU–RVV | 1.93× | 1.92× |
-| K3 A100 | DeepSeek 8B Q4_K_M | vendor IME2 | 0.985× | 1.17× |
+| x86 | Llama 2 7B Q4_0 | llama.cpp | 1.705× | 1.217× |
+| x86 | DeepSeek 8B Q4_K_M | llama.cpp | 1.186× | 1.194× |
+| x86 | Qwen 2.5 14B Q4_K_M | llama.cpp | 1.154× | 1.179× |
+| SG2044 | Llama 2 7B Q4_0 | llama.cpp | 1.260× | 1.011× |
+| SG2044 | DeepSeek 8B Q4_K_M | llama.cpp | 1.167× | 1.016× |
+| K1 | Llama 2 7B Q4_0 | llama.cpp | 1.432× | 1.026× |
+| K1 | DeepSeek 8B Q4_K_M | llama.cpp | 1.188× | 1.168× |
+| K3 A100 | DeepSeek 8B Q4_K_M | vendor IME2 | 1.157× | 1.361× |
+| K3 A100 | DeepSeek 8B Q4_K_M | CPU-vector | 1.939× | 1.976× |
 
 SG2044 model runs use 64 threads; K1, K3 and x86 use eight. SG2044/K1/x86 use 128-token prefill and
 32-token decode after a 512-token context; K3 uses 32-token prefill and
-8-token decode after a 32-token context. [Model CSV](docs/paper/models.csv)
+8-token decode after a 32-token context. [Model CSV](docs/paper/applications.csv)
 contains all 18 measured stages, reference policies and replacement counters.
+
+Version **1.0.0**. First install the product using the [Triton–Weft installation guide](https://tianchen-ai.github.io/triton-weft/getting-started/installation/). Normal kernels come from `triton.kernels.weft`.
 
 ## Install and reproduce
 
@@ -62,7 +66,9 @@ OpenBLAS F32 GEMM, and oneDNN strict F32, BF16/F32 or S8/S32 matmul. See the
 a compiler candidate is available.
 
 ```sh
-python -m pip install https://github.com/Tianchen-ai/triton-weft-bench/releases/download/v0.4.1/triton_weft_bench-0.4.1-py3-none-any.whl
+git clone https://github.com/Tianchen-ai/triton-weft-bench.git
+cd triton-weft-bench
+python -m pip install '.[verification]'
 export WEFT_BENCH_CONFIG=/path/to/bench.local.json
 
 # See the selected author program, reference and artifact evidence.
@@ -82,28 +88,28 @@ weft-bench e2e llama2-7b-q4_0 --target k1 \
   --replace ggml.vec_dot/q4_0=/work/dot.py:my_dot --phase both
 ```
 
-The supported scope is intentionally concrete: GGML operator references and preset
-llama.cpp workloads, with Triton–Weft source/artifact candidates. Historical Weft results
+Bench provides GGML operator references and preset llama.cpp workloads, with
+Triton–Weft source/artifact candidates. Historical Weft results
 remain readable. Runtime/library paths,
 compiler targets and local/SSH deployment are external configuration.
 The examples assume that configuration already exists. See [installation](docs/install.md)
 to choose the compiler adapter, native SDK and target environment. Target names are
 local aliases; installing Bench does not install a compiler, GGML or model weights.
 
-`main` is the product branch. The complete optimized corpus is an installable
-`weft_bench.kernels` package. Public catalogs contain the selected DSL, shape,
-physical parameters, reference provider and retained hardware evidence:
+`main` is the product branch. Normal kernels are installed by Triton–Weft as
+`triton.kernels.weft`; Bench's compatibility modules forward to that library. Public catalogs contain the selected DSL, shape,
+physical parameters, reference provider and recorded hardware evidence:
 
 DSL code uses the standard `tl` alias. GGML base Encodings come from the product's
 `triton.integrations.ggml_formats`; explicit candidate layouts are collected in
-`weft_bench.kernels.ggml.layouts`. The [source map](docs/catalogs.md#author-programs-and-encoding-declarations)
+`triton.kernels.weft.ggml.layouts`. The [source map](docs/catalogs.md#author-programs-and-encoding-declarations)
 distinguishes declarations, numerical programs, preparation and reference adapters.
 
 | Target catalog | Registered cases |
 |---|---:|
-| SG2044 | 133 |
-| K1 | 137 |
-| K3 A100 | 136 (including 2 IME2) |
+ROWPLACEHOLDER
+ROWPLACEHOLDER
+ROWPLACEHOLDER
 | x86 single-thread | 147 |
 
 The [catalog guide](docs/catalogs.md) explains these selections and the 9 model

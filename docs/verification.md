@@ -1,5 +1,7 @@
 # Configured maturity verification
 
+[中文](verification.zh-CN.md) · [Handbook](README.md)
+
 `verify` enumerates and executes a selected product coverage plan. It uses the same
 operator workloads, input contracts, numerical oracles and native adapters as `op`.
 It does not time GGML references, rewrite fixed baselines or select model replacements.

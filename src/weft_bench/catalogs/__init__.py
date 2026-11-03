@@ -1,5 +1,6 @@
 """Portable selected programs, workload suites and reference contracts."""
 from copy import deepcopy
+from importlib.util import find_spec
 import json
 from pathlib import Path
 
@@ -21,9 +22,11 @@ def resolve_source(source):
         return source
     relative = Path(source.removeprefix("package:"))
     if relative.is_absolute() or ".." in relative.parts or relative.parts[0] != "kernels":
-        raise ValueError("catalog source must name a kernel inside the Bench package")
-    from triton.kernels import weft
-    result = Path(weft.__file__).parent.joinpath(*relative.parts[1:])
+        raise ValueError("catalog source must name a kernel inside the Triton–Weft product")
+    product = find_spec("triton")
+    if product is None or not product.submodule_search_locations:
+        raise ModuleNotFoundError("Install Triton–Weft to resolve the product kernel catalog")
+    result = Path(next(iter(product.submodule_search_locations))).joinpath("kernels", "weft", *relative.parts[1:])
     if not result.is_file():
         raise FileNotFoundError(result)
     return str(result)

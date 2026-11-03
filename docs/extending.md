@@ -1,5 +1,7 @@
 # Inputs and implementations
 
+[中文](extending.zh-CN.md) · [Handbook](README.md)
+
 The shipped product compares Triton–Weft and Weft with GGML for predefined computations.
 A new implementation of one of these computations requires a kernel binding, not
 a new input generator, timer, remote launcher or result parser.

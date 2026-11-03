@@ -1,37 +1,53 @@
-# Paper kernel and model data
+# Final paper data
 
 [中文](README.zh-CN.md) · [Reproduction workflow](https://tianchen-ai.github.io/triton-weft/experiments/reproduce/)
 
-These tables accompany the overall-performance figures in the Weft paper V10.
-They retain values from its frozen `data/operators.csv` and `data/models.csv`,
-with machine-local paths omitted.
+Fourteen CSVs preserve the final paper measurements. Figures use the approved
+vector SVGs. [Provenance](provenance.json) records the paper revision, hashes,
+row counts and thread settings.
 
-- [operators.csv](operators.csv): 553 operator–platform rows, including 543 matched native comparisons.
-- [models.csv](models.csv): 18 phases from nine paired model configurations.
-- [operators.png](operators.png) and [models.png](models.png): the paper's original
-  Figure 8 and Figure 10 PNG exports, embedded directly in the repository README.
+| Table | Rows | Evidence |
+|---|---:|---|
+| [operators.csv](operators.csv) | 553 | All operator/target cases and matched times |
+| [operator-families.csv](operator-families.csv) | 5 | Family counts and geometric means |
+| [applications.csv](applications.csv) | 18 | Complete inference phases and reference policies |
+| [application-x86-windows.csv](application-x86-windows.csv) | 120 | x86 per-process stage observations |
+| [application-roles.csv](application-roles.csv) | 18 | Computation and preparation role effects |
+| [fp32-libraries.csv](fp32-libraries.csv) | 12 | FP32 GEMM against three libraries |
+| [grid.csv](grid.csv) | 48 | Complete calls on 1/2/4/8 threads |
+| [ggml-compute.csv](ggml-compute.csv) | 32 | Computation inside GGML workers |
+| [author-controls.csv](author-controls.csv) | 240 | Five-route sharing and precision controls |
+| [author-organization.csv](author-organization.csv) | 48 | Arithmetic and output-state scope |
+| [five-route-bindings.csv](five-route-bindings.csv) | 30 | Selected task bindings |
+| [format-addition.csv](format-addition.csv) | 5 | Q4 construction and Q6 source increments |
+| [state-algorithms.csv](state-algorithms.csv) | 36 | Attention and Welford organizations |
+| [compiler-mechanisms.csv](compiler-mechanisms.csv) | 214 | Paired physical mechanisms |
 
-## Read the columns
+## Read the data
 
-`case`, `shape`, `target` and `scope` identify the workload.
-`median_ms` and `baseline_median_ms` are the matched native/model times;
-`speedup` is reference divided by candidate. `correctness` states the actual
-check scope. Warmup, sampling, cache and protocol columns preserve the setting.
+In `operators.csv`, `weft_ms` and `reference_ms` are matching native call times;
+`speedup` divides reference by Weft. Shape, scope and correctness identify the
+workload and check. There are 553 cases and 543 matched references.
 
-JIT columns separately record first compilation/call, warm Python invocation and
-disk-cache reuse. Model rows include normal-backend policy and observed replacement
-counters. Matched operator references are 541 GGML and two oneDNN cases;
-K3 model CPU–RVV and vendor IME2 policies are separate.
+`applications.csv` contains complete stages for eight model/platform deployments
+and the additional K3 CPU-vector reference, totaling 18 rows. SG2044 uses
+64 threads and the other targets use eight. `aggregation` identifies process
+aggregation; the separate x86 table gives individual stage windows.
 
-## Reproduce
+Control `s0/s1` selects local/shared preparation and `g0/g1` direct/grouped
+accumulation. Compiler studies fix the author program and change physical
+mechanisms. `disabled_over_enabled` and sample columns preserve paired values.
 
-Install Triton–Weft and this Bench package, configure the target and references,
-inspect `show CASE --target TARGET`, then use `op`, `prepare-model` and `e2e`.
-The [complete guide](https://tianchen-ai.github.io/triton-weft/experiments/reproduce/)
-provides commands.
+## Figures and reproduction
 
-V10's product/Bench source snapshot is `369c22929` / `e17240a`.
-The aggregate combines installed-JIT coverage and affected-case repairs;
-each original observation retains its own source/settings.
-Current catalogs provide author-program entries, shapes, parameters and reference
-providers for new runs on the selected installation and machine.
+[![Representative kernels](operators-heatmap.svg)](operators-heatmap.svg)
+
+[![Every matched distribution](operators-ecdf.svg)](operators-ecdf.svg)
+
+[![Complete inference](models.svg)](models.svg)
+
+Install [Triton–Weft](https://github.com/Tianchen-ai/triton-weft) and Bench,
+configure references and targets, inspect `show`, then run `op`,
+`prepare-model` and `e2e`. The [complete bilingual guide](https://tianchen-ai.github.io/triton-weft/experiments/reproduce/)
+provides commands. The product supplies normal kernels; Bench owns inputs,
+comparisons and measurement.

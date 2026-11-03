@@ -1,8 +1,12 @@
 # Mainline and benchmark boundary
 
-The upcoming embedded Triton route has a separate
-[integration contract](triton-weft-integration.md). It is preparation for a real
-native artifact/launcher interface; the current compiler path remains active.
+[中文](migration.zh-CN.md) · [Handbook](README.md)
+
+Weft 1.0 owns the programming model, compiler, runtime and normal kernel library
+in Triton–Weft. Bench consumes its public JIT, native artifact and launcher
+interfaces, documented in the [integration guide](triton-weft-integration.md).
+Normal kernels live in `triton.kernels.weft`; the `weft_bench.kernels`
+compatibility modules forward to that installed product.
 
 The source extraction preserves algorithm definitions and public runtime ownership.
 

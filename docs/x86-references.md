@@ -1,5 +1,7 @@
 # x86 reference libraries and model baselines
 
+[中文](x86-references.zh-CN.md) · [Handbook](README.md)
+
 Use the same inputs, native worker, timer and result files on x86. A reference-only
 environment needs a native compiler and the selected libraries; it does not need
 Weft, Triton, PyTorch or a working Weft x86 compiler backend.

@@ -1,5 +1,6 @@
 """Publication-critical catalog, retained evidence and output replacement contracts."""
 from contextlib import redirect_stderr
+from types import SimpleNamespace
 from dataclasses import replace
 import io
 import json
@@ -16,6 +17,16 @@ from weft_bench.types import Result
 
 
 class ReleaseStructureTests(unittest.TestCase):
+    def test_catalog_resolves_product_sources_without_loading_native_bindings(self):
+        with tempfile.TemporaryDirectory() as directory:
+            product = Path(directory) / "triton"
+            source = product / "kernels/weft/dense/example.py"
+            source.parent.mkdir(parents=True)
+            source.write_text("# Product source\n")
+            spec = SimpleNamespace(submodule_search_locations=[str(product)])
+            with patch("weft_bench.catalogs.find_spec", return_value=spec):
+                self.assertEqual(resolve_source("package:kernels/dense/example.py"), str(source))
+
     def test_reference_source_alias_preserves_original_build_evidence(self):
         from weft_bench.adapters.reference import inspect_ggml_compilation
         from weft_bench.execution import Executor
