@@ -1,6 +1,6 @@
 # Triton–Weft Bench 1.0
 
-[English](README.md) · [Bench 网站](https://tianchen-ai.github.io/triton-weft-bench/zh-CN/) · [全部论文图](https://tianchen-ai.github.io/triton-weft-bench/zh-CN/paper/gallery/) · [结果表](docs/paper/README.zh-CN.md) · [Triton–Weft](https://github.com/Tianchen-ai/triton-weft)
+[English](README.md) · [下载 1.0](https://github.com/Tianchen-ai/triton-weft-bench/releases/tag/v1.0.0) · [Bench 网站](https://tianchen-ai.github.io/triton-weft-bench/zh-CN/) · [全部论文图](https://tianchen-ai.github.io/triton-weft-bench/zh-CN/paper/gallery/) · [结果表](docs/paper/README.zh-CN.md) · [Triton–Weft](https://github.com/Tianchen-ai/triton-weft)
 
 **从 Weft 程序，走到条件匹配的 CPU 实验。**
 
