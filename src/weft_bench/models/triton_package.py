@@ -50,15 +50,15 @@ def prepare_native_replacements(mapping, target, output):
             options = {**runtime, **binding}
             if "toolchain" in binding:
                 base = runtime.get("toolchain", {})
-                selected = binding["toolchain"]
-                options["toolchain"] = {**base, **selected}
+                override = binding["toolchain"]
+                options["toolchain"] = {**base, **override}
                 # Per-role flags refine the selected platform SDK. Preserve
                 # its compiler, sysroot, include/link paths and runtime files.
                 for flags in ("cflags", "ldflags"):
-                    if flags in selected:
-                        if isinstance(base.get(flags, ()), str) or isinstance(selected[flags], str):
+                    if flags in override:
+                        if isinstance(base.get(flags, ()), str) or isinstance(override[flags], str):
                             raise TypeError(f"toolchain.{flags} must be a sequence of arguments")
-                        options["toolchain"][flags] = [*base.get(flags, ()), *selected[flags]]
+                        options["toolchain"][flags] = [*base.get(flags, ()), *override[flags]]
             if candidate.source:
                 options.update(source=candidate.source, symbol=candidate.symbol)
             if candidate.compiler:
