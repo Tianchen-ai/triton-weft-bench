@@ -280,15 +280,19 @@ def run(request):
             cold_data = measurement["cache"] == "cold"
             samples = []
             count = 1 if cold_data else max(1, min(10000, math.ceil(measurement["batch_ms"] / hit_ms)))
+            warmup_budget = max(measurement["warmup_ms"], measurement["warmup"] * measurement["batch_ms"])
+            sample_budget = measurement["samples"] * measurement["batch_ms"]
+            warmup_calls = min(measurement["warmup"], max(1, math.ceil(warmup_budget / max(hit_ms, measurement["batch_ms"]))))
+            sample_groups = min(measurement["samples"], max(1, math.ceil(sample_budget / max(hit_ms, measurement["batch_ms"]))))
+            warmup_count = 0
             if not measurement["check_only"]:
                 warmup_start = time.perf_counter_ns()
-                warmup_count = 0
                 if measurement["warmup"] > 0:
-                    while (warmup_count < measurement["warmup"] or
+                    while (warmup_count < warmup_calls or
                            (time.perf_counter_ns() - warmup_start) / 1e6 < measurement["warmup_ms"]):
                         timed()
                         warmup_count += 1
-                for _ in range(measurement["samples"]):
+                for _ in range(sample_groups):
                     if request["reset_each_call"] or cold_data:
                         samples.append(sum(timed(cold_data=cold_data)[0] for _ in range(count)) / count)
                     else:
@@ -355,7 +359,7 @@ def run(request):
                 if request["reset_each_call"]:
                     raise NotImplementedError("runtime component profiling requires a stateless workload")
                 framework["runtime_profile"] = profile_runtime(
-                    invoke, first[0], iterations=count, groups=measurement["samples"], plain_samples=samples,
+                    invoke, first[0], iterations=count, groups=sample_groups, plain_samples=samples,
                     bound=bound_calls[0], grid=grid, check=lambda: action(1),
                     launches_per_workload=len(bound_calls),
                     reference=triton.load(request["profile_reference_artifact"])
@@ -364,6 +368,10 @@ def run(request):
             if request["save_outputs"]:
                 action(2)
             result.update(status="ok", samples_ms=samples, iterations=count,
+                          python_measurement={"protocol": "cpu-python-hot-time-budget-v1",
+                              "warmup_budget_ms": warmup_budget, "sample_budget_ms": sample_budget,
+                              "warmup_calls": warmup_count, "sample_count": len(samples),
+                              "iterations_per_sample": count},
                           data_cache=measurement["cache"],
                           eviction_bytes=measurement["eviction_bytes"] if cold_data else 0,
                           cold_compile_and_launch_ms=cold_ms, first_cache_hit_launch_ms=hit_ms,
