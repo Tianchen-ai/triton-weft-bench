@@ -74,6 +74,12 @@ used count-only warmup and serial samples. Those absent fields retain that meani
 other missing historical settings are not inferred. Existing measurements are not
 rewritten when a new measurement uses different settings.
 
+Catalogs and target configuration can declare `case_measurements` for individual
+workloads. The CLI resolves each suite member's timing policy before device work;
+an explicit timing flag overrides that field for the selected run. `show CASE`
+includes the resolved policy. This lets one `full` suite preserve fixed references
+with different warmup contracts without changing their historical observations.
+
 For a paired comparison of configured native artifacts, use
 `op CASE --impl before,after --sample-order alternating --target TARGET`.
 The existing worker prepares and checks both implementations, then reverses their
