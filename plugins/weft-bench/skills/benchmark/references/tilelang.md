@@ -3,6 +3,14 @@
 Select a local plugin environment with `--environment tilelang` when configured;
 `--plugin-info` reports its actual Bench installation and target configuration.
 
+The independent [TileLang–Weft Bench](https://github.com/Tianchen-ai/tilelang-weft-bench)
+provides the `tilelang-weft-bench` command and `tilelang_weft_bench.catalogs`
+provider over this engine. Its four `full` suites contain SG2044 133, K1 137,
+K3 A100 136 (including all three IME2 cases) and x86 147 cases. Select the
+configured `tilelang` environment to use that package; the default environment
+continues to select Triton. The TileLang installation needs `tilelang` and
+`weft-core`, without the Triton compiler package.
+
 - Source JIT: `weft_bench.adapters.triton_jit:TileLangJitAdapter`.
 - Source AOT or exported native artifact: `weft_bench.adapters.triton_native:TileLangArtifactAdapter`.
 - Source programs: installed `tilelang.weft.kernels`; provide source/symbol,
