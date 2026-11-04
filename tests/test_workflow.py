@@ -14,6 +14,50 @@ from weft_bench.adapters.dense import bind_metadata
 
 
 class WorkflowTests(unittest.TestCase):
+    def test_suite_preserves_case_timing_and_explicit_cli_overrides(self):
+        from weft_bench.cli import main
+
+        target = Target("host", {
+            "operator_suites": {"mixed": ["q4_0_dot", "q4_1_dot"]},
+            "case_measurements": {"q4_1_dot": {"warmup": 1, "warmup_ms": 200}},
+        })
+        captured = []
+
+        def run(case, names, target, measurement, **kwargs):
+            captured.append(measurement)
+            return [Result(case.name, names[0], target.name, case.shape, case.scope,
+                           "ok", 1.0, [1.0], "within-tolerance")]
+
+        with tempfile.TemporaryDirectory() as directory, \
+                patch("weft_bench.cli.load_config", return_value={}), \
+                patch("weft_bench.cli.select_target", return_value=target), \
+                patch("weft_bench.cli.benchmark", side_effect=run):
+            args = ["op", "--suite", "mixed", "--target", "host", "--impl", "fake"]
+            self.assertEqual(main([*args, "--output", directory + "/selected"]), 0)
+            self.assertEqual([m.warmup for m in captured], [3, 1])
+            self.assertEqual([m.warmup_ms for m in captured], [0, 200])
+            captured.clear()
+            self.assertEqual(main([*args, "--warmup", "0", "--check-only",
+                                   "--output", directory + "/explicit"]), 0)
+            self.assertEqual([m.warmup for m in captured], [0, 0])
+            self.assertEqual([m.warmup_ms for m in captured], [0, 200])
+            self.assertTrue(all(m.check_only for m in captured))
+
+    def test_invalid_case_timing_is_rejected_before_the_suite_starts(self):
+        from weft_bench.cli import main
+
+        target = Target("host", {
+            "operator_suites": {"mixed": ["q4_0_dot", "q4_1_dot"]},
+            "case_measurements": {"q4_1_dot": {"warmup_ms": -1}},
+        })
+        with tempfile.TemporaryDirectory() as directory, \
+                patch("weft_bench.cli.load_config", return_value={}), \
+                patch("weft_bench.cli.select_target", return_value=target), \
+                patch("weft_bench.cli.benchmark") as run:
+            self.assertNotEqual(main(["op", "--suite", "mixed", "--target", "host",
+                                      "--impl", "fake", "--output", directory + "/invalid"]), 0)
+            run.assert_not_called()
+
     def test_quantized_jit_snapshots_only_the_original_readonly_inputs(self):
         from weft_bench.operators import get
         from weft_bench.workloads import configured_workload, ports

@@ -9,9 +9,8 @@ import sys
 
 from .api import benchmark
 from .loading import load_config, select_target, select_model
-from .operators import SUITES, OperatorSelection, catalog, get, configured_suites
+from .operators import SUITES, OperatorSelection, catalog, get, configured_suites, case_measurement
 from .results import apply_baselines, read, save, table
-from .types import Measurement
 from .execution import ExecutionError
 
 
@@ -168,15 +167,15 @@ def parser():
             command.add_argument(
                 "--shape", help="explicit dimensions, e.g. rows=1,K=4096"
             )
-            command.add_argument("--warmup", type=int, default=3)
-            command.add_argument("--warmup-ms", type=float, default=0.0,
+            command.add_argument("--warmup", type=int)
+            command.add_argument("--warmup-ms", type=float,
                                  help="minimum native warmup duration; --warmup 0 disables warmup")
-            command.add_argument("--samples", type=int, default=5)
-            command.add_argument("--sample-order", choices=("serial", "alternating"), default="serial",
+            command.add_argument("--samples", type=int)
+            command.add_argument("--sample-order", choices=("serial", "alternating"),
                                  help="alternate sample order for prepared native implementations in one worker")
-            command.add_argument("--batch-ms", type=float, default=10)
-            command.add_argument("--cache", choices=("reuse", "cold"), default="reuse")
-            command.add_argument("--eviction-bytes", type=int, default=64 * 1024 * 1024)
+            command.add_argument("--batch-ms", type=float)
+            command.add_argument("--cache", choices=("reuse", "cold"))
+            command.add_argument("--eviction-bytes", type=int)
         else:
             command.add_argument(
                 "--scenario", choices=("default", "smoke"), default=None
@@ -656,22 +655,17 @@ def main(argv=None, *, catalog_provider=None):
                 raise ValueError("--shape is for a single case")
             if shape:
                 selected = replace(selected, shape={**selected.shape, **shape})
-            measurement = Measurement(
-                args.warmup,
-                args.samples,
-                args.batch_ms,
-                args.cache,
-                args.eviction_bytes,
-                check_only=args.check_only,
-                warmup_ms=args.warmup_ms,
-                sample_order=args.sample_order,
-            )
+            timing_overrides = {name: getattr(args, name) for name in (
+                "warmup", "samples", "batch_ms", "cache", "eviction_bytes", "warmup_ms", "sample_order"
+            ) if getattr(args, name) is not None}
+            timing_overrides["check_only"] = args.check_only
             suites = configured_suites(target.settings)
             if args.suite and args.suite not in suites:
                 raise ValueError(f"unknown suite {args.suite!r}; use list --kind suites with this config/target")
             selections = suites[args.suite] if args.suite else [OperatorSelection(
                 args.case, target.settings.get("case_catalog", {}).get(args.case, {}).get("shape", {}))]
-            for selection in selections:
+            measurements = [case_measurement(target.settings, selection.name, timing_overrides) for selection in selections]
+            for selection, measurement in zip(selections, measurements):
                 name = selection.name
                 print(f"Running {name} on {target.name}", file=sys.stderr, flush=True)
                 case = get(name)

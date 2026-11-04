@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field, replace
 
 from ..loading import load_object
-from ..types import Case
+from ..types import Case, Measurement
 
 FORMATS = (
     "q1_0",
@@ -289,6 +289,17 @@ class OperatorSelection:
     def describe(self):
         dimensions = ",".join(f"{key}={value}" for key, value in self.shape.items())
         return f"{self.name}({dimensions})" if dimensions else self.name
+
+
+def case_measurement(settings, name, overrides):
+    policies = settings.get("case_measurements", {})
+    if not isinstance(policies, dict):
+        raise ValueError("case_measurements must map case names to timing options")
+    policy = policies.get(name, {})
+    allowed = {"warmup", "warmup_ms", "samples", "batch_ms", "cache", "eviction_bytes", "sample_order"}
+    if not isinstance(policy, dict) or policy.keys() - allowed:
+        raise ValueError(f"invalid timing options for {name}: {policy}")
+    return Measurement(**{**policy, **overrides})
 
 
 def configured_suites(settings=None):
