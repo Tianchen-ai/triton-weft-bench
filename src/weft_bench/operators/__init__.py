@@ -303,7 +303,7 @@ def configured_suites(settings=None):
         selections = []
         for item in cases:
             if isinstance(item, str) and item:
-                selected = OperatorSelection(item)
+                selected = OperatorSelection(item, dict((settings or {}).get("case_catalog", {}).get(item, {}).get("shape", {})))
             elif isinstance(item, dict) and not item.keys() - {"case", "shape"}:
                 case_name, shape = item.get("case"), item.get("shape", {})
                 if not isinstance(case_name, str) or not case_name or not isinstance(shape, dict):

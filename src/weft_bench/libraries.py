@@ -108,7 +108,9 @@ def weft_call(name, case, workload, metadata, aliases=None, packed_inputs=None):
     if converted_projection:
         collect = (
             "\n#if defined(WB_PROJECTION_Q8K_CONTRACT) || defined(WB_PROJECTION_Q80_CONTRACT) || defined(WB_PROJECTION_Q81_CONTRACT)\n"
-            "if(workspace!=data.quantized)throw std::runtime_error(\"candidate activation bytes differ from declared projection contract\");\n"
+            "if(workspace!=data.quantized){size_t i=0;while(i<workspace.size()&&workspace[i]==data.quantized[i])++i;"
+            "throw std::runtime_error(\"candidate activation bytes differ from declared projection contract at byte \"+std::to_string(i)+"
+            "\": \"+std::to_string(workspace.at(i))+\" vs \"+std::to_string(data.quantized.at(i)));}\n"
             "#endif\n"
         )
     return NativeCall(name, setup, call, collect=collect, includes=(name + "-kernel.h",),
