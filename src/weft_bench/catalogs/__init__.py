@@ -55,10 +55,6 @@ def apply_catalog(settings, implementations):
     suites = {key: [{"case": case, "shape": cases[case]["shape"]} for case in names]
               for key, names in selected["suites"].items()}
     settings = {**settings, "operator_suites": {**suites, **settings.get("operator_suites", {})},
-                "case_measurements": {
-                    **{case: record["measurement"] for case, record in cases.items() if "measurement" in record},
-                    **settings.get("case_measurements", {}),
-                },
                 "case_catalog": cases,
                 "source_implementation": candidate_name,
                 "verification": {"source_implementation": candidate_name, **settings.get("verification", {})}}

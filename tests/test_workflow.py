@@ -19,7 +19,8 @@ class WorkflowTests(unittest.TestCase):
 
         target = Target("host", {
             "operator_suites": {"mixed": ["q4_0_dot", "q4_1_dot"]},
-            "case_measurements": {"q4_1_dot": {"warmup": 1, "warmup_ms": 200}},
+            "case_catalog": {"q4_1_dot": {"measurement": {"warmup": 1, "warmup_ms": 200}}},
+            "case_measurements": {"q4_1_dot": {"samples": 7}},
         })
         captured = []
 
@@ -36,6 +37,7 @@ class WorkflowTests(unittest.TestCase):
             self.assertEqual(main([*args, "--output", directory + "/selected"]), 0)
             self.assertEqual([m.warmup for m in captured], [3, 1])
             self.assertEqual([m.warmup_ms for m in captured], [0, 200])
+            self.assertEqual([m.samples for m in captured], [5, 7])
             captured.clear()
             self.assertEqual(main([*args, "--warmup", "0", "--check-only",
                                    "--output", directory + "/explicit"]), 0)

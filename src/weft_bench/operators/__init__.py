@@ -295,11 +295,13 @@ def case_measurement(settings, name, overrides):
     policies = settings.get("case_measurements", {})
     if not isinstance(policies, dict):
         raise ValueError("case_measurements must map case names to timing options")
+    catalog_policy = settings.get("case_catalog", {}).get(name, {}).get("measurement", {})
     policy = policies.get(name, {})
     allowed = {"warmup", "warmup_ms", "samples", "batch_ms", "cache", "eviction_bytes", "sample_order"}
-    if not isinstance(policy, dict) or policy.keys() - allowed:
-        raise ValueError(f"invalid timing options for {name}: {policy}")
-    return Measurement(**{**policy, **overrides})
+    for candidate in (catalog_policy, policy):
+        if not isinstance(candidate, dict) or candidate.keys() - allowed:
+            raise ValueError(f"invalid timing options for {name}: {candidate}")
+    return Measurement(**{**catalog_policy, **policy, **overrides})
 
 
 def configured_suites(settings=None):
