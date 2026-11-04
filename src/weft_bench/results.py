@@ -264,12 +264,14 @@ def save(rows, destination):
     else:
         path.mkdir(parents=True, exist_ok=True)
         path = path / "results.json"
-    path.write_text(
+    temporary = path.with_name("." + path.name + ".pending-write")
+    temporary.write_text(
         json.dumps(
             {"schema_version": 1, "results": [r.to_dict() for r in rows]}, indent=2
         )
         + "\n"
     )
+    temporary.replace(path)
     fields = [
         "case",
         "shape",
@@ -412,6 +414,9 @@ def read(path, *, _visited=()):
                     row.details.setdefault("artifacts", {})[key] = str(
                         (local / relative).resolve()
                     )
+        if row.details.get("producer") == "tilelang":
+            from .runner import restore_retained_projection_boundary
+            restore_retained_projection_boundary(row)
     return rows
 
 

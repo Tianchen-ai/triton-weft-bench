@@ -14,6 +14,30 @@ from weft_bench.adapters.dense import bind_metadata
 
 
 class WorkflowTests(unittest.TestCase):
+    def test_tilelang_projection_retains_the_complete_native_boundary(self):
+        from weft_bench.core import NativeCall
+        from weft_bench.operators import get
+        from weft_bench.workloads import configured_workload, ports
+        from weft_bench.runner import _record_projection_boundary
+        from weft_bench.results import contracts_match, MODEL_WEIGHTS_SCOPE
+
+        case = get("q4_k_projection_decode", {"M": 1, "N": 64, "K": 256})
+        workload = configured_workload(case, {})
+        row = Result(case.name, "tilelang", "cpu", case.shape, case.scope, "ok", 1.0,
+                     details={"dtype": case.dtype, "phase": case.phase,
+                              "ports": [asdict(p) for p in ports(case)],
+                              "measurement": {**asdict(Measurement()), "protocol": "native-workload-v3"}})
+        call = NativeCall("tilelang", "prepare();", "native_entry();")
+        _record_projection_boundary(row, workload, call, "tilelang", "/retained/worker.cpp")
+        reference = replace(row, implementation="ggml", scope=MODEL_WEIGHTS_SCOPE,
+                            details={**row.details, "projection_boundary": {
+                                **row.details["projection_boundary"],
+                                "evidence": {**row.details["projection_boundary"]["evidence"], "provider": "ggml"}}})
+        self.assertTrue(contracts_match(row, reference))
+        self.assertFalse(contracts_match(row, replace(reference, shape={**case.shape, "K": 512})))
+        incomplete = {**row.details["projection_boundary"], "activation": "prequantized-before-call"}
+        self.assertFalse(contracts_match(replace(row, details={**row.details, "projection_boundary": incomplete}), reference))
+
     def test_saved_input_preserves_the_following_random_stream(self):
         import subprocess
         from weft_bench.adapters.native import NATIVE

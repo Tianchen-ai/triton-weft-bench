@@ -14,7 +14,7 @@ from .diagnostics import save_request, failure_stage
 from .execution import Executor, ExecutionError
 from .inputs import Inputs, native_inputs
 from .libraries import ggml_call, weft_call
-from .types import Measurement, Result
+from .types import Case, Measurement, Result
 from .workloads import configured_workload, parameter_defaults, ports
 from .adapters.native import NATIVE, compile_artifact, flags_for, ggml_flags
 from .operators.implementations import resolve_binding
@@ -88,7 +88,7 @@ def _compile_details(row, directory):
 
 def _record_projection_boundary(row, workload, call, provider, source):
     """Capture the prepared native call, without changing its code or timer."""
-    if (provider not in ("ggml", "weft", "artifact", "triton")
+    if (provider not in ("ggml", "weft", "artifact", "triton", "tilelang")
             or workload.header != "projection_inputs.h"):
         return
     scope = projection_scope(row.scope)
@@ -110,6 +110,52 @@ def _record_projection_boundary(row, workload, call, provider, source):
             "invocation": workload.before_call + call.invoke + workload.after_call,
         },
     }
+
+
+def restore_retained_projection_boundary(row):
+    """Recover omitted TileLang evidence from its exact retained native worker.
+
+    This only reads the saved request, ABI and generated invocation. It neither
+    runs the kernel nor changes a timing observation or reference contract.
+    """
+    d = row.details
+    if (d.get("producer") != "tilelang" or d.get("projection_boundary")
+            or projection_scope(row.scope) is None
+            or d.get("candidate_origin") != "target-native-kernel-grid-JIT"
+            or d.get("entry") != "single-instance"):
+        return
+    replay = Path(d["replay"])
+    artifact = Path(d["artifacts"]["weft"])
+    source = Path(d["diagnostics"]) / "native" / row.case / "worker" / "worker.cpp"
+    if not all(path.is_file() for path in (replay, source, artifact / "manifest.json", artifact / "kernel.native.json")):
+        return
+    request = json.loads(replay.read_text())
+    case = Case.from_dict(request["case"])
+    if case.name != row.case or case.shape != row.shape or case.scope != row.scope:
+        raise ValueError("retained projection request differs from its observation")
+    options = dict(request["target"]["implementations"][row.implementation])
+    options.update(options.pop("bindings", {}).get(row.case, {}))
+    manifest = json.loads((artifact / "manifest.json").read_text())
+    metadata = json.loads((artifact / "kernel.native.json").read_text())
+    if manifest.get("producer") != "tilelang" or manifest.get("native_library") is not True:
+        raise ValueError("retained projection is not a TileLang native artifact")
+    abi = manifest["kernel"]
+    for argument in abi["arguments"]:
+        storage = metadata["source_storage"].get(argument["name"], [])
+        if storage:
+            if len(storage) != 1:
+                raise ValueError("retained projection needs one logical storage contract")
+            argument["logical_view"] = storage[0]
+    from .adapters.workspaces import invocation_workspaces
+    workload = configured_workload(case, request["target"]["settings"])
+    workload, _, _ = invocation_workspaces(case, workload, abi, options.get("workspaces", []))
+    call = weft_call(row.implementation, case, workload, {**abi, "symbol": "native_entry"}, options.get("arguments", {}))
+    emitted = source.read_text()
+    if (workload.setup not in emitted or call.prepare not in emitted
+            or "auto invoke = [&] { " + workload.before_call + call.invoke + workload.after_call + " };" not in emitted):
+        raise ValueError("retained projection worker differs from its typed invocation")
+    _record_projection_boundary(row, workload, call, "tilelang", source)
+    d["projection_boundary"]["evidence"]["recovered_from"] = "retained-worker-and-typed-ABI"
 
 
 def run_operator(
@@ -437,8 +483,8 @@ def run_operator(
             for call in calls:
                 row = next(row for row in rows if row.implementation == call.name)
                 provider = mode(call.name, target)
-                if provider == "native" and row.details.get("producer") == "triton":
-                    provider = "triton"
+                if provider == "native" and row.details.get("producer") in ("triton", "tilelang"):
+                    provider = row.details["producer"]
                 _record_projection_boundary(row, workload, call, provider,
                                             worker.local / "worker.cpp")
             binary = worker.workspace + "/worker"
