@@ -14,6 +14,19 @@ from weft_bench.adapters.dense import bind_metadata
 
 
 class WorkflowTests(unittest.TestCase):
+    def test_quantized_jit_snapshots_only_the_original_readonly_inputs(self):
+        from weft_bench.operators import get
+        from weft_bench.workloads import configured_workload, ports
+
+        for name, expected in (("iq1_s_dot_rows", {"W", "X"}),
+                               ("q4_0_dequantize", {"W"}), ("q8_k_quantize", {"X"})):
+            case = get(name)
+            workload = configured_workload(case, {})
+            readonly = {port.name for port in ports(case) if port.access == "input"}
+            self.assertEqual(set(workload.snapshots), expected)
+            self.assertEqual(expected, set(workload.snapshots) & readonly)
+            self.assertNotIn("Y", workload.snapshots)
+
     def test_tilelang_projection_retains_the_complete_native_boundary(self):
         from weft_bench.core import NativeCall
         from weft_bench.operators import get

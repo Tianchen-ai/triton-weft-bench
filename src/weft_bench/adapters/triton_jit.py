@@ -51,7 +51,7 @@ class TritonJitAdapter:
             declared = ports(case)
             workload = configured_workload(case, target.settings)
             prepared_inputs = [port.name for port in declared
-                               if case.family == "projection" and port.access == "input"
+                               if port.access == "input"
                                and port.name in workload.snapshots]
             files = selected.materialize(directory / "inputs", declared)
             row.details["inputs"] = selected.describe(files)

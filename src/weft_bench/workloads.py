@@ -310,6 +310,8 @@ def native_workload(case):
             batch_buffers={**tables, "W": "data.weights.data()",
                            "X": "data.source.data()" if family == "quantize" else "data.activation.data()",
                            "Y": "output.data()"},
+            snapshots=({"X": "data.source"} if family == "quantize" else
+                       {"W": "data.weights", **({"X": "data.activation"} if family == "vec_dot" else {})}),
             correctness=("bit-exact" if family == "quantize" else
                          "within-tolerance-packed-affine-dot" if family == "vec_dot" and fmt in ("q4_1", "q5_1") else
                          "within-tolerance"),

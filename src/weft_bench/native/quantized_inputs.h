@@ -136,8 +136,8 @@ struct QuantizedInputs {
       for(auto &v:x)v=random();
       wb_quantize_reference(activation_type,x.data(),activation.data(),K);
       inputs.load("X",activation);
-      for(size_t r=0;r<rows;++r){for(auto &v:w)v=random();ggml_quantize_chunk(weight_type,w.data(),weights.data()+r*weight_bytes,0,1,K,importance.data());}
-      inputs.load("W",weights);
+      if(!inputs.load("W",weights))
+        for(size_t r=0;r<rows;++r){for(auto &v:w)v=random();ggml_quantize_chunk(weight_type,w.data(),weights.data()+r*weight_bytes,0,1,K,importance.data());}
       output_size=WB_QUANT_KIND==0?rows:rows*K;expected.resize(output_size);
       auto decode_w=ggml_get_type_traits(weight_type)->to_float;
       if(!decode_w)throw std::runtime_error("GGML has no dequantization oracle for selected type");
