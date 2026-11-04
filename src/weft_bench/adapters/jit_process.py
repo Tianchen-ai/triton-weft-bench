@@ -126,7 +126,8 @@ def run(request):
                 continue
             key = index, address
             if key not in buffers:
-                storage = (ctypes.c_ubyte * spec["bytes"]).from_address(address)
+                storage_type = ctypes.c_ubyte * spec["bytes"]
+                storage = storage_type.from_address(address) if spec["bytes"] else storage_type()
                 # Borrow the original addresses. Overlapping parameters remain
                 # overlapping; neither input nor state is independently cloned.
                 buffers[key] = (frontend.buffer(storage, spec) if frontend else

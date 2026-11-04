@@ -307,8 +307,9 @@ def native_workload(case):
             defines=defines,
             before_call="for(size_t row=0;row<data.rows;++row) {",
             after_call="}",
-            batch_buffers=({**tables, "W": "data.weights.data()", "X": "data.activation.data()",
-                            "Y": "output.data()"} if family in ("vec_dot", "dequantize") else {}),
+            batch_buffers={**tables, "W": "data.weights.data()",
+                           "X": "data.source.data()" if family == "quantize" else "data.activation.data()",
+                           "Y": "output.data()"},
             correctness=("bit-exact" if family == "quantize" else
                          "within-tolerance-packed-affine-dot" if family == "vec_dot" and fmt in ("q4_1", "q5_1") else
                          "within-tolerance"),

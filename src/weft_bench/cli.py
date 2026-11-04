@@ -216,15 +216,24 @@ def parser():
     return root
 
 
-def main(argv=None):
+def main(argv=None, *, catalog_provider=None):
     args = parser().parse_args(argv)
+
+    def load_configuration(path):
+        configuration = load_config(path)
+        if catalog_provider is not None:
+            configured_provider = configuration.get("catalog_provider")
+            if configured_provider not in (None, catalog_provider):
+                raise ValueError("CLI catalog provider differs from the configuration")
+            configuration["catalog_provider"] = catalog_provider
+        return configuration
     output_run = None
     run_error = None
     try:
         if args.command == "capture-model-reference":
             from .models.validation import capture_model_reference, attach_validation
 
-            target = select_target(load_config(args.config), args.target)
+            target = select_target(load_configuration(args.config), args.target)
             target, _ = select_model(target, args.model)
             report = capture_model_reference(args.model, target, output=args.output)
             if args.attach_run:
@@ -239,7 +248,7 @@ def main(argv=None):
         if args.command == "validate-model":
             from .models.validation import validate_model
 
-            target = select_target(load_config(args.config), args.target)
+            target = select_target(load_configuration(args.config), args.target)
             target, _ = select_model(target, args.model)
             if args.check_dots:
                 target.settings["llama"].setdefault("validation", {})["check_dots"] = True
@@ -250,7 +259,7 @@ def main(argv=None):
         if args.command == "environment":
             from .environment import inspect_environment
 
-            target = select_target(load_config(args.config), args.target)
+            target = select_target(load_configuration(args.config), args.target)
             output = args.output or Path(target.settings.get("output_root", "runs")) / (args.target + "-environment")
             print(json.dumps(inspect_environment(target, output), indent=2))
             return 0
@@ -266,7 +275,7 @@ def main(argv=None):
                 (directory / ".stop-after-current").write_text(args.target + "\n")
                 print("Requested stop after the current case; no device call was interrupted.")
                 return 0
-            target = select_target(load_config(args.config), args.target)
+            target = select_target(load_configuration(args.config), args.target)
             if args.coverage:
                 from .verification.coverage import coverage
                 result = coverage(target, output=args.output)
@@ -304,7 +313,7 @@ def main(argv=None):
             case = inputs.resolve(get(args.case))
             if args.target:
                 from .catalogs import describe_case
-                target = select_target(load_config(args.config), args.target)
+                target = select_target(load_configuration(args.config), args.target)
                 print(json.dumps(describe_case(case, target), indent=2))
                 return 0
             print(
@@ -330,7 +339,7 @@ def main(argv=None):
                 else {}
             )
             mapping.update(parse_mapping(args.replace))
-            target = select_target(load_config(args.config), args.target)
+            target = select_target(load_configuration(args.config), args.target)
             if target.settings.get("model_profiles"):
                 if not args.model:
                     raise ValueError("prepare-model requires --model to select a package build environment")
@@ -348,7 +357,7 @@ def main(argv=None):
             from .execution import Executor
             from .models import gguf_info
 
-            target = select_target(load_config(args.config), args.target)
+            target = select_target(load_configuration(args.config), args.target)
             target, _ = select_model(target, args.model)
             output = Path(args.output)
             output.parent.mkdir(parents=True, exist_ok=True)
@@ -382,7 +391,7 @@ def main(argv=None):
             )
             sites = {}
             if args.config and args.model:
-                target = select_target(load_config(args.config), args.target)
+                target = select_target(load_configuration(args.config), args.target)
                 sites = (
                     target.settings.get("llama", {})
                     .get("call_sites", {})
@@ -464,7 +473,7 @@ def main(argv=None):
         if args.command == "check":
             from .check import check, table as comparison_table
 
-            target = select_target(load_config(args.config), args.target)
+            target = select_target(load_configuration(args.config), args.target)
             output = args.output or (
                 "runs/check-"
                 + datetime.now().strftime("%Y%m%d-%H%M%S-%f")
@@ -500,20 +509,22 @@ def main(argv=None):
             return 0
         if args.command == "list":
             from .catalogs import target_names, target_catalog, references, models
+            selected_provider = (load_configuration(args.config).get("catalog_provider")
+                                 if args.config else catalog_provider)
             if args.kind == "targets":
-                configured = load_config(args.config)["targets"] if args.config else {}
-                print(json.dumps({"catalogs": target_names(), "configured": list(configured)}, indent=2))
+                configured = load_configuration(args.config)["targets"] if args.config else {}
+                print(json.dumps({"catalogs": target_names(provider=selected_provider), "configured": list(configured)}, indent=2))
                 return 0
             if args.kind == "baselines":
-                print(json.dumps(references(), indent=2))
+                print(json.dumps(references(provider=selected_provider), indent=2))
                 return 0
             if args.kind == "models":
-                entries = models()
+                entries = models(provider=selected_provider)
                 if args.target:
                     entries = {key: value for key, value in entries.items() if value["target"] == args.target}
                 configured = {}
                 if args.config:
-                    config = load_config(args.config)
+                    config = load_configuration(args.config)
                     for name in ([args.target] if args.target else config["targets"]):
                         settings = select_target(config, name).settings
                         configured[name] = {model: {policy: {
@@ -526,16 +537,16 @@ def main(argv=None):
                 print(json.dumps({"protocols": entries, "configured": configured}, indent=2))
                 return 0
             if args.kind == "kernels":
-                targets = [args.target] if args.target else target_names()
+                targets = [args.target] if args.target else target_names(provider=selected_provider)
                 for name in targets:
-                    for case, record in target_catalog(name)["cases"].items():
+                    for case, record in target_catalog(name, provider=selected_provider)["cases"].items():
                         candidate = record["candidate"]
                         engines = record["artifact_evidence"]["used_extensions"]
                         print(f"{name}\t{case}\t{candidate['source']}:{candidate['symbol']}\t{','.join(engines) or 'no matrix extension recorded'}")
                 return 0
             if not args.target and (args.config or args.kind == "suites"):
                 raise ValueError("listing configured suites requires --target")
-            settings = select_target(load_config(args.config), args.target).settings if args.target else {}
+            settings = select_target(load_configuration(args.config), args.target).settings if args.target else {}
             suites = configured_suites(settings)
             if args.kind == "suites":
                 for name, cases in suites.items():
@@ -582,7 +593,7 @@ def main(argv=None):
             )
             print(save(rows, args.output))
             return 0
-        config = load_config(args.config)
+        config = load_configuration(args.config)
         target = select_target(config, args.target)
         explicit_baseline = bool(getattr(args, "baseline", None))
         if args.command == "op" and bool(args.case) == bool(args.suite):

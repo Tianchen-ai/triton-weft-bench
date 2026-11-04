@@ -51,6 +51,8 @@ def select_target(config, name):
     if name not in config["targets"]:
         raise ValueError(f"unknown target {name!r}; choose from {', '.join(config['targets'])}")
     settings = {**config.get("defaults", {}), **config["targets"][name]}
+    if "catalog_provider" in config:
+        settings.setdefault("catalog_provider", config["catalog_provider"])
     implementations = {**config.get("implementations", {}), **settings.pop("implementations", {})}
     from .catalogs import apply_catalog
     settings, implementations = apply_catalog(settings, implementations)

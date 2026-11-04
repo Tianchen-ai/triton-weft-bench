@@ -66,9 +66,10 @@ def weft_call(name, case, workload, metadata, aliases=None, packed_inputs=None):
     dimensions = {**case.shape}
     if case.family == "ime":
         dimensions["M"] = case.data.get("tile_rows", 4)
-    whole_workload = case.family in ("vec_dot", "dequantize") and any(
-        (aliases or {}).get(a["name"], a["name"]) == "W" and (
-            a["kind"] == "view" and len(a["shape"]) == 2 or len(a.get("logical_view", {}).get("shape", [])) == 2)
+    whole_workload = case.family in ("vec_dot", "dequantize", "quantize") and any(
+        (aliases or {}).get(a["name"], a["name"]) == ("Y" if case.family == "quantize" else "W") and (
+            a["kind"] == "view" and len(a["shape"]) == 2 or len(a.get("logical_view", {}).get("shape", [])) == 2
+            or len(a.get("tensor_shape", [])) == 2)
         for a in metadata["arguments"])
     if whole_workload and not workload.batch_buffers:
         raise ValueError("the workload has no complete row-batch binding")
