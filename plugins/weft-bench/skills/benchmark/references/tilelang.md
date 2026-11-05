@@ -25,4 +25,8 @@ continues to select Triton. The TileLang installation needs `tilelang` and
 
 See the repository's bilingual `docs/tilelang-weft-integration.md` and
 `docs/tilelang-weft-integration.zh-CN.md` for the complete configuration.
-Outputs remain under Bench `output/`; public TileLang performance is under evaluation.
+Outputs remain under the independent Bench `output/`. Its
+[results handbook](https://tianchen-ai.github.io/tilelang-weft-bench/results.html)
+contains the full 553-case table, 543 matched references, original samples and
+native performance plots. Keep cold JIT, cache restoration, Python calls and
+native ratios separate when reading those results.

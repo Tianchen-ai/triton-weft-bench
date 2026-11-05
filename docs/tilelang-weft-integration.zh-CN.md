@@ -41,5 +41,9 @@ llama.cpp 配置选择 `producer: "tilelang"`，在 `tilelang` 配置中使用�
 复用已有模型 runner 和实际命中检查。真正 GGML 行 ABI 使用 `deployment.vec_dot`
 程序；矩阵 shape 的 dot 具有不同入口合同。
 
-普通作者程序属于 TileLang–Weft。比较配置和稳定 `output/` 目录中的结果属于 Bench。
-TileLang 对比性能继续标为 **测试中 / Under evaluation**。
+普通作者程序属于 TileLang–Weft。独立的
+[TileLang–Weft Bench](https://github.com/Tianchen-ai/tilelang-weft-bench)
+维护源码绑定、四个正式套件和稳定 `output/` 目录中的结果。
+[双语结果手册](https://tianchen-ai.github.io/tilelang-weft-bench/results.zh-CN.html)
+公开 553 项算子与平台观测、543 项匹配外部参考、原生性能图及原始样本。
+数值检查范围、源码参数、缓存恢复和 Python 热调用分别记录。

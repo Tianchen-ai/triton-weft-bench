@@ -49,6 +49,10 @@ the existing runners and observed-hit checking. Use the `deployment.vec_dot`
 programs for actual GGML row ABIs; a matrix-shaped dot has a different entry
 contract and is not substituted as a vec-dot.
 
-Product sources remain in TileLang–Weft. Bench owns comparison configuration
-and outputs under its stable `output/` directory. Comparative TileLang
-performance remains **Under evaluation / 测试中**.
+Product sources remain in TileLang–Weft. The independent
+[TileLang–Weft Bench](https://github.com/Tianchen-ai/tilelang-weft-bench) owns the
+source bindings, four formal suites and stable `output/` results. Its
+[bilingual results handbook](https://tianchen-ai.github.io/tilelang-weft-bench/results.html)
+publishes all 553 operator–platform observations, 543 matched external comparisons,
+native performance plots and original samples. Numerical-check scope, source
+parameters, cache restoration and Python hot calls are recorded separately.
