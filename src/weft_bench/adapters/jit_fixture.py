@@ -55,7 +55,7 @@ def prepare(case, workload, interface, options):
                      [int(x) if str(x).isdecimal() else dimensions[x] for x in spec["shape"]]
                      if spec["kind"] == "view" else list(workload.pointer_shapes.get(role, declared[role].shape)))
             strides = workload.strides.get(role, tuple(math.prod(shape[i + 1:]) for i in range(len(shape))))
-            if spec["encoding"].startswith("dense."):
+            if spec["kind"] == "pointer" or spec["encoding"].startswith("dense."):
                 size = (1 + sum((n - 1) * s for n, s in zip(shape, strides))) * spec["storage_bytes"] if math.prod(shape) else 0
             else:
                 logical = [int(x) if str(x).isdecimal() else dimensions[x] for x in argument["shape"]]

@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, field, replace
 import json
+import math
 from pathlib import Path
 from .core import NativeCall
 from .adapters.dense import bind_metadata
@@ -182,7 +183,17 @@ def validate_binding(case, metadata, aliases, dimensions, packed_inputs=None, *,
             )
         if arg["kind"] == "view" or logical:
             shape = tuple(int(x) if str(x).isdecimal() else dims[x] for x in (logical["shape"] if logical else arg["shape"]))
-            if shape != wanted:
+            # A pointer Tensor can bind a contiguous logical reinterpretation
+            # inside the author program (flat traversal or explicit records).
+            # View ABIs and strided storage still require their declared axes.
+            reshaped_pointer = (
+                arg["kind"] == "pointer" and logical is not None
+                and role not in strided_ports and not arg.get("strided")
+                and math.prod(shape) == math.prod(wanted)
+                and bool(shape) and logical.get("record_elements", 0) > 0
+                and shape[-1] % logical["record_elements"] == 0
+            )
+            if shape != wanted and not reshaped_pointer:
                 raise ValueError(
                     f"kernel buffer {arg['name']} shape is {shape}; workload {role} requires {wanted}"
                 )
