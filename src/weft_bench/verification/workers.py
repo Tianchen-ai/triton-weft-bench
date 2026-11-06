@@ -248,12 +248,15 @@ def run_usage(entry, target, directory):
     toolchain = executor.write("toolchain.json", json.dumps(configuration.get("toolchain", {})))
     request = {"source": deployed[author_path], "output": output, "toolchain_file": toolchain,
                "size": entry.get("size", 4097), "threads": entry.get("threads", 2),
-               "contract": entry.get("contract", "use"), "operation": entry.get("operation", "affine")}
+               "contract": entry.get("contract", "use"), "operation": entry.get("operation", "affine"),
+               "producer": entry.get("producer", "triton")}
     request_path = executor.write("request.json", json.dumps(request, indent=2))
     environment = {**configuration.get("environment", {}), "PYTHONDONTWRITEBYTECODE": "1",
                    "TRITON_CACHE_DIR": output + "/triton-cache",
                    "TORCHINDUCTOR_CACHE_DIR": output + "/inductor-cache",
                    "TRITON_DUMP_DIR": output + "/triton-dump"}
+    if request["producer"] == "tilelang":
+        environment["TILELANG_CACHE_DIR"] = output + "/tilelang-cache"
     completed = executor.command([configuration["python"], deployed["usage_process.py"], request_path],
                                  cwd=executor.workspace, env=environment, affinity=True, check=False,
                                  unset_env=configuration.get("unset_environment", ()))

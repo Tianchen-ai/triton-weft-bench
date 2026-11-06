@@ -10,6 +10,8 @@ def main():
     request = json.loads(Path(sys.argv[1]).read_text())
     # Author imports are explicit even when inherited PYTHONPATH is cleared.
     sys.path.insert(0, str(Path(request["source"]).resolve().parent))
+    if request.get("producer", "triton") == "tilelang":
+        return tilelang_example(request)
     if request.get("contract", "use") != "use":
         return catalog_example(request)
     output = Path(request["output"])
@@ -63,6 +65,37 @@ def main():
         result.update(status="numerical_failed" if stage == "numerical" else stage + "_failed",
                       error=str(error), stage=stage, traceback=traceback.format_exc(),
                       backend_diagnostics=save_backend_failures(error, output))
+    (output / "result.json").write_text(json.dumps(result, indent=2) + "\n")
+    print("WB_RESULT " + json.dumps(result), flush=True)
+    return 0 if result["status"] == "passed" else 1
+
+
+def tilelang_example(request):
+    """Execute the public TileLang tile example and check both full outputs."""
+    import numpy as np
+    import tilelang
+    import torch
+
+    source = Path(request["source"]).resolve()
+    output = Path(request["output"])
+    output.mkdir(parents=True, exist_ok=True)
+    result = {"source": str(source), "contract": request["contract"], "checked": False,
+              "tilelang_version": tilelang.__version__, "tilelang_package": tilelang.__file__}
+    try:
+        if request["contract"] != "cpu_tiles":
+            raise ValueError("unknown TileLang usage contract " + request["contract"])
+        sys.argv = [str(source)]
+        values = runpy.run_path(str(source), run_name="__main__")
+        a, b, c = (values[key] for key in ("a", "b", "c"))
+        rows, sums = (values[key] for key in ("rows", "sums"))
+        torch.testing.assert_close(c, a @ b, atol=2e-5, rtol=2e-5)
+        torch.testing.assert_close(sums, rows.sum(1), atol=2e-5, rtol=2e-5)
+        np.savez(output / "example-output.npz", A=a.numpy(), B=b.numpy(), C=c.numpy(),
+                 rows=rows.numpy(), sums=sums.numpy())
+        result.update(status="passed", checked=True, real_example_executed=True,
+                      execution_mode="jit", elements=c.numel() + sums.numel())
+    except Exception as error:
+        result.update(status="example_failed", error=str(error), traceback=traceback.format_exc())
     (output / "result.json").write_text(json.dumps(result, indent=2) + "\n")
     print("WB_RESULT " + json.dumps(result), flush=True)
     return 0 if result["status"] == "passed" else 1

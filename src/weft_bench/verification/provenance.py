@@ -3,6 +3,7 @@ from pathlib import Path
 import json
 
 from ..execution import Executor
+from ..loading import load_object
 
 
 def observe_runtime(target, output):
@@ -10,16 +11,34 @@ def observe_runtime(target, output):
     if not configuration.get("python"):
         return {"status": "not_configured"}
     executor = Executor(target, Path(output) / "environment")
-    script = """import json, pathlib, sys, triton
-root = pathlib.Path(triton.__file__).parent
+    implementation = target.settings.get("verification", {}).get(
+        "source_implementation", target.settings.get("source_implementation", "triton_source"))
+    factory = target.implementations.get(implementation, {}).get("factory")
+    producer = getattr(load_object(factory), "producer", "triton") if factory else "triton"
+    if producer not in ("triton", "tilelang"):
+        raise ValueError("unknown verification runtime producer " + producer)
+    script = """import contextlib, importlib, json, os, pathlib, sys
+producer = PRODUCER
+with contextlib.redirect_stdout(sys.stderr):
+    package = importlib.import_module(producer)
+    core = importlib.import_module('weft_core') if producer == 'tilelang' else None
+roots = [pathlib.Path(package.__file__).parent]
+if core is not None:
+    roots.append(pathlib.Path(core.__file__).parent)
 files = {}
-for path in root.rglob('*'):
-    if path.is_file() and path.suffix in ('.py', '.so') and '__pycache__' not in path.parts:
-        stat = path.stat()
-        files[str(path.resolve())] = {'size': stat.st_size, 'mtime_ns': stat.st_mtime_ns}
-print(json.dumps({'status': 'observed', 'python': sys.executable, 'triton_version': triton.__version__,
-                  'triton_package': triton.__file__, 'files': files}))
-"""
+for root in roots:
+    for path in root.rglob('*'):
+        if path.is_file() and path.suffix in ('.py', '.so') and '__pycache__' not in path.parts:
+            stat = path.stat()
+            files[str(path.resolve())] = {'size': stat.st_size, 'mtime_ns': stat.st_mtime_ns}
+if producer == 'tilelang' and os.environ.get('WEFT_CORE_LIBRARY'):
+    path = pathlib.Path(os.environ['WEFT_CORE_LIBRARY']).resolve()
+    stat = path.stat()
+    files[str(path)] = {'size': stat.st_size, 'mtime_ns': stat.st_mtime_ns}
+print(json.dumps({'status': 'observed', 'python': sys.executable, 'producer': producer,
+                  producer + '_version': package.__version__,
+                  producer + '_package': package.__file__, 'files': files}))
+""".replace("PRODUCER", repr(producer))
     completed = executor.command([configuration["python"], "-c", script],
                                  env={**configuration.get("environment", {}), "PYTHONDONTWRITEBYTECODE": "1"}, check=False,
                                  unset_env=configuration.get("unset_environment", ()))
