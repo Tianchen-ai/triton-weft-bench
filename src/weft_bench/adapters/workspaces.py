@@ -22,12 +22,19 @@ def invocation_workspaces(case, workload, metadata, names):
         if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name) or name in buffers or name not in arguments:
             raise ValueError(f"workspace must name an extra native argument: {name!r}")
         arg = arguments[name]
-        if arg["kind"] != "view" or arg.get("strided") or arg.get("access") not in ("write", "readwrite"):
-            raise ValueError("invocation workspace requires a writable contiguous View")
         encoding = arg.get("encoding", "")
-        shape = [int(extent) if str(extent).isdecimal() else dimensions[extent] for extent in arg["shape"]]
+        extents = arg["tensor_shape"] if arg["kind"] == "pointer" and "tensor_shape" in arg else arg["shape"]
+        shape = [int(extent) if str(extent).isdecimal() else dimensions[extent] for extent in extents]
         if any(type(extent) is not int or extent < 0 for extent in shape):
             raise ValueError("workspace shape requires nonnegative concrete extents")
+        # A source factory can retain a zero-sized optional Tensor in its ABI.
+        # It has no View or effects after specialization, but still needs a
+        # pointer argument. Never infer unused storage from a missing write.
+        empty_tensor = (arg["kind"] == "pointer" and "tensor_shape" in arg
+                        and math.prod(shape) == 0 and arg.get("access") == "none")
+        if arg.get("strided") or not (empty_tensor or
+                (arg["kind"] == "view" and arg.get("access") in ("write", "readwrite"))):
+            raise ValueError("invocation workspace requires a writable contiguous View or an unused zero-sized Tensor")
         variable = "invocation_workspace_" + name
         if encoding.startswith("dense.") and encoding[6:] in types:
             ctype, width = types[encoding[6:]]

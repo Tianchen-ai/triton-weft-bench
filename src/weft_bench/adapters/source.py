@@ -12,8 +12,14 @@ def product_package(producer):
     package = {"triton": "triton.kernels.weft", "tilelang": "tilelang.weft.kernels"}.get(producer)
     if package is None:
         raise ValueError(f"unknown source frontend {producer!r}")
-    module = importlib.import_module(package)
-    return package, Path(module.__file__).resolve().parent
+    root, *parts = package.split(".")
+    spec = importlib.util.find_spec(root)
+    if spec is None or not spec.submodule_search_locations:
+        raise ModuleNotFoundError(f"Install {root} to use its source JIT")
+    # A compiler installation can compile a custom author package without
+    # shipping our optional optimized corpus. Import a corpus module only
+    # when the source actually belongs to that installed package.
+    return package, Path(next(iter(spec.submodule_search_locations))).resolve().joinpath(*parts)
 
 
 def validate_kernel(kernel, producer):

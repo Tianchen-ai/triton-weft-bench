@@ -214,6 +214,9 @@ class TritonAdapter:
             for argument in abi["arguments"]:
                 if argument["name"] in implicit:
                     argument["shape_parameter"] = True
+                tensor = metadata.get("source_tensors", {}).get(argument["name"])
+                if tensor is not None:
+                    argument["tensor_shape"] = tensor["shape"]
                 storage = metadata["source_storage"].get(argument["name"], [])
                 if storage:
                     if len(storage) != 1:
