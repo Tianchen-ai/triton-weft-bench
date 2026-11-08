@@ -394,10 +394,14 @@ def read(path, *, _visited=()):
         for source in data["sources"]:
             location = path.parent / source["path"]
             selected = read(location, _visited=(*_visited, identity))
-            rows.extend(row for row in selected
+            filtered = [row for row in selected
                         if ("cases" not in source or row.case in source["cases"])
                         and ("implementation" not in source or row.implementation == source["implementation"])
-                        and ("target" not in source or row.target == source["target"]))
+                        and ("target" not in source or row.target == source["target"])]
+            missing = set(source.get("cases", ())) - {row.case for row in filtered}
+            if missing:
+                raise ValueError(f"result index {path} selects absent cases from {location}: {sorted(missing)}")
+            rows.extend(filtered)
         return rows
     rows = [Result(**row) for row in data["results"]]
     # A copied run can replay its own captured canonical IR on a different host.
