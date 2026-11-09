@@ -149,6 +149,7 @@ def compile_tilelang(request, output):
     target = target_from_descriptor(native_target, toolchain=request["toolchain"], backend_options=request["backend_options"])
     started = time.perf_counter_ns()
     try:
+        factory.target = target
         function = factory.get_tir(**request["constexprs"])
         kernel = tilelang.compile(function, target=target)
         compiled_ms = (time.perf_counter_ns() - started) / 1e6
