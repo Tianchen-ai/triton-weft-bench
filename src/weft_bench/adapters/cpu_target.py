@@ -21,7 +21,7 @@ def compiler_target(settings):
     values.pop("architecture", None)
     values.setdefault("backend", "weft")
     fields = {"backend", "arch", "march", "abi", "vlen_bits"}
-    optional = {"matrix_extension"}
+    optional = {"matrix_extension", "data_cache"}
     missing, unknown = fields - values.keys(), values.keys() - fields - optional
     if missing or unknown:
         raise ValueError(f"compiler target needs {sorted(missing)}; unknown fields {sorted(unknown)}; "
@@ -35,6 +35,8 @@ def compiler_target(settings):
     values.setdefault("matrix_extension", "none")
     if not isinstance(values["matrix_extension"], str) or not values["matrix_extension"]:
         raise ValueError("compiler target matrix_extension must be a nonempty name")
+    if values.get("data_cache") is not None and not isinstance(values["data_cache"], dict):
+        raise ValueError("compiler target data_cache must describe cache geometry or be null")
     return values
 
 
