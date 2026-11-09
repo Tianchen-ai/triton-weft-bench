@@ -25,11 +25,14 @@ class TileLangFrontend:
     def __init__(self, factory, request):
         import tilelang
         from tilelang.backend.module import create_backend_context
-        from tilelang.weft.target import descriptor
+        from tilelang.weft.target import descriptor, target_from_descriptor
 
         self.factory, self.request = factory, request
         self.jit = getattr(factory, "jit_impl", factory)
         self.context = create_backend_context("weft")
+        if request["toolchain"]:
+            self.context = create_backend_context(target_from_descriptor(
+                descriptor(self.context.target), toolchain=request["toolchain"]))
         self.target = asdict(descriptor(self.context.target))
         self.package, self.version = tilelang.__file__, tilelang.__version__
         self.compiled = None
